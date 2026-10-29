@@ -5,3 +5,4 @@ android/.gradle
 android/build
 .DS_Store
 android/local.properties
+assets-src

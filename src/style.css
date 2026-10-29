@@ -78,3 +78,16 @@ select { font: inherit; padding: 8px; border-radius: 8px; }
 #instrutor.on { opacity: 1; transform: translateX(-50%) translateY(0); }
 @media (max-width: 700px) { .ctl-col { height: 130px; } .ctl-ped { width: 100px; } .ctl-cic { width: 120px; height: 120px; } .ctl-esq, .ctl-dir { bottom: 76px; } #instrutor { bottom: 86px; font-size: 12px; } }
 @media (orientation: portrait) and (max-width: 700px) { #painel { width: 90vw; margin-top: 40px; } #botoesExtras { margin-top: 0; max-width: 95vw; } }
+
+/* vitrine: 3D atrás do menu */
+#jogo.vitrine #hud, #jogo.vitrine #controles, #jogo.vitrine #painel, #jogo.vitrine #botoesExtras, #jogo.vitrine #instrutor { display: none; }
+#telas.sobre-3d { background: linear-gradient(180deg, rgba(17,17,17,.55) 0%, rgba(17,17,17,.15) 35%, rgba(17,17,17,.0) 60%, rgba(17,17,17,.35) 100%); }
+#telas.sobre-3d .cabecalho h1, #telas.sobre-3d .cabecalho .sub { color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+#telas.sobre-3d .cartao { background: rgba(255,255,255,.9); backdrop-filter: blur(6px); }
+#telas.sobre-3d .btn-cinza { background: rgba(255,255,255,.9); }
+#telas.sobre-3d .rodape { color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+.menu .grade-botoes { max-width: 420px; margin-left: auto; margin-right: auto; }
+.menu .cartao { max-width: 420px; margin-left: auto; margin-right: auto; }
+.menu .cabecalho { justify-content: center; }
+#jogo { z-index: 1; } #telas { z-index: 2; }
+#telas.sobre-3d { pointer-events: none; } #telas.sobre-3d .tela { pointer-events: auto; }

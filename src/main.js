@@ -19,7 +19,17 @@ const telas = $('#telas'), jogo = $('#jogo');
 const BANCO = { ...QUIZ_VOO, ...QUIZ_TEORIA };
 const estrelasTxt = (n) => '★'.repeat(n) + '☆'.repeat(3 - n);
 
-function mostrarTela(html) { jogo.hidden = true; telas.hidden = false; telas.innerHTML = html; telas.scrollTop = 0; }
+function mostrarTela(html, vitrine = false) { telas.hidden = false; telas.innerHTML = html; telas.scrollTop = 0; jogo.hidden = !vitrine; jogo.classList.toggle('vitrine', vitrine); telas.classList.toggle('sobre-3d', vitrine); if (vitrine) ligarVitrine(); else modoVitrine = false; }
+let modoVitrine = false, vitrineT = 0;
+function garantirCena() { if (!cena) { cena = new Cena($('#canvas3d')); window.__cena = cena; hud = new Hud($('#hud')); ctl = new Controles($('#controles')); window.addEventListener('resize', () => cena.redimensionar()); } }
+function ligarVitrine() {
+  garantirCena(); const ac = AERONAVES[estado.aeronave];
+  if (!cena.ac || cena.ac.id !== ac.id) { cena.criarHeli(ac); cena.limparMarcadores(); }
+  cena.redimensionar();
+  if (modoVitrine) return; modoVitrine = true; vitrineT = performance.now();
+  const passo = (t) => { if (!modoVitrine) return; const dt = Math.min(0.05, (t - vitrineT) / 1000); vitrineT = t; cena.vitrine(dt); cena.render(); requestAnimationFrame(passo); };
+  requestAnimationFrame(passo);
+}
 
 // ---------- Menu ----------
 function menu() {
@@ -38,7 +48,7 @@ function menu() {
         <button class="btn btn-cinza grande" id="btnCreditos">ℹ️ Sobre e créditos</button>
       </div>
       <footer class="rodape">Desenvolvido por Juan Araujo &amp; Filho · CBMERJ 1856</footer>
-    </div>`);
+    </div>`, true);
   $('#btnAeronave').onclick = telaAeronaves; $('#btnFases').onclick = telaFases; $('#btnLivre').onclick = () => iniciarVoo(null);
   $('#btnAjustes').onclick = telaAjustes; $('#btnCreditos').onclick = telaCreditos;
 }
@@ -132,6 +142,13 @@ function telaCreditos() {
   mostrarTela(`<div class="tela"><h2>Sobre</h2><section class="cartao"><p><b>Simulador de Helicóptero para Estudo</b>, versão ${__APP_VERSION__}.</p><p>Jogo de estudo para a habilitação PPH (e depois IFR). <b>Não é um simulador certificado</b> e não substitui o POH da aeronave, as normas vigentes nem o instrutor.</p>
     <p>Dados das aeronaves: POH/RFM Robinson R22, R44 e R66; TCDS EASA; dados públicos do Esquilo AS350 B2 e B3/H125 (Airbus). Normas: DECEA (ICA 100-12, ICA 100-4, MCA 100-16) e ANAC (RBAC 61, 67, 91). Material do curso CCOA/PPH.</p>
     <p>Motor de voo simplificado, calibrado pelos tetos IGE/OGE publicados. Fraseologia em modelo didático (conferir no AISWEB e com o instrutor).</p></section>
+    <section class="cartao"><h3>Créditos dos recursos 3D</h3><ul class="sub">
+    <li>Modelo "Robinson R44" por syarifudinirfan701 (Sketchfab), licença CC-BY 4.0. Usado para R22, R44 e R66.</li>
+    <li>Modelo "Squirrel Eurocopter AS350 Écureuil" por MonkiFlip Resource (Sketchfab), licença CC-BY 4.0. Usado para os Esquilos.</li>
+    <li>Céu HDRI "Kloofendal 48d Partly Cloudy (Pure Sky)", Poly Haven, CC0.</li>
+    <li>Texturas Grass004, Asphalt012, Concrete034 e Rock035, ambientCG, CC0.</li>
+    <li>Vegetação do "Nature Kit", Kenney (kenney.nl), CC0.</li>
+    <li>Three.js (MIT). Lista completa em CREDITOS.md no repositório.</li></ul></section>
     <section class="cartao centro"><img src="icons/icon-192.png" class="logo" alt=""><p><b>Desenvolvido por Juan Araujo &amp; Filho</b><br>CBMERJ · 1856</p></section>
     <button class="btn btn-cinza" id="voltar">Voltar</button></div>`);
   $('#voltar').onclick = menu;
@@ -144,7 +161,7 @@ const fila = []; let msgTimer = 0;
 function iniciarVoo(n) {
   faseAtual = n; const ac = AERONAVES[estado.aeronave];
   telas.hidden = true; jogo.hidden = false;
-  if (!cena) { cena = new Cena($('#canvas3d')); hud = new Hud($('#hud')); ctl = new Controles($('#controles')); window.addEventListener('resize', () => cena.redimensionar()); }
+  modoVitrine = false; jogo.classList.remove('vitrine'); telas.classList.remove('sobre-3d'); garantirCena(); cena.redimensionar();
   cena.criarHeli(ac); cena.modoCamera = estado.camera; cena._camPos = null;
   heli = new Helicoptero(ac, { assist: estado.assist });
   ctl.zerar(); cmdExtra = {}; fila.length = 0;
