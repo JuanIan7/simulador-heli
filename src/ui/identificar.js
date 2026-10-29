@@ -38,27 +38,70 @@ export function montarIdentificar(root, aoTerminar) {
   const fila = [];
   for (const f of FOTOS) for (const p of f.pecas) fila.push({ foto: f, peca: p });
   fila.sort(() => Math.random() - 0.5);
-  let i = 0, erros = 0, fotoAtual = null;
+  let i = 0, fotoAtual = null, travado = false, errosNesta = 0;
+  const reg = []; // por peça: { peca, foto, resultado: 'certa'|'apos-erro'|'consultada'|'pulada', erros }
   root.innerHTML = `<div class="ident">
     <div class="ident-pedido">Toque em: <b id="idNome"></b> <span class="sub" id="idOnde"></span></div>
     <div class="ident-foto" id="idFoto"></div>
     <div class="ident-info" id="idInfo"></div>
-    <div class="ident-prog" id="idProg"></div></div>`;
+    <div class="quiz-rodape"><span class="ident-prog" id="idProg"></span><button class="btn btn-cinza" id="idVer">👁 Ver resposta</button><button class="btn btn-cinza" id="idPular">⏭ Pular</button><button class="btn btn-laranja" id="idProx" hidden>Próxima</button></div></div>`;
+  const el = (s) => root.querySelector(s);
   const montarFoto = (f) => {
-    fotoAtual = f; const box = root.querySelector('#idFoto');
-    box.innerHTML = `<div class="ident-img-wrap"><img src="${BASE + f.arquivo}" alt="${f.titulo}" draggable="false">${f.pecas.map(p => `<button class="hot" data-id="${p.id}" style="left:${p.r[0]}%;top:${p.r[1]}%;width:${p.r[2] - p.r[0]}%;height:${p.r[3] - p.r[1]}%" aria-label="${p.nome}"></button>`).join('')}</div><div class="ident-credito">${f.titulo} · ${f.credito}</div>`;
-    box.querySelectorAll('.hot').forEach(el => el.addEventListener('click', () => responder(el)));
+    fotoAtual = f;
+    el('#idFoto').innerHTML = `<div class="ident-img-wrap" id="idWrap"><img src="${BASE + f.arquivo}" alt="${f.titulo}" draggable="false">${f.pecas.map(p => `<div class="hot" data-id="${p.id}" style="left:${p.r[0]}%;top:${p.r[1]}%;width:${p.r[2] - p.r[0]}%;height:${p.r[3] - p.r[1]}%"></div>`).join('')}</div><div class="ident-credito">${f.titulo} · ${f.credito}</div>`;
+    // um único ouvinte na foto: decide pela posição do toque (as caixas se sobrepõem)
+    el('#idWrap').addEventListener('pointerup', (e) => {
+      const b = e.currentTarget.getBoundingClientRect();
+      tocar(((e.clientX - b.left) / b.width) * 100, ((e.clientY - b.top) / b.height) * 100);
+    });
   };
+  const caixa = (id) => el(`.hot[data-id="${id}"]`);
+  const marcar = (id, cls, ms) => { const c = caixa(id); if (!c) return; c.classList.add(cls); if (ms) setTimeout(() => c.classList.remove(cls), ms); };
   const mostrar = () => {
     const { foto, peca } = fila[i];
     if (fotoAtual !== foto) montarFoto(foto);
-    root.querySelector('#idNome').textContent = peca.nome; root.querySelector('#idOnde').textContent = `(${foto.titulo.toLowerCase()})`;
-    root.querySelector('#idProg').textContent = `${i + 1} de ${fila.length} · erros: ${erros}`;
+    root.querySelectorAll('.hot').forEach(h => h.className = 'hot');
+    el('#idNome').textContent = peca.nome; el('#idOnde').textContent = `(${foto.titulo.toLowerCase()})`;
+    el('#idProg').textContent = `${i + 1} de ${fila.length}`;
+    el('#idInfo').innerHTML = ''; el('#idVer').hidden = false; el('#idPular').hidden = false; el('#idProx').hidden = true;
+    travado = false; errosNesta = 0;
   };
-  const responder = (el) => {
-    const { foto, peca } = fila[i]; const info = root.querySelector('#idInfo');
-    if (el.dataset.id === peca.id) { el.classList.add('certa'); info.innerHTML = `<b>${peca.nome}.</b> ${peca.desc}`; setTimeout(() => { el.classList.remove('certa'); i++; if (i >= fila.length) aoTerminar({ erros, total: fila.length }); else mostrar(); }, 1500); }
-    else { erros++; const p = foto.pecas.find(x => x.id === el.dataset.id); el.classList.add('errada'); info.innerHTML = `Isso é <b>${p.nome}</b>. Procure: ${peca.nome}.`; setTimeout(() => el.classList.remove('errada'), 600); mostrar(); }
+  const concluir = (resultado, texto) => {
+    const { foto, peca } = fila[i]; travado = true;
+    reg.push({ peca, foto, resultado, erros: errosNesta });
+    marcar(peca.id, resultado === 'certa' || resultado === 'apos-erro' ? 'certa' : 'revelada');
+    el('#idInfo').innerHTML = texto; el('#idVer').hidden = true; el('#idPular').hidden = true;
+    el('#idProx').hidden = false; el('#idProx').textContent = i === fila.length - 1 ? 'Ver resultado' : 'Próxima';
+  };
+  const tocar = (x, y) => {
+    if (travado) return; // durante o retorno, toques extras não contam
+    const { foto, peca } = fila[i];
+    const dentro = foto.pecas.filter(p => x >= p.r[0] && x <= p.r[2] && y >= p.r[1] && y <= p.r[3]);
+    if (dentro.some(p => p.id === peca.id)) { concluir(errosNesta ? 'apos-erro' : 'certa', `<b>${errosNesta ? 'Achou.' : 'Certo!'} ${peca.nome}.</b> ${peca.desc}`); return; }
+    errosNesta++;
+    if (!dentro.length) { el('#idInfo').innerHTML = `Aí não tem peça marcada. Procure: <b>${peca.nome}</b>. Se não souber, toque em "Ver resposta".`; return; }
+    const menor = dentro.sort((a, b) => (a.r[2] - a.r[0]) * (a.r[3] - a.r[1]) - (b.r[2] - b.r[0]) * (b.r[3] - b.r[1]))[0];
+    marcar(menor.id, 'errada', 700);
+    el('#idInfo').innerHTML = `Isso é <b>${menor.nome}</b>. Procure: <b>${peca.nome}</b>.`;
+  };
+  el('#idVer').onclick = () => { if (travado) return; const { peca } = fila[i]; concluir('consultada', `<b>Resposta: ${peca.nome}</b> (destacada em azul). ${peca.desc}`); };
+  el('#idPular').onclick = () => { if (travado || el('#idPular').hidden) return; const { peca } = fila[i]; reg.push({ peca, foto: fila[i].foto, resultado: 'pulada', erros: errosNesta }); proxima(); };
+  el('#idProx').onclick = () => { if (el('#idProx').hidden) return; el('#idProx').hidden = true; proxima(); }; // toque duplo não pula peça
+  const proxima = () => { i++; if (i >= fila.length) resultado(); else mostrar(); };
+  const resultado = () => {
+    const c = (r) => reg.filter(x => x.resultado === r);
+    const certas = c('certa'), aposErro = c('apos-erro'), vistas = c('consultada'), puladas = c('pulada');
+    const revisar = [...vistas, ...puladas, ...aposErro];
+    root.innerHTML = `<div class="ident"><h2>Resultado: peças do R22</h2>
+      <div class="placar">
+        <div><b>${certas.length}</b><span>certas de primeira</span></div>
+        <div><b>${aposErro.length}</b><span>acertou depois de errar</span></div>
+        <div><b>${vistas.length}</b><span>viu a resposta</span></div>
+        <div><b>${puladas.length}</b><span>pulou</span></div>
+      </div>
+      ${revisar.length ? `<section class="cartao"><h3>Para estudar</h3><ul class="revisar">${revisar.map(x => `<li><b>${x.peca.nome}</b> <span class="sub">(${x.foto.titulo.toLowerCase()} · ${x.resultado === 'consultada' ? 'viu a resposta' : x.resultado === 'pulada' ? 'pulou' : x.erros + ' erro(s) antes'})</span><br>${x.peca.desc}</li>`).join('')}</ul></section>` : '<section class="cartao">Acertou todas de primeira. 👏</section>'}
+      <div class="grade-botoes"><button class="btn btn-laranja grande" id="idSeguir">Continuar para o mini-quiz</button></div></div>`;
+    el('#idSeguir').onclick = () => aoTerminar({ total: fila.length, certas: certas.length, aposErro: aposErro.length, consultadas: vistas.length, puladas: puladas.length });
   };
   mostrar();
 }

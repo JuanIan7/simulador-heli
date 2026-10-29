@@ -111,3 +111,11 @@ select { font: inherit; padding: 8px; border-radius: 8px; }
 .hot.certa { background: rgba(46,204,113,.45); border-color: #2ecc71; } .hot.errada { background: rgba(231,76,60,.45); border-color: #e74c3c; }
 .ident-credito { color: var(--cin); font-size: 11px; margin-top: 4px; }
 .ident .tela, .ident { max-width: 980px; }
+
+.hot { pointer-events: none; } .hot.revelada { background: rgba(63,169,245,.45); border: 3px solid #3fa9f5; }
+.ident-img-wrap { cursor: crosshair; touch-action: manipulation; }
+.placar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0; }
+.placar div { background: #fff; border-radius: 12px; padding: 10px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.placar b { display: block; font-size: 26px; color: var(--lar); } .placar span { font-size: 12px; color: var(--cin); }
+.revisar { padding-left: 18px; } .revisar li { margin: 8px 0; font-size: 14px; }
+@media (max-width: 560px) { .placar { grid-template-columns: repeat(2, 1fr); } }

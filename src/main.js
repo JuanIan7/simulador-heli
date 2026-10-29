@@ -85,7 +85,7 @@ function briefing(n) {
   if (f.tipo === 'voo') { $('#comAjuda').onclick = () => iniciarVoo(n, 'ajuda'); $('#demo').onclick = () => iniciarVoo(n, 'auto'); }
   $('#comecar').onclick = () => {
     if (f.tipo === 'voo') iniciarVoo(n, 'livre');
-    else if (f.tipo === 'identificar') { mostrarTela('<div class="tela" id="alvo"></div>'); montarIdentificar($('#alvo'), (r) => miniQuiz(n, r.erros === 0 ? 3 : r.erros < 4 ? 2 : 1, `Identificou ${r.total} peças com ${r.erros} erro(s).`)); }
+    else if (f.tipo === 'identificar') { mostrarTela('<div class="tela" id="alvo"></div>'); montarIdentificar($('#alvo'), (r) => { const p = r.certas / r.total; miniQuiz(n, p >= 0.9 ? 3 : p >= 0.7 ? 2 : p >= 0.4 ? 1 : 0, `Peças: ${r.certas} certas de primeira, ${r.aposErro} depois de errar, ${r.consultadas} viu a resposta, ${r.puladas} pulou (de ${r.total}).`); }); }
     else if (f.tipo === 'quiz') quizFase(n);
     else if (f.tipo === 'metar') { mostrarTela('<div class="tela" id="alvo"></div>'); montarMetar($('#alvo'), embaralhar(METAR).slice(0, 6), (r) => resultadoTeoria(n, r)); }
     else if (f.tipo === 'fonia') { mostrarTela('<div class="tela" id="alvo"></div>'); montarFonia($('#alvo'), embaralhar(FONIA).slice(0, 5), (r) => resultadoTeoria(n, r)); }
@@ -94,12 +94,19 @@ function briefing(n) {
   };
 }
 
+// resumo do quiz: acertos, viu a resposta, pulou e a lista do que revisar
+function resumoQuiz(r) {
+  const vistas = r.respostas.filter(x => x.consultada), puladas = r.respostas.filter(x => x.pulada), erradas = r.respostas.filter(x => !x.ok && !x.consultada && !x.pulada);
+  const rev = [...erradas, ...vistas, ...puladas];
+  return `${r.acertos} de ${r.total} certas · ${erradas.length} erradas · ${vistas.length} viu a resposta · ${puladas.length} pulou.` +
+    (rev.length ? `<section class="cartao" style="text-align:left"><h3>Para estudar</h3><ul class="revisar">${rev.map(x => `<li><b>${x.q.p}</b> <span class="sub">(${x.consultada ? 'viu a resposta' : x.pulada ? 'pulou' : 'errou'})</span><br>Resposta: ${x.q.o[x.q.r]}. ${x.q.e}</li>`).join('')}</ul></section>` : '');
+}
 function quizFase(n) {
   let qs = embaralhar(BANCO[n] || []).slice(0, 8);
   if (n === 16) qs = embaralhar([...qs.slice(0, 4), ...ALTIMETRO.map(exParaQuiz)]).slice(0, 10);
   if (n === 17) qs = embaralhar([...qs.slice(0, 4), ...NAVEGACAO.map(exParaQuiz)]).slice(0, 10);
   mostrarTela('<div class="tela" id="alvo"></div>');
-  montarQuiz($('#alvo'), qs, { titulo: `Fase ${n}`, aoTerminar: (r) => { const p = r.acertos / r.total; const est = p >= 0.9 ? 3 : p >= 0.7 ? 2 : p >= 0.5 ? 1 : 0; estado.gravarEstrelas(n, est); telaResultado(n, est, `${r.acertos} de ${r.total} acertos.`); } });
+  montarQuiz($('#alvo'), qs, { titulo: `Fase ${n}`, aoTerminar: (r) => { const p = r.acertos / r.total; const est = p >= 0.9 ? 3 : p >= 0.7 ? 2 : p >= 0.5 ? 1 : 0; estado.gravarEstrelas(n, est); telaResultado(n, est, resumoQuiz(r)); } });
 }
 function resultadoTeoria(n, r, seguirQuiz = false) {
   const p = r.total ? r.acertos / r.total : 0; const est = p >= 0.9 ? 3 : p >= 0.7 ? 2 : p >= 0.5 ? 1 : 0;
@@ -110,7 +117,7 @@ function miniQuiz(n, estPratica, resumo) {
   const qs = embaralhar(BANCO[n] || []).slice(0, 3);
   if (!qs.length) { estado.gravarEstrelas(n, estPratica); return telaResultado(n, estPratica, resumo); }
   mostrarTela('<div class="tela" id="alvo"></div>');
-  montarQuiz($('#alvo'), qs, { titulo: `Mini-quiz da fase ${n}`, aoTerminar: (r) => { const est = Math.max(0, Math.min(3, Math.round((estPratica * 2 + (r.acertos / r.total) * 3) / 3))); estado.gravarEstrelas(n, est); telaResultado(n, est, `${resumo} Quiz: ${r.acertos}/${r.total}.`); } });
+  montarQuiz($('#alvo'), qs, { titulo: `Mini-quiz da fase ${n}`, aoTerminar: (r) => { const est = Math.max(0, Math.min(3, Math.round((estPratica * 2 + (r.acertos / r.total) * 3) / 3))); estado.gravarEstrelas(n, est); telaResultado(n, est, `${resumo}<br>Mini-quiz: ${resumoQuiz(r)}`); } });
 }
 function telaResultado(n, est, resumo) {
   const f = FASES[n - 1]; const prox = FASES[n];
@@ -128,7 +135,7 @@ function prova() {
   montarQuiz($('#alvo'), qs, { titulo: 'Prova ANAC (simulado)', limiteS: 40 * 60, aoTerminar: (r) => {
     const porM = {}; for (const x of r.respostas) { porM[x.q.m] = porM[x.q.m] || { a: 0, t: 0 }; porM[x.q.m].t++; if (x.ok) porM[x.q.m].a++; }
     const p = r.acertos / qs.length; const est = p >= 0.9 ? 3 : p >= 0.7 ? 2 : p >= 0.5 ? 1 : 0; estado.gravarEstrelas(21, est); estado.registrarProva({ data: new Date().toISOString(), acertos: r.acertos, total: qs.length });
-    telaResultado(21, est, `${r.acertos} de ${qs.length} (${(p * 100).toFixed(0)} %) ${p >= 0.7 ? 'APROVADO' : 'reprovado, mínimo 70 %'}.<br>` + Object.entries(porM).map(([m, v]) => `${m}: ${v.a}/${v.t}`).join(' · '));
+    telaResultado(21, est, `${r.acertos} de ${qs.length} (${(p * 100).toFixed(0)} %) ${p >= 0.7 ? 'APROVADO' : 'reprovado, mínimo 70 %'}.<br>` + Object.entries(porM).map(([m, v]) => `${m}: ${v.a}/${v.t}`).join(' · ') + '<br>' + resumoQuiz({ ...r, total: qs.length }));
   } });
 }
 
