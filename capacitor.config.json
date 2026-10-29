@@ -1,0 +1,7 @@
+{
+  "appId": "br.com.juanaraujo.simuladorheli",
+  "appName": "Simulador Heli",
+  "webDir": "dist",
+  "backgroundColor": "#111111",
+  "android": { "allowMixedContent": false }
+}

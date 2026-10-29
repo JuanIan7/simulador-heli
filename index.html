@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Simulador de Helicóptero</title>
+  <meta name="description" content="Jogo de estudo para Piloto Privado de Helicóptero (PPH) e IFR: R22, R44, R66 e Esquilo do CBMERJ.">
+  <meta name="theme-color" content="#ff6a00">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Simulador Heli">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <div id="telas"></div>
+  <div id="jogo" hidden>
+    <canvas id="canvas3d"></canvas>
+    <canvas id="hud"></canvas>
+    <div id="painel"><div id="painelTitulo"></div><div id="objetivos"></div></div>
+    <div id="botoesExtras"></div>
+    <div id="instrutor"></div>
+    <div id="controles"></div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

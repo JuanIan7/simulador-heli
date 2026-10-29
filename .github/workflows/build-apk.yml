@@ -1,0 +1,47 @@
+name: Gerar APK (Android)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - name: Instalar dependências
+        run: npm ci
+      - name: Build do app web
+        run: npm run build
+      - name: Sincronizar com o Android
+        run: npx cap sync android
+      - name: Compilar APK (debug)
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - name: Nomear o APK
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/debug/app-debug.apk out/simulador-heli.apk
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with: { name: simulador-heli-apk, path: out/simulador-heli.apk }
+      - name: Publicar na página de Releases (link fixo "latest")
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest out/simulador-heli.apk \
+            --title "Simulador Heli - versão de teste #${{ github.run_number }}" \
+            --notes "APK de teste (assinatura de depuração). Commit ${{ github.sha }}. No Android, permita 'instalar apps desconhecidos' para o navegador/Drive." \
+            --latest
