@@ -63,6 +63,13 @@ export class PilotoAutomatico {
       else { atitude(pitchDes, clamp(-0.05 * vRightSolo, -0.2, 0.2)); segurarProa(proaAlvo); }
     };
 
+    // SN-11: em voo à frente, nunca descarregar o rotor (baixo G). Se o G cair, segura o coletivo e só depois corrige o rolamento.
+    const protegerG = () => {
+      if (kias < 35 || h.noSolo) return;
+      if (h.nG < 0.7) { cmd.coletivo = Math.max(cmd.coletivo, h.coletivo); this.colInt = Math.max(this.colInt, h.coletivo); cmd.cicY = Math.min(cmd.cicY, 0); }
+      if (h.baixoG > 0) { cmd.cicY = Math.min(cmd.cicY, -0.3); cmd.cicX = clamp(cmd.cicX, -0.3, 0.3); }
+    };
+
     switch (alvo.modo) {
       case 'solo': cmd.coletivo = 0; this.colInt = 0; cmd.pedal = 0; break;
       case 'pairado': {
@@ -73,7 +80,7 @@ export class PilotoAutomatico {
       case 'subidaVertical': { pairarEm(alvo.x, alvo.z); segurarProa(alvo.proa ?? null); segurarAltitude(alvo.altFt, 2.0); if (h.noSolo) { this.colInt = Math.min(this.colInt + 0.18 * dt, 0.9); cmd.coletivo = this.colInt; } break; }
       case 'descidaVertical': { pairarEm(alvo.x, alvo.z, 1.5); segurarProa(alvo.proa ?? null); this.colInt = clamp(this.colInt - 0.05 * dt, 0.3, 1); cmd.coletivo = this.colInt; if (h.descidaFtMin > (alvo.descidaFtMin ?? 900)) cmd.coletivo = this.colInt + 0.05; break; }
       case 'recuperarVrs': { atitude(-0.3, 0); segurarProa(alvo.proa ?? null); cmd.coletivo = clamp(this.colInt - 0.1, 0, 1); if (kias > 25) segurarAltitude(alvo.altFt, 3); break; }
-      case 'waypoint': { irPara(alvo.x, alvo.z, alvo.kias); segurarAltitude(alvo.altFt, alvo.vMax ?? 4); if (h.noSolo) { this.colInt = Math.min(this.colInt + 0.18 * dt, 0.9); cmd.coletivo = this.colInt; cmd.cicY = 0; cmd.cicX = 0; } break; }
+      case 'waypoint': { irPara(alvo.x, alvo.z, alvo.kias); segurarAltitude(alvo.altFt, alvo.vMax ?? 4); protegerG(); if (h.noSolo) { this.colInt = Math.min(this.colInt + 0.18 * dt, 0.9); cmd.coletivo = this.colInt; cmd.cicY = 0; cmd.cicX = 0; } break; }
       case 'decolagemCorrida': { // acelera rente ao solo, sobe só depois de kiasSubida
         irPara(alvo.x, alvo.z, alvo.kias);
         const altAlvo = kias < (alvo.kiasSubida ?? 50) ? 15 : alvo.altFt;
@@ -85,7 +92,7 @@ export class PilotoAutomatico {
         const d = Math.hypot(alvo.x - h.pos.x, alvo.z - h.pos.z);
         const altRampa = clamp(d * Math.tan((alvo.anguloDeg ?? 10) * Math.PI / 180) / FT + 8, 8, 2000);
         const vDesc = kias < 32 ? (altFt > 80 ? 1.2 : 0.9) : 4; // abaixo de 30 kt: menos de ~300 ft/min (anel de vórtice)
-        if (d > 90) { const kiasAlvo = clamp(d / 12, 20, alvo.kias ?? 60); irPara(alvo.x, alvo.z, kiasAlvo); segurarAltitude(Math.min(altRampa, alvo.altFt ?? 2000), vDesc); }
+        if (d > 90) { const kiasAlvo = clamp(d / 12, 20, alvo.kias ?? 60); irPara(alvo.x, alvo.z, kiasAlvo); segurarAltitude(Math.min(altRampa, alvo.altFt ?? 2000), vDesc); protegerG(); }
         else if (d > 4) { pairarEm(alvo.x, alvo.z, clamp(d / 8, 1.5, 7)); segurarProa(alvo.proa ?? null); segurarAltitude(Math.min(altRampa, alvo.altFt ?? 2000), vDesc); }
         else { pairarEm(alvo.x, alvo.z, 1.5); segurarProa(alvo.proa ?? null); segurarAltitude(-3, 0.8); if (h.noSolo) { this.colInt = clamp(this.colInt - 0.4 * dt, 0, 1); cmd.coletivo = this.colInt; cmd.cicX = 0; cmd.cicY = 0; } }
         break;

@@ -16,4 +16,12 @@ export const estado = {
   gravarEstrelas(fase, n) { this.dados.estrelas = this.dados.estrelas || {}; if (n > this.estrelas(fase)) { this.dados.estrelas[fase] = n; gravar(this.dados); } },
   registrarProva(res) { this.dados.provas = this.dados.provas || []; this.dados.provas.push(res); gravar(this.dados); },
   totalEstrelas() { return Object.values(this.dados.estrelas || {}).reduce((a, b) => a + b, 0); },
+  // rotas do Simulador de voo: melhores estrelas e melhor tempo (separado das estrelas das fases)
+  rota(id) { return (this.dados.rotas || {})[id] || { estrelas: 0, tempo: null }; },
+  gravarRota(id, estrelas, tempo) {
+    this.dados.rotas = this.dados.rotas || {}; const r = this.rota(id);
+    this.dados.rotas[id] = { estrelas: Math.max(r.estrelas, estrelas), tempo: r.tempo == null ? tempo : Math.min(r.tempo, tempo) }; gravar(this.dados);
+  },
+  get nav() { return this.dados.nav ?? true; },
+  set nav(v) { this.dados.nav = v; gravar(this.dados); },
 };

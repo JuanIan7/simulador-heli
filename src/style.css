@@ -93,7 +93,7 @@ select { font: inherit; padding: 8px; border-radius: 8px; }
 #telas.sobre-3d { pointer-events: none; } #telas.sobre-3d .tela { pointer-events: auto; }
 
 /* guia (ajuda / demonstração) */
-#guia { position: absolute; top: max(8px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); margin-top: 118px; width: min(560px, 70vw); background: rgba(255,106,0,.95); color: #fff; border-radius: 12px; padding: 8px 12px; text-align: center; pointer-events: none; box-shadow: 0 2px 10px rgba(0,0,0,.3); }
+#guia { position: absolute; top: max(8px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); margin-top: 158px; width: min(560px, 70vw); background: rgba(255,106,0,.95); color: #fff; border-radius: 12px; padding: 8px 12px; text-align: center; pointer-events: none; box-shadow: 0 2px 10px rgba(0,0,0,.3); }
 .guia-alvo { font-weight: 700; font-size: 14px; }
 .guia-acoes { margin-top: 6px; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
 .chip { background: #fff; color: var(--pre); border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 700; }
@@ -102,7 +102,7 @@ select { font: inherit; padding: 8px; border-radius: 8px; }
 @keyframes pulsar { from { transform: scale(1); } to { transform: scale(1.06); } }
 .sub-btn { display: block; font-weight: 400; font-size: 12px; opacity: .85; }
 .quiz-rodape { gap: 8px; flex-wrap: wrap; }
-@media (max-width: 700px) { #guia { margin-top: 96px; font-size: 12px; width: 80vw; } .guia-alvo { font-size: 12px; } .chip { font-size: 11px; } }
+@media (max-width: 700px) { #guia { margin-top: 132px; font-size: 12px; width: 80vw; } .guia-alvo { font-size: 12px; } .chip { font-size: 11px; } }
 /* identificação em fotos */
 .ident-img-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden; background: #000; }
 .ident-img-wrap img { width: 100%; height: auto; display: block; }
@@ -119,3 +119,7 @@ select { font: inherit; padding: 8px; border-radius: 8px; }
 .placar b { display: block; font-size: 26px; color: var(--lar); } .placar span { font-size: 12px; color: var(--cin); }
 .revisar { padding-left: 18px; } .revisar li { margin: 8px 0; font-size: 14px; }
 @media (max-width: 560px) { .placar { grid-template-columns: repeat(2, 1fr); } }
+
+/* navegação no painel (simulador e fases) */
+.nav-linha { color: #f3a6ff; font-weight: 700; margin: 2px 0 3px; letter-spacing: .01em; }
+#telas.sobre-3d .tela > h2, #telas.sobre-3d .tela > .sub { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.7); text-align: center; }

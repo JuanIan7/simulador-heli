@@ -135,10 +135,12 @@ export class Helicoptero {
     const vHoriz = Math.hypot(va.x, va.z);
     const kias = Math.max(0, vFwd) / KT;
     const descida = -this.vel.y; // m/s, positivo descendo
-    this.alturaFt = this.pos.y / FT;
+    const soloAqui = cmd.alturaSolo ?? 0; // chão sob o helicóptero (relevo); as fases acontecem na área plana (0)
+    this.solo = soloAqui;
+    this.alturaFt = (this.pos.y - soloAqui) / FT;
 
     // ---- Efeito solo (TVH 2): ganho de empuxo perto do chão, some perto de 1 diâmetro de rotor
-    const hRotor = this.pos.y + this.hubM;
+    const hRotor = this.pos.y - soloAqui + this.hubM;
     const ge = 1 + this.cal.g0 * Math.pow(clamp((2 * R - hRotor) / (2 * R - this.hubM), 0, 1), 2);
     this.ge = ge;
 
@@ -310,6 +312,10 @@ export class Helicoptero {
         // toque
         let duro = null;
         const rollDeg = Math.abs(this.roll) * 57.3, pitchDeg = Math.abs(this.pitch) * 57.3;
+        if (solo > 3 && (vH > 8 || vDesc > 4.0)) {
+          this.crash = { motivo: 'cfit', texto: 'Colisão com o terreno (CFIT): o helicóptero bateu no morro. Planeje a altitude de cada perna acima do relevo, com margem, e suba antes de chegar à serra.' };
+          this.evento('crash', this.crash); return;
+        }
         if (vDesc > 4.0 || rollDeg > 14 || pitchDeg > 14 || vLat > 3.0 || vH > 15 * KT * 1.6) {
           this.crash = { motivo: 'pousoDuro', texto: vDesc > 4 ? `Toque muito forte: ${(vDesc / FT * 60).toFixed(0)} ft/min. Reduza a razão de descida antes dos 8 ft e amorteça com o coletivo.` : rollDeg > 14 || pitchDeg > 14 ? 'Tocou inclinado: esquis nivelados e nariz reto antes do toque.' : vLat > 3 ? 'Tocou com deslocamento lateral: risco de rolamento dinâmico. Zere a deriva antes de pousar.' : 'Tocou com velocidade à frente excessiva.' };
           this.evento('crash', this.crash); return;

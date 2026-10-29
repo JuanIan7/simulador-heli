@@ -3,6 +3,7 @@ import { AERONAVES } from '../src/data/aeronaves.js';
 import { Helicoptero } from '../src/sim/fisica.js';
 import { MISSOES } from '../src/sim/missoes.js';
 import { PilotoAutomatico } from '../src/sim/piloto.js';
+import { chao } from '../src/sim/terreno.js';
 const cenaFake = { limparMarcadores() {}, caixaAlvo() {}, anel() {}, cone() {}, arvore() {}, rotulo() {}, heliponto() {} };
 const ids = process.argv[2] ? process.argv[2].split(',').map(Number) : Object.keys(MISSOES).map(Number);
 const acId = process.argv[3] || 'r22';
@@ -13,7 +14,7 @@ for (const n of ids) {
   const dt = 1 / 60;
   while (t < 420 && m.estado === 'andamento') {
     const alvo = m.guia(); const c = alvo ? p.calcular(alvo, dt) : null;
-    const cmd = { coletivo: c?.coletivo ?? 0, cicX: c?.cicX ?? 0, cicY: c?.cicY ?? 0, pedal: c?.pedal ?? 0, ...m.cmdExtra };
+    const cmd = { coletivo: c?.coletivo ?? 0, cicX: c?.cicX ?? 0, cicY: c?.cicY ?? 0, pedal: c?.pedal ?? 0, ...m.cmdExtra, alturaSolo: chao(h.pos.x, h.pos.z) };
     if (c?.extra?.cortar) m.cmdExtra.cortar = true;
     for (let i = 0; i < 2; i++) h.update(dt / 2, cmd);
     m.update(dt); m.msgs.length = 0; t += dt;

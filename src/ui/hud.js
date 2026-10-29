@@ -1,7 +1,7 @@
 // Painel de instrumentos desenhado em canvas: tacômetro duplo (motor/rotor), potência (MAP ou torque),
 // velocímetro, altímetro, variômetro, proa e fio de guinada. Cores: laranja, branco, preto e cinza.
 const KT = 0.514444, FT = 0.3048;
-const LAR = '#ff6a00', BRA = '#ffffff', PRE = '#111111', CIN = '#8a8a8a', VER = '#2ecc71', AMA = '#f1c40f', VERM = '#e74c3c';
+const LAR = '#ff6a00', BRA = '#ffffff', PRE = '#111111', CIN = '#8a8a8a', VER = '#2ecc71', AMA = '#f1c40f', VERM = '#e74c3c', MAG = '#e040fb';
 
 function arco(g, cx, cy, r, a0, a1, cor, lw) { g.beginPath(); g.arc(cx, cy, r, a0, a1); g.strokeStyle = cor; g.lineWidth = lw; g.stroke(); }
 function ponteiro(g, cx, cy, r, ang, cor, lw = 3) { g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(ang) * r, cy + Math.sin(ang) * r); g.strokeStyle = cor; g.lineWidth = lw; g.lineCap = 'round'; g.stroke(); }
@@ -31,11 +31,11 @@ export class Hud {
     // 3) velocímetro
     this._vel(h, ac, x, y, r); x += 2 * r + gap;
     // 4) altímetro
-    this._alt(h, x, y, r); x += 2 * r + gap;
+    this._alt(h, x, y, r, extra.nav); x += 2 * r + gap;
     // 5) variômetro
     this._vsi(h, x, y, r); x += 2 * r + gap;
     // 6) proa
-    this._proa(h, x, y, r);
+    this._proa(h, x, y, r, extra.nav);
     // fio de guinada + luzes de aviso (topo)
     this._avisos(h, ac, W, H, compacto);
   }
@@ -79,9 +79,13 @@ export class Hud {
     texto(g, 'KIAS', cx, cy + r * 0.45, r * 0.22, CIN);
     texto(g, h.kias.toFixed(0), cx, cy + r * 0.2, r * 0.3, h.kias > vne ? VERM : BRA, 'center', 'bold');
   }
-  _alt(h, cx, cy, r) {
+  _alt(h, cx, cy, r, nav) {
     const g = this.g; fundo(g, cx, cy, r);
-    const ft = h.alturaFt + h.hpFt;
+    const ft = h.pos.y / FT + h.hpFt; // altímetro: altitude (não a altura sobre o morro)
+    if (nav && nav.altFt != null) { // marcador da altitude-alvo (magenta)
+      const an = (-90 + ((nav.altFt + h.hpFt) % 1000) / 1000 * 360) * Math.PI / 180;
+      g.beginPath(); g.moveTo(cx + Math.cos(an) * (r - 1), cy + Math.sin(an) * (r - 1)); g.lineTo(cx + Math.cos(an - 0.13) * (r - 11), cy + Math.sin(an - 0.13) * (r - 11)); g.lineTo(cx + Math.cos(an + 0.13) * (r - 11), cy + Math.sin(an + 0.13) * (r - 11)); g.closePath(); g.fillStyle = MAG; g.fill();
+    }
     const a1 = (-90 + (ft % 1000) / 1000 * 360) * Math.PI / 180, a2 = (-90 + (ft % 10000) / 10000 * 360) * Math.PI / 180;
     for (let i = 0; i < 10; i++) { const an = (-90 + i * 36) * Math.PI / 180; texto(g, String(i), cx + Math.cos(an) * (r - 9), cy + Math.sin(an) * (r - 9), r * 0.2, BRA); }
     ponteiro(g, cx, cy, r - 16, a2, BRA, 4); ponteiro(g, cx, cy, r - 8, a1, LAR, 2);
@@ -98,9 +102,14 @@ export class Hud {
     texto(g, 'ft/min', cx + 4, cy + r * 0.45, r * 0.2, CIN);
     texto(g, (-h.descidaFtMin).toFixed(0), cx + 4, cy + r * 0.2, r * 0.26, Math.abs(h.descidaFtMin) > 300 && h.kias < 30 && h.descidaFtMin > 0 ? VERM : BRA, 'center', 'bold');
   }
-  _proa(h, cx, cy, r) {
+  _proa(h, cx, cy, r, nav) {
     const g = this.g; fundo(g, cx, cy, r);
     const proa = ((h.yaw * 180 / Math.PI) % 360 + 360) % 360;
+    if (nav && nav.proaDeg != null && nav.dist > 25) { // ponteiro de rumo para o alvo (magenta)
+      const an = (-90 + nav.proaDeg - proa) * Math.PI / 180;
+      ponteiro(g, cx, cy, r - 4, an, MAG, 3);
+      g.beginPath(); g.moveTo(cx + Math.cos(an) * (r - 1), cy + Math.sin(an) * (r - 1)); g.lineTo(cx + Math.cos(an - 0.22) * (r - 12), cy + Math.sin(an - 0.22) * (r - 12)); g.lineTo(cx + Math.cos(an + 0.22) * (r - 12), cy + Math.sin(an + 0.22) * (r - 12)); g.closePath(); g.fillStyle = MAG; g.fill();
+    }
     for (let i = 0; i < 12; i++) { const an = (-90 + i * 30 - proa) * Math.PI / 180; const lab = i % 3 === 0 ? ['N', 'E', 'S', 'W'][i / 3] : String(i * 3); texto(g, lab, cx + Math.cos(an) * (r - 10), cy + Math.sin(an) * (r - 10), r * 0.2, i % 3 === 0 ? LAR : BRA); }
     // vento relativo
     const w = h.vento(); const wv = Math.hypot(w.x, w.z) / KT;

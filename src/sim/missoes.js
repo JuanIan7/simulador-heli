@@ -4,7 +4,7 @@ const dist2 = (a, bx, bz) => Math.hypot(a.x - bx, a.z - bz);
 const difProa = (a, b) => { let d = (a - b) * 180 / Math.PI; while (d > 180) d -= 360; while (d < -180) d += 360; return d; };
 const SINAL = (h) => h.sinal === 1 ? { torque: 'DIREITA', pedal: 'ESQUERDO', pane: 'ESQUERDA' } : { torque: 'ESQUERDA', pedal: 'DIREITO', pane: 'DIREITA' };
 
-class Missao {
+export class Missao {
   constructor(cena, h, ctx) {
     this.cena = cena; this.h = h; this.ctx = ctx; this.t = 0;
     this.objetivos = []; this.estado = 'andamento'; this.estrelas = 0; this.resumo = '';
