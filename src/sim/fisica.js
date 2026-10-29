@@ -92,8 +92,9 @@ export class Helicoptero {
     const r0 = { x: cy, y: 0, z: sy };
     // cima = f × r0 girado pelo roll
     const u0 = { x: -sy * sp, y: cp, z: cy * sp };
-    const right = { x: r0.x * cr + u0.x * sr, y: r0.y * cr + u0.y * sr, z: r0.z * cr + u0.z * sr };
-    const up = { x: u0.x * cr - r0.x * sr, y: u0.y * cr - r0.y * sr, z: u0.z * cr - r0.z * sr };
+    // roll positivo = inclinação à DIREITA: o "cima" tomba para a direita e o "direita" desce
+    const right = { x: r0.x * cr - u0.x * sr, y: r0.y * cr - u0.y * sr, z: r0.z * cr - u0.z * sr };
+    const up = { x: u0.x * cr + r0.x * sr, y: u0.y * cr + r0.y * sr, z: u0.z * cr + r0.z * sr };
     return { f, right, up };
   }
   vneKt() {
@@ -158,12 +159,12 @@ export class Helicoptero {
     }
     let cEff = this.coletivo + 0.045 * wUp;
     // VRS (TVH 15, SN-22): abaixo de ~30 kt descendo rápido com potência, o rotor engole a própria esteira
-    const condVrs = !emAuto && kias < 30 && vHoriz < 30 * KT && descida > 500 * FT / 60 && this.coletivo > 0.3;
+    const condVrs = !emAuto && kias < 22 && vHoriz < 25 * KT && descida > 500 * FT / 60 && this.coletivo > 0.3;
     const alvoVrs = condVrs ? smooth(descida, 500 * FT / 60, 1100 * FT / 60) : 0;
     this.vrsSev += (alvoVrs - this.vrsSev) * (1 - Math.exp(-dt / (condVrs ? 1.5 : 0.8)));
     if (this.vrsSev > 0.25 && !this.flags.vrs) { this.flags.vrs = true; this.evento('vrs'); }
     if (this.vrsSev < 0.1) this.flags.vrs = false;
-    const fVrs = 1 - 0.45 * this.vrsSev - 0.25 * this.vrsSev * this.coletivo;
+    const fVrs = 1 - 0.32 * this.vrsSev - 0.2 * this.vrsSev * this.coletivo;
     let T = clamp(cEff, 0, 1.25) * Tmax * ge * ftl * fVrs;
 
     // ---- Potência necessária e disponível (TVH 25; SN-10: potência ∝ RPM)
@@ -171,11 +172,11 @@ export class Helicoptero {
     let vi = vh;
     for (let i = 0; i < 3; i++) vi = vh * vh / Math.sqrt(vHoriz * vHoriz + vi * vi);
     const mu = vHoriz / Math.max(1, omega * R);
-    const pInd = din.kInduzido * T * vi;
+    const pInd = din.kInduzido * T * vi / ge; // efeito solo: menos velocidade induzida para o mesmo empuxo → menos potência
     const pProf = din.potPerfilFrac * ac.potTopW * s * (this.rrpm / 100) ** 3 * (1 + 4.65 * mu * mu);
     const pPar = 0.5 * rho * din.placaPlanaM2 * vHoriz ** 3;
-    const pSubida = T * Math.max(0, this.vel.y); // potência de subida
-    const pReq = pInd + pProf + pPar + pSubida;
+    const pSubida = T * this.vel.y; // potência de subida (negativa na descida: descer devolve potência)
+    const pReq = Math.max(0.3 * pProf, pInd + pProf + pPar + pSubida);
     const lapse = Math.max(0.2, 1 - this.cal.kLapse * da);
     const pMax = ac.potTopW * lapse * (this.motor === 'on' ? this.manete : 0);
     this.potReq = pReq; this.potAvail = pMax;
@@ -208,7 +209,7 @@ export class Helicoptero {
     if (buzina && !this.buzina) this.evento('buzina');
     this.buzina = buzina;
     const limEstol = ac.estolRotorBase + (this.hpFt + this.pos.y / FT) / 1000;
-    if (this.rrpm < limEstol && !this.noSolo && this.coletivo > 0.2) {
+    if (this.rrpm < limEstol && !this.noSolo && this.coletivo > 0.2 && this.alturaFt > 12) {
       this.crash = { motivo: 'estolRotor', texto: `Estol do rotor: RPM caiu abaixo de ${limEstol.toFixed(0)} % (${ac.estolRotorBase} % + 1 % por 1000 ft). As pás tombam para trás (blow-back) e não há recuperação. Reflexo certo: coletivo para BAIXO e manete, antes de chegar aqui.` };
       this.evento('crash', this.crash); return;
     }

@@ -20,10 +20,13 @@ export function montarFonia(root, cartoes, aoTerminar) {
       prox.hidden = false; prox.onclick = avancar;
     } else {
       const ops = embaralhar(passo.opcoes.map((o, k) => ({ ...o, k })));
-      atual.innerHTML = `${passo.pergunta ? `<div class="fon-perg">${passo.pergunta}</div>` : '<div class="fon-perg">Sua vez. Escolha a frase certa:</div>'}<div class="quiz-ops">${ops.map(o => `<button class="quiz-op" data-k="${o.k}">${o.t}</button>`).join('')}</div><div class="quiz-exp" id="fonExp" hidden></div>`;
+      atual.innerHTML = `${passo.pergunta ? `<div class="fon-perg">${passo.pergunta}</div>` : '<div class="fon-perg">Sua vez. Escolha a frase certa:</div>'}<div class="quiz-ops">${ops.map(o => `<button class="quiz-op" data-k="${o.k}">${o.t}</button>`).join('')}</div><div class="quiz-exp" id="fonExp" hidden></div><div class="quiz-rodape"><button class="btn btn-cinza" id="fonVer">👁 Ver resposta</button><button class="btn btn-cinza" id="fonPular">⏭ Pular</button></div>`;
+      atual.querySelector('#fonPular').onclick = avancar;
+      atual.querySelector('#fonVer').onclick = () => { total++; atual.querySelectorAll('.quiz-op').forEach(bb => { bb.disabled = true; if (passo.opcoes[+bb.dataset.k].ok) bb.classList.add('certa'); }); const exp = atual.querySelector('#fonExp'); exp.hidden = false; exp.innerHTML = `<b>Resposta:</b> "${passo.opcoes.find(x => x.ok).t}"${passo.en ? ` <span class="fon-en">EN: ${passo.en}</span>` : ''}`; atual.querySelector('#fonVer').hidden = true; atual.querySelector('#fonPular').hidden = true; prox.hidden = false; prox.onclick = avancar; };
       atual.querySelectorAll('.quiz-op').forEach(b => b.addEventListener('click', () => {
         const o = passo.opcoes[+b.dataset.k]; total++; if (o.ok) acertos++;
         atual.querySelectorAll('.quiz-op').forEach(bb => { bb.disabled = true; const oo = passo.opcoes[+bb.dataset.k]; if (oo.ok) bb.classList.add('certa'); else if (bb === b) bb.classList.add('errada'); });
+        atual.querySelector('#fonVer').hidden = true; atual.querySelector('#fonPular').hidden = true;
         const exp = atual.querySelector('#fonExp'); exp.hidden = false;
         exp.innerHTML = o.ok ? `<b>Correto.</b>${passo.en ? ` <span class="fon-en">EN: ${passo.en}</span>` : ''}` : `<b>Erro de fraseologia:</b> ${o.erro}<br>Certo: "${passo.opcoes.find(x => x.ok).t}"`;
         prox.hidden = false; prox.onclick = avancar;
@@ -53,9 +56,9 @@ export function montarMetar(root, mensagens, aoTerminar) {
     const decisao = () => {
       corpo.innerHTML = `<div class="met-decod">${Object.entries(m.decod).map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('')}</div>
         <div class="quiz-p">O voo VFR de helicóptero sai?</div>
-        <div class="met-go"><button class="btn btn-verde" data-d="GO">GO</button><button class="btn btn-vermelho" data-d="NO-GO">NO-GO</button></div>
+        <div class="met-go"><button class="btn btn-verde" data-d="GO">GO</button><button class="btn btn-vermelho" data-d="NO-GO">NO-GO</button></div><div class="quiz-rodape"><button class="btn btn-cinza" data-d="VER">👁 Ver resposta</button></div>
         <div class="quiz-exp" id="metExp" hidden></div><div class="quiz-rodape"><button class="btn btn-laranja" id="metProx" hidden>Próxima</button></div>`;
-      corpo.querySelectorAll('.met-go button').forEach(b => b.addEventListener('click', () => {
+      corpo.querySelectorAll('.met-go button, .quiz-rodape button[data-d]').forEach(b => b.addEventListener('click', () => {
         if (decidido) return; decidido = true; total++; const ok = b.dataset.d === m.decisao; if (ok) pontos++;
         const exp = corpo.querySelector('#metExp'); exp.hidden = false; exp.innerHTML = `<b>${ok ? 'Decisão certa' : 'Decisão errada'}: ${m.decisao}.</b> ${m.motivo}`;
         const prox = corpo.querySelector('#metProx'); prox.hidden = false; prox.onclick = () => { i++; if (i >= mensagens.length) aoTerminar({ acertos: pontos, total }); else render(); };
@@ -75,7 +78,8 @@ export function montarSipaer(root, cenarios, aoTerminar) {
     root.innerHTML = `<div class="sip"><div class="met-topo"><b>${c.titulo}</b><span>${i + 1}/${cenarios.length}</span></div>
       <div class="quiz-p">Toque nas ações na ORDEM certa. Há ações que não devem ser feitas.</div>
       <div class="sip-lista" id="sipLista">${itens.map((it, idx) => `<button class="quiz-op" data-i="${idx}">${it.t}</button>`).join('')}</div>
-      <div class="quiz-exp" id="sipExp" hidden></div><div class="quiz-rodape"><button class="btn btn-laranja" id="sipProx" hidden>Próximo</button></div></div>`;
+      <div class="quiz-exp" id="sipExp" hidden></div><div class="quiz-rodape"><button class="btn btn-cinza" id="sipVer">👁 Ver resposta</button><button class="btn btn-laranja" id="sipProx" hidden>Próximo</button></div></div>`;
+    root.querySelector('#sipVer').onclick = () => { const exp = root.querySelector('#sipExp'); exp.hidden = false; exp.innerHTML = '<b>Ordem certa:</b><ol>' + c.passos_certos.map(t => `<li>${t}</li>`).join('') + '</ol>' + c.e; root.querySelectorAll('.sip-lista .quiz-op').forEach(x => { x.disabled = true; const it = itens[+x.dataset.i]; if (it.k >= 0) x.classList.add('certa'); }); root.querySelector('#sipVer').hidden = true; const p = root.querySelector('#sipProx'); p.hidden = false; p.onclick = () => { i++; if (i >= cenarios.length) aoTerminar({ acertos: pontos, total }); else render(); }; };
     root.querySelectorAll('.sip-lista .quiz-op').forEach(b => b.addEventListener('click', () => {
       const it = itens[+b.dataset.i]; total++;
       if (it.k === escolhidos.length) { pontos++; escolhidos.push(it); b.classList.add('certa'); b.disabled = true; b.textContent = `${escolhidos.length}. ${it.t}`; }

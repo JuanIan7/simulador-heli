@@ -50,6 +50,7 @@ export class Controles {
 
   // chamado a cada quadro: aplica teclado (quando usado) e giroscópio
   tick(dt) {
+    if (this.externo) { this.atualizarVisual(); return; } // piloto automático move os comandos
     const k = this.teclas;
     if (k.KeyW) this.coletivo = clamp(this.coletivo + 0.5 * dt, 0, 1);
     if (k.KeyS) this.coletivo = clamp(this.coletivo - 0.5 * dt, 0, 1);

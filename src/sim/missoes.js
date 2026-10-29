@@ -25,7 +25,7 @@ class Missao {
       if (e.nome === 'baixoG') this.dica('baixoG', 'BAIXO G: o rotor descarregou. Cíclico PARA TRÁS, suave, antes de qualquer correção lateral (SN-11).', 8);
       if (e.nome === 'hvEntrou' && !this.semHv) this.dica('hv', 'Você entrou na zona sombreada do diagrama H-V: pouca altura para a velocidade. Acelere ou desça.', 12);
       if (e.nome === 'altaRpm') this.dica('altaRpm', 'RPM alta: suba um pouco o coletivo para frear o rotor.', 6);
-      if (e.nome === 'pousoDuro') this.dica('pousoDuro', 'Pouso duro. Amorteça o toque com o coletivo e zere a deriva antes de tocar.', 6);
+      if (e.nome === 'pousoDuro') { this.dica('pousoDuro', 'Pouso duro. Amorteça o toque com o coletivo e zere a deriva antes de tocar.', 6); this.onPousou?.({ ...e, duro: true }); }
       if (e.nome === 'decolou') this.onDecolou?.(e);
       if (e.nome === 'pousou') this.onPousou?.(e);
       if (e.nome === 'paneSeca') this.dica('seca', 'PANE SECA: o combustível acabou. SN-15: nunca voe até acender a LOW FUEL.', 10);
@@ -34,6 +34,7 @@ class Missao {
   }
   update(dt) { this.t += dt; this.dicasGerais(); if (this.estado === 'andamento') this.passo(dt); }
   passo() {}
+  guia() { return null; }
 }
 
 // ---------- Fase 2: torque ----------
@@ -52,6 +53,7 @@ export class M2 extends Missao {
     if (this.seg >= 10) { this.o2.feito = true; this.concluir(this.desvioMax < 15 ? 3 : this.desvioMax < 40 ? 2 : 1, `Pairado segurado. Maior desvio de proa: ${this.desvioMax.toFixed(0)}°.`); }
     if (h.alturaFt > 40) this.dica('alto', 'Alto demais: o objetivo é pairado baixo (3–5 ft). Baixe um pouco o coletivo.', 6);
   }
+  guia() { const h = this.h; return { modo: 'pairado', x: 0, z: 0, altFt: 4, proa: this.proa0, texto: this.o1.feito ? 'Segure o pairado a 3–5 ft com a proa parada' : 'Suba o coletivo devagar até o pairado; pedal contra o torque' }; }
 }
 
 // ---------- Fase 3: pairado IGE/OGE ----------
@@ -65,14 +67,15 @@ export class M3 extends Missao {
   passo(dt) {
     const h = this.h, r = dist2(h.pos, 0, 0);
     if (!this.o1.feito) {
-      if (!h.noSolo && h.alturaFt >= 3 && h.alturaFt <= 8 && r < 3.5) { this.s1 += dt; this.mapIge = h.ac.indicadorPotencia === 'MAP' ? h.map : h.tq; }
+      if (!h.noSolo && h.alturaFt >= 3 && h.alturaFt <= 8 && r < 3.5) { this.s1 += dt; const v = h.ac.indicadorPotencia === 'MAP' ? h.map : h.tq; this.mapIge = this.mapIge == null ? v : this.mapIge + (v - this.mapIge) * Math.min(1, dt / 3); }
       else if (!h.noSolo) { this.fora += dt; if (r >= 3.5) this.dica('fora', 'Saiu da caixa: corrija com cíclico pequeno, contra a deriva. O rotor de cauda empurra o helicóptero para o lado.', 5); }
       if (this.s1 >= 20) { this.o1.feito = true; this.msgs.push(`Bom. ${h.ac.indicadorPotencia} no efeito solo: ${this.mapIge.toFixed(1)}. Agora suba para 50–80 ft e compare.`); }
     } else {
-      if (h.alturaFt >= 50 && h.alturaFt <= 80 && r < 6) { this.s2 += dt; this.mapOge = h.ac.indicadorPotencia === 'MAP' ? h.map : h.tq; }
+      if (h.alturaFt >= 50 && h.alturaFt <= 80 && r < 6) { this.s2 += dt; const v = h.ac.indicadorPotencia === 'MAP' ? h.map : h.tq; this.mapOge = this.mapOge == null ? v : this.mapOge + (v - this.mapOge) * Math.min(1, dt / 3); }
       if (this.s2 >= 10) { this.o2.feito = true; const d = (this.mapOge - this.mapIge); this.concluir(this.fora < 10 ? 3 : this.fora < 25 ? 2 : 1, `Fora do efeito solo o ${h.ac.indicadorPotencia} subiu de ${this.mapIge.toFixed(1)} para ${this.mapOge.toFixed(1)} (+${d.toFixed(1)}). É o preço de pairar sem o chão ajudando.`); }
     }
   }
+  guia() { return this.o1.feito ? { modo: 'pairado', x: 0, z: 0, altFt: 65, proa: 0, texto: 'Suba para 50–80 ft (fora do efeito solo) e segure' } : { modo: 'pairado', x: 0, z: 0, altFt: 5, proa: 0, texto: 'Pairado dentro da caixa, 3–8 ft' }; }
 }
 
 // ---------- Fase 4: giro e deslocamentos ----------
@@ -91,6 +94,7 @@ export class M4 extends Missao {
     if (h.alturaFt > 25) this.dica('alto', 'Mantenha o pairado baixo (3–10 ft).', 6);
   }
   onPousou() { this.toques++; this.dica('toque', 'Tocou o chão durante a manobra. Segure a altura com o coletivo.', 4); }
+  guia() { const h = this.h; if (!this.o1.feito) { this._proaGiro = (this._proaGiro ?? h.yaw) + 0.012; return { modo: 'pairado', x: 0, z: 0, altFt: 6, proa: this._proaGiro, texto: 'Gire 360° com os pedais, devagar, segurando a altura' }; } if (!this.o2.feito) return { modo: 'pairado', x: 15, z: 0, altFt: 6, proa: 0, texto: 'Deslocamento lateral para a DIREITA até o cone, proa no norte' }; return { modo: 'pairado', x: 0, z: 15, altFt: 6, proa: 0, texto: 'De RÉ até o cone azul, proa no norte, cíclico suave' }; }
 }
 
 // ---------- Fase 5: decolagem / ETL ----------
@@ -111,6 +115,7 @@ export class M5 extends Missao {
     if (this.o2.feito && h.alturaFt >= 500) { this.o3.feito = true; this.concluir(this.hvTempo < 2 ? 3 : this.hvTempo < 6 ? 2 : 1, `Decolagem concluída. Tempo na zona H-V: ${this.hvTempo.toFixed(0)} s.`); }
     if (h.pos.z < -600 && !this.o2.feito) this.falhar('Passou do fim da pista sem cruzar os anéis. Reinicie e mantenha o eixo da pista.');
   }
+  guia() { if (!this.o1.feito) return { modo: 'decolagemCorrida', x: 60, z: 250, altFt: 20, kias: 40, kiasSubida: 99, texto: 'Nariz baixo, acelere rente ao solo até o anel 1' }; if (!this.o2.feito) return { modo: 'decolagemCorrida', x: 60, z: -50, altFt: 80, kias: 60, kiasSubida: 50, texto: 'Sentiu a ETL? Continue acelerando; suba depois de 50 kt' }; return { modo: 'waypoint', x: 60, z: -2500, altFt: 520, kias: 60, texto: 'Suba a 500 ft mantendo 60 kt (Vy ≈ 53)' }; }
 }
 
 // ---------- Fase 6: peso, altitude e calor ----------
@@ -125,6 +130,7 @@ export class M6 extends Missao {
     if (!h.noSolo && h.alturaFt > 15 && h.kias < 20) this.dica('ogeImp', 'Sem velocidade você não tem potência para subir aqui. Volte para perto do chão e acelere.', 6);
     if (h.alturaFt >= 300 && h.kias >= 50) { this.o1.feito = this.buzinaT < 5; this.o2.feito = true; this.concluir(this.buzinaT < 2 ? 3 : this.buzinaT < 8 ? 2 : 1, `Saiu com DA ${h.daFt.toFixed(0)} ft. Buzina de baixa RPM por ${this.buzinaT.toFixed(1)} s.`); }
   }
+  guia() { const h = this.h; return h.kias < 45 && h.alturaFt < 150 ? { modo: 'decolagemCorrida', x: 60, z: -600, altFt: 300, kias: 55, kiasSubida: 45, texto: 'Decolagem corrida: acelere baixo, sem puxar coletivo demais (olhe a RPM)' } : { modo: 'waypoint', x: 60, z: -2500, altFt: 320, kias: 55, texto: 'Suba a 300 ft a 50–55 kt' }; }
 }
 
 // ---------- Fase 7: circuito ----------
@@ -142,7 +148,7 @@ export class M7 extends Missao {
   }
   passo() {
     const h = this.h, p = this.portas[this.i];
-    if (p && dist2(h.pos, p.x, p.z) < 35 && Math.abs(h.alturaFt - p.y) < 180) { this.oP[this.i].feito = true; this.i++; if (this.i < this.portas.length) this.msgs.push(`Próximo: anel ${this.i + 1} (${this.portas[this.i].n}, ${this.portas[this.i].y} ft).`); else this.msgs.push('Final: pouse no H branco (público).'); }
+    if (p && dist2(h.pos, p.x, p.z) < 60 && Math.abs(h.alturaFt - p.y) < 200) { this.oP[this.i].feito = true; this.i++; if (this.i < this.portas.length) this.msgs.push(`Próximo: anel ${this.i + 1} (${this.portas[this.i].n}, ${this.portas[this.i].y} ft).`); else this.msgs.push('Final: pouse no H branco (público).'); }
   }
   onPousou(e) {
     const h = this.h; if (this.i < this.portas.length) { this.dica('cedo', 'Ainda faltam anéis do circuito. Decole e continue.', 5); return; }
@@ -152,6 +158,7 @@ export class M7 extends Missao {
     else if (dist2(h.pos, -120, -200) < 15) this.falhar('Pousou no heliponto PRIVADO sem autorização do proprietário.');
     else this.dica('longe', 'Esse não é o heliponto. Decole e pouse no H branco.', 5);
   }
+  guia() { const p = this.portas[this.i]; if (p) { const prox = this.portas[this.i + 1]; return { modo: this.i === 0 ? 'decolagemCorrida' : 'waypoint', x: p.x, z: p.z, altFt: p.y, kias: 60, kiasSubida: 50, texto: `Anel ${this.i + 1} (${p.n}) a ${p.y} ft, 60 kt` }; } return { modo: 'aproximacao', x: this.alvo.x, z: this.alvo.z, altFt: 400, kias: 55, proa: 0, texto: 'Final para o H branco (público): reduza altura e velocidade juntas' }; }
 }
 
 // ---------- Fase 8: aproximação e pouso ----------
@@ -172,6 +179,7 @@ export class M8 extends Missao {
     this.o1.feito = !this.violou; if (d < 8) { this.o2.feito = fpm < 300; this.concluir(fpm < 150 && d < 4 && !this.violou ? 3 : fpm < 300 && d < 8 ? 2 : 1, `Toque a ${fpm.toFixed(0)} ft/min, ${d.toFixed(0)} m do centro.${this.vrsT > 0 ? ' Entrou no anel de vórtice por ' + this.vrsT.toFixed(0) + ' s.' : ''}`); }
     else this.dica('longe', `Pousou a ${d.toFixed(0)} m do H. Decole e corrija.`, 5);
   }
+  guia() { return { modo: 'aproximacao', x: 0, z: 0, altFt: 500, kias: 60, proa: 0, anguloDeg: 10, texto: 'Aproximação normal: menos de 300 ft/min antes de 30 kt; pouse no H' }; }
 }
 
 // ---------- Fase 9: área restrita ----------
@@ -190,6 +198,7 @@ export class M9 extends Missao {
     if (this.pousou && !h.noSolo && h.alturaFt > 60 && d < 26) { this.o2.feito = true; this.concluir(3, 'Resgate concluído: entrada e saída da clareira com decolagem de máxima performance.'); }
   }
   onPousou() { const d = dist2(this.h.pos, this.cx, this.cz); if (d < 6) { this.pousou = true; this.o1.feito = true; this.msgs.push('Pousou na clareira. Agora decole na vertical até passar das copas (60 ft) antes de inclinar.'); } }
+  guia() { const h = this.h; if (!this.pousou) return { modo: 'aproximacao', x: this.cx, z: this.cz, altFt: 300, kias: 45, proa: 0, anguloDeg: 25, texto: 'Aproximação íngreme sobre as copas, pouso no centro da clareira' }; return { modo: 'subidaVertical', x: this.cx, z: this.cz, altFt: 90, proa: 0, texto: 'Decolagem de máxima performance: na vertical até passar as copas' }; }
 }
 
 // ---------- Fase 10: autorrotação ----------
@@ -217,6 +226,7 @@ export class M10 extends Missao {
     const fpm = e.vDesc / FT * 60; this.o2.feito = this.foraFaixa < this.emAuto * 0.3; this.o3.feito = fpm < 400;
     this.concluir(fpm < 200 && this.o1.feito && this.o2.feito ? 3 : fpm < 400 ? 2 : 1, `Autorrotação completa. Reação em ${this.tReacao?.toFixed(1) ?? '?'} s, toque a ${fpm.toFixed(0)} ft/min, ${(this.foraFaixa).toFixed(0)} s fora da faixa de RPM/velocidade.`);
   }
+  guia() { const h = this.h; if (!this.pane) return { modo: 'waypoint', x: 60, z: -3000, altFt: 1500, kias: 65, texto: 'Voo reto a 1500 ft e 65 kt. Fique atento...' }; return { modo: 'autorrotacao', x: 60, z: 300, kias: 65, proa: 0, flareFt: h.ac.flareFt, nivelarFt: h.ac.nivelarFt, texto: h.alturaFt > 50 ? 'Coletivo embaixo, RPM no verde, 60–70 kt, campo à frente' : h.alturaFt > 9 ? 'FLARE: cíclico para trás' : 'Nivele e suba o coletivo para amortecer' }; }
 }
 
 // ---------- Fase 11: H-V ----------
@@ -247,29 +257,32 @@ export class M11 extends Missao {
   onPousou(e) {
     if (this.parte === 2 && this.pane) { const fpm = e.vDesc / FT * 60; this.o2.feito = true; this.concluir(fpm < 200 ? 3 : fpm < 400 ? 2 : 1, `Parte 2: toque a ${fpm.toFixed(0)} ft/min. Velocidade e altura fora da zona sombreada salvam a autorrotação.`); }
   }
+  guia() { const h = this.h; if (this.parte === 1) return this.pane ? { modo: 'autorrotacao', kias: 60, proa: 0, flareFt: h.ac.flareFt, nivelarFt: h.ac.nivelarFt, texto: 'Pane sem velocidade: tente baixar o coletivo e amortecer...' } : { modo: 'subidaVertical', x: 60, z: 450, altFt: 320, proa: 0, texto: 'Parte 1: suba na vertical até 300 ft (dentro da zona a evitar)' }; if (!this.pane) return { modo: 'decolagemCorrida', x: 60, z: -600, altFt: 320, kias: 60, kiasSubida: 50, texto: 'Parte 2: acelere baixo e suba só depois de 50–60 kt' }; return { modo: 'autorrotacao', x: 60, z: -700, kias: 65, proa: 0, flareFt: h.ac.flareFt, nivelarFt: h.ac.nivelarFt, texto: h.alturaFt > 50 ? 'Pane com velocidade: coletivo embaixo, 60–70 kt' : h.alturaFt > 9 ? 'FLARE' : 'Nivele e amorteça' }; }
 }
 
 // ---------- Fase 12: estóis ----------
 export class M12 extends Missao {
   constructor(c, h, ctx) {
-    super(c, h, ctx); h.reset({ hpFt: 0, oatC: 25, ventoKt: 0, x: 0, y: 500 * FT, z: 0 }); h.noSolo = false; h.coletivo = 0.55;
+    super(c, h, ctx); h.reset({ hpFt: 0, oatC: 25, ventoKt: 0, x: 0, y: 900 * FT, z: 0 }); h.noSolo = false; h.coletivo = 0.55;
     this.o1 = this.obj('1) Entrar no anel de vórtice e sair com velocidade à frente'); this.o2 = this.obj('2) Passar da Vne, sentir o estol de pá e recuperar'); this.o3 = this.obj('3) Puxar o coletivo até a buzina e recuperar');
-    this.etapa = 1; this.msgs.push('Desafio 1: a 500 ft, baixe o coletivo e desça na vertical, rápido (> 800 ft/min), sem velocidade.'); this.vrsOk = false; this.estolOk = false; this.buzOk = false;
+    this.etapa = 1; this.msgs.push('Desafio 1: a 900 ft, baixe o coletivo e desça na vertical, rápido (> 800 ft/min), sem velocidade.'); this.vrsOk = false; this.estolOk = false; this.buzOk = false;
   }
   passo() {
     const h = this.h;
     if (this.etapa === 1) {
       if (h.vrsSev > 0.5) this.vrsOk = true;
-      if (this.vrsOk && h.vrsSev < 0.1 && h.kias > 25 && !h.noSolo) { this.o1.feito = true; this.etapa = 2; h.reset({ hpFt: 0, oatC: 25, x: 0, y: 1000 * FT, z: 0 }); h.noSolo = false; h.vel.z = -60 * KT; h.coletivo = 0.5; this.msgs.push('Saiu do anel de vórtice. Desafio 2: a 1000 ft, acelere (coletivo alto, nariz baixo) até além da Vne.'); }
-      if (h.alturaFt < 120 && this.vrsOk && h.vrsSev > 0.2) this.falhar('Baixo demais dentro do anel de vórtice. Saia dele cedo: nariz para a frente e velocidade.');
+      if (this.vrsOk && h.vrsSev < 0.1 && h.kias > 25 && !h.noSolo) { this.o1.feito = true; this.etapa = 2; const altVne = h.ac.vneKt > 120 ? 5000 : 2500; h.reset({ hpFt: 0, oatC: 25, x: 0, y: altVne * FT, z: 0 }); h.noSolo = false; h.vel.z = -60 * KT; h.coletivo = 0.5; this.msgs.push(`Saiu do anel de vórtice. Desafio 2: a ${altVne} ft, potência alta e nariz baixo (mergulho raso) até passar da Vne (${h.ac.vneKt} kt).`); }
+      if (h.alturaFt < 100 && this.vrsOk && h.vrsSev > 0.2) this.falhar('Baixo demais dentro do anel de vórtice. Saia dele cedo: nariz para a frente e velocidade.');
     } else if (this.etapa === 2) {
-      if (h.estolPa > 0.3) this.estolOk = true;
+      if (h.estolPa > 0.12) this.estolOk = true;
+      if (h.alturaFt < 400 && !this.estolOk) this.falhar('Desceu demais sem chegar à Vne. Refaça: potência alta e nariz baixo a partir de 2500 ft.');
       if (this.estolOk && h.estolPa < 0.05 && h.kias < h.vneKt() - 5) { this.o2.feito = true; this.etapa = 3; h.reset({ hpFt: 6000, oatC: 30, x: 0, y: 0, z: 0 }); this.msgs.push('Recuperou. Desafio 3: aeródromo a 6000 ft. Decole ao pairado e puxe o coletivo até a buzina; depois recupere baixando o coletivo.'); }
     } else {
       if (h.buzina) this.buzOk = true;
       if (this.buzOk && !h.buzina && h.rrpm > h.ac.buzinaBaixaRpm + 2 && !h.noSolo) { this.o3.feito = true; this.concluir(3, 'Três estóis reconhecidos e corrigidos: anel de vórtice, estol da pá que recua e baixa RPM.'); }
     }
   }
+  guia() { const h = this.h; if (this.etapa === 1) return this.vrsOk ? { modo: 'recuperarVrs', altFt: 400, proa: 0, texto: 'Anel de vórtice: cíclico à FRENTE para ganhar velocidade (subir o coletivo piora)' } : { modo: 'descidaVertical', x: 0, z: 0, altFt: 0, proa: 0, descidaFtMin: 900, texto: 'Baixe o coletivo e desça na vertical, rápido, sem velocidade' }; if (this.etapa === 2) return this.estolOk ? { modo: 'recuperar', proa: 0, texto: 'Estol de pá: baixe o coletivo e cíclico para trás, reduza a velocidade' } : { modo: 'acelerar', x: 0, z: -9000, altFt: 2500, kias: 200, texto: 'Potência alta e nariz baixo (mergulho raso) até passar da Vne' }; return this.buzOk ? { modo: 'recuperarRpm', x: 0, z: 0, altFt: 5, proa: 0, texto: 'Buzina: BAIXE o coletivo para a RPM voltar' } : { modo: 'puxar', x: 0, z: 0, altFt: 5, proa: 0, texto: 'Puxe o coletivo até a buzina de baixa RPM' }; }
 }
 
 // ---------- Fase 13: ressonância com o solo ----------
@@ -293,6 +306,7 @@ export class M13 extends Missao {
     const h = this.h; if (this.evento) return; this.o1.feito = true; this.evento = true; this.rpmNoEvento = Math.random() < 0.5 ? h.rrpm : h.ac.buzinaBaixaRpm - 8; if (this.rpmNoEvento < h.ac.buzinaBaixaRpm) h.rrpm = this.rpmNoEvento;
     this.msgs.push('O helicóptero começou a balançar no chão...');
   }
+  guia() { const h = this.h; if (!this.evento) return { modo: 'aproximacao', x: 60, z: 200, altFt: 200, kias: 45, proa: 0, anguloDeg: 10, texto: 'Aproximação e pouso na pista' }; const rpmOk = this.rpmNoEvento >= h.ac.buzinaBaixaRpm; return rpmOk ? { modo: 'subidaVertical', x: h.pos.x, z: h.pos.z, altFt: 15, proa: h.yaw, texto: 'RESSONÂNCIA com RPM no verde: DECOLE de novo' } : { modo: 'solo', botao: 'cortar', texto: 'RESSONÂNCIA com RPM baixa: CORTE o motor' }; }
 }
 
 export const MISSOES = { 2: M2, 3: M3, 4: M4, 5: M5, 6: M6, 7: M7, 8: M8, 9: M9, 10: M10, 11: M11, 12: M12, 13: M13 };

@@ -11,6 +11,8 @@ Todos os recursos abaixo foram baixados em 29/10/2026 e são gratuitos. Os de li
 | HDRI "Kloofendal 48d Partly Cloudy (Pure Sky)" 1k e 2k | Poly Haven, https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky | CC0 | Céu e iluminação (`ceu/`) |
 | Texturas Grass004, Asphalt012, Concrete034, Rock035 (1K JPG) | ambientCG, https://ambientcg.com | CC0 | Grama, pista, pátio, serra (`tex/`) |
 | Nature Kit 2.1 (árvores, pedras) | Kenney, https://kenney.nl/assets/nature-kit | CC0 | Vegetação instanciada (`natureza/`) |
+| Foto "Robinson R22 beta N2584F FDK MD1" | Acroterion, https://commons.wikimedia.org/wiki/File:Robinson_R22_beta_N2584F_FDK_MD1.jpg | CC BY-SA 4.0 | Fase 1, foto do exterior (`fotos/r22-exterior.jpg`) |
+| Foto "Robinson R22 Cockpit-001" | NJR ZA, https://commons.wikimedia.org/wiki/File:Robinson_R22_Cockpit-001.jpg | CC BY-SA 3.0 | Fase 1, foto do cockpit (`fotos/r22-cockpit.jpg`) |
 | Three.js | https://threejs.org | MIT | Motor 3D |
 
 Texto de crédito exigido pelo Sketchfab (CC-BY):

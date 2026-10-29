@@ -91,3 +91,23 @@ select { font: inherit; padding: 8px; border-radius: 8px; }
 .menu .cabecalho { justify-content: center; }
 #jogo { z-index: 1; } #telas { z-index: 2; }
 #telas.sobre-3d { pointer-events: none; } #telas.sobre-3d .tela { pointer-events: auto; }
+
+/* guia (ajuda / demonstração) */
+#guia { position: absolute; top: max(8px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); margin-top: 118px; width: min(560px, 70vw); background: rgba(255,106,0,.95); color: #fff; border-radius: 12px; padding: 8px 12px; text-align: center; pointer-events: none; box-shadow: 0 2px 10px rgba(0,0,0,.3); }
+.guia-alvo { font-weight: 700; font-size: 14px; }
+.guia-acoes { margin-top: 6px; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.chip { background: #fff; color: var(--pre); border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 700; }
+.ctl-col.destaque, .ctl-ped.destaque, .ctl-cic.destaque { border-color: var(--lar); box-shadow: 0 0 0 4px rgba(255,106,0,.35), 0 0 18px rgba(255,106,0,.8); animation: pulsar .8s ease-in-out infinite alternate; }
+#botoesExtras.destaque .btn-mini.vermelho { animation: pulsar .6s ease-in-out infinite alternate; box-shadow: 0 0 18px rgba(255,0,0,.8); }
+@keyframes pulsar { from { transform: scale(1); } to { transform: scale(1.06); } }
+.sub-btn { display: block; font-weight: 400; font-size: 12px; opacity: .85; }
+.quiz-rodape { gap: 8px; flex-wrap: wrap; }
+@media (max-width: 700px) { #guia { margin-top: 96px; font-size: 12px; width: 80vw; } .guia-alvo { font-size: 12px; } .chip { font-size: 11px; } }
+/* identificação em fotos */
+.ident-img-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden; background: #000; }
+.ident-img-wrap img { width: 100%; height: auto; display: block; }
+.hot { position: absolute; background: rgba(255,255,255,0.0); border: 2px dashed rgba(255,255,255,.55); border-radius: 8px; cursor: pointer; padding: 0; }
+.hot:hover { background: rgba(255,106,0,.18); border-color: var(--lar); }
+.hot.certa { background: rgba(46,204,113,.45); border-color: #2ecc71; } .hot.errada { background: rgba(231,76,60,.45); border-color: #e74c3c; }
+.ident-credito { color: var(--cin); font-size: 11px; margin-top: 4px; }
+.ident .tela, .ident { max-width: 980px; }

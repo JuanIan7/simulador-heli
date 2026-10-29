@@ -9,6 +9,7 @@ import { Cena } from './sim/cena.js';
 import { Controles, vibrar } from './sim/controles.js';
 import { Hud } from './ui/hud.js';
 import { MISSOES } from './sim/missoes.js';
+import { PilotoAutomatico, dicaDeAjuda } from './sim/piloto.js';
 import { montarQuiz, embaralhar } from './ui/quiz.js';
 import { montarIdentificar } from './ui/identificar.js';
 import { montarFonia, montarMetar, montarSipaer, exParaQuiz } from './ui/teoria.js';
@@ -74,11 +75,16 @@ function briefing(n) {
   mostrarTela(`<div class="tela"><div class="brief-topo"><span class="fase-ico grande">${f.icone}</span><div><h2>Fase ${f.n}: ${f.titulo}</h2><div class="sub">${f.conceito} · ${AERONAVES[estado.aeronave].nome}</div></div></div>
     <section class="cartao"><h3>O que fazer</h3><p>${f.briefing}</p></section>
     <section class="cartao"><h3>Teoria (cai na prova)</h3><ul>${f.teoria.map(t => `<li>${t}</li>`).join('')}</ul></section>
-    ${f.tipo === 'voo' ? '<section class="cartao sub">Controles: esquerda = coletivo (barra vertical) e pedais (barra horizontal); direita = cíclico (ou inclinação do celular, nos ajustes). No Mac: W/S coletivo, setas cíclico, A/D pedais, C câmera.</section>' : ''}
-    <div class="grade-botoes"><button class="btn btn-laranja grande" id="comecar">Começar</button><button class="btn btn-cinza" id="voltar">Voltar</button></div></div>`);
+    ${f.tipo === 'voo' ? '<section class="cartao sub">Controles: esquerda = coletivo (barra vertical) e pedais (barra horizontal); direita = cíclico (ou inclinação do celular, nos ajustes). No Mac: W/S coletivo, setas cíclico, A/D pedais, C câmera. Durante o voo, o botão 💡 troca o modo (sozinho → com ajuda → demonstração).</section>' : ''}
+    <div class="grade-botoes">${f.tipo === 'voo' ? `
+      <button class="btn btn-laranja grande" id="comecar">🎮 Fazer sozinho <span class="sub-btn">até 3 estrelas</span></button>
+      <button class="btn btn-laranja grande" id="comAjuda">🧑‍✈️ Fazer com ajuda <span class="sub-btn">instrutor diz o que fazer · até 2 estrelas</span></button>
+      <button class="btn btn-cinza grande" id="demo">▶️ Ver demonstração <span class="sub-btn">o piloto automático voa e mostra os comandos</span></button>` : '<button class="btn btn-laranja grande" id="comecar">Começar</button>'}
+      <button class="btn btn-cinza" id="voltar">Voltar</button></div></div>`);
   $('#voltar').onclick = telaFases;
+  if (f.tipo === 'voo') { $('#comAjuda').onclick = () => iniciarVoo(n, 'ajuda'); $('#demo').onclick = () => iniciarVoo(n, 'auto'); }
   $('#comecar').onclick = () => {
-    if (f.tipo === 'voo') iniciarVoo(n);
+    if (f.tipo === 'voo') iniciarVoo(n, 'livre');
     else if (f.tipo === 'identificar') { mostrarTela('<div class="tela" id="alvo"></div>'); montarIdentificar($('#alvo'), (r) => miniQuiz(n, r.erros === 0 ? 3 : r.erros < 4 ? 2 : 1, `Identificou ${r.total} peças com ${r.erros} erro(s).`)); }
     else if (f.tipo === 'quiz') quizFase(n);
     else if (f.tipo === 'metar') { mostrarTela('<div class="tela" id="alvo"></div>'); montarMetar($('#alvo'), embaralhar(METAR).slice(0, 6), (r) => resultadoTeoria(n, r)); }
@@ -148,6 +154,7 @@ function telaCreditos() {
     <li>Céu HDRI "Kloofendal 48d Partly Cloudy (Pure Sky)", Poly Haven, CC0.</li>
     <li>Texturas Grass004, Asphalt012, Concrete034 e Rock035, ambientCG, CC0.</li>
     <li>Vegetação do "Nature Kit", Kenney (kenney.nl), CC0.</li>
+    <li>Fotos da fase 1: R22 N2584F por Acroterion (CC BY-SA 4.0) e cockpit de R22 por NJR ZA (CC BY-SA 3.0), Wikimedia Commons.</li>
     <li>Three.js (MIT). Lista completa em CREDITOS.md no repositório.</li></ul></section>
     <section class="cartao centro"><img src="icons/icon-192.png" class="logo" alt=""><p><b>Desenvolvido por Juan Araujo &amp; Filho</b><br>CBMERJ · 1856</p></section>
     <button class="btn btn-cinza" id="voltar">Voltar</button></div>`);
@@ -156,10 +163,12 @@ function telaCreditos() {
 
 // ---------- Voo ----------
 let cena = null, hud = null, ctl = null, heli = null, missao = null, faseAtual = null, rodando = false, ultimoT = 0, cmdExtra = {};
+let modoVoo = 'livre', piloto = null, guiaUltimo = '';
+const NOME_MODO = { livre: 'Sozinho', ajuda: 'Com ajuda', auto: 'Demonstração' };
 const fila = []; let msgTimer = 0;
 
-function iniciarVoo(n) {
-  faseAtual = n; const ac = AERONAVES[estado.aeronave];
+function iniciarVoo(n, modo = 'livre') {
+  faseAtual = n; modoVoo = n ? modo : 'livre'; const ac = AERONAVES[estado.aeronave];
   telas.hidden = true; jogo.hidden = false;
   modoVitrine = false; jogo.classList.remove('vitrine'); telas.classList.remove('sobre-3d'); garantirCena(); cena.redimensionar();
   cena.criarHeli(ac); cena.modoCamera = estado.camera; cena._camPos = null;
@@ -168,6 +177,7 @@ function iniciarVoo(n) {
   if (estado.giro) ctl.ligarGiro(); else ctl.desligarGiro();
   if (n && MISSOES[n]) { missao = new MISSOES[n](cena, heli, {}); } else { missao = null; cena.limparMarcadores(); heli.reset({ hpFt: 0, oatC: 25, ventoKt: 5, ventoDirDeg: 360 }); }
   ctl.coletivo = heli.coletivo; ctl.atualizarVisual(); // missões que começam em voo já vêm com o coletivo no pairado
+  piloto = new PilotoAutomatico(heli); piloto.reset(); ctl.externo = modoVoo === 'auto'; guiaUltimo = ''; mostrarGuia(null, []);
   $('#painelTitulo').textContent = n ? `Fase ${n}: ${FASES[n - 1].titulo}` : `Voo livre · ${ac.curto}`;
   montarBotoesExtras();
   atualizarPainel(); rodando = true; ultimoT = performance.now(); requestAnimationFrame(loop);
@@ -179,10 +189,21 @@ function montarBotoesExtras() {
   add('📱', async () => { if (ctl.giro) { ctl.desligarGiro(); aviso('Giroscópio desligado'); } else { const ok = await ctl.ligarGiro(); aviso(ok ? 'Giroscópio ligado: segure o celular nivelado e incline para comandar' : 'Giroscópio não disponível neste aparelho/navegador'); } });
   if (!faseAtual) add('MOTOR', () => { cmdExtra.motor = heli.motor === 'on' ? 'off' : 'on'; aviso(cmdExtra.motor === 'off' ? 'Pane de motor simulada' : 'Motor religado'); });
   if (missao) for (const b of missao.botoes) add(b.rotulo, () => { missao.cmdExtra[b.id] = true; }, 'vermelho');
-  add('↻', () => iniciarVoo(faseAtual));
+  if (missao) add('💡 ' + NOME_MODO[modoVoo], () => { const seq = ['livre', 'ajuda', 'auto']; modoVoo = seq[(seq.indexOf(modoVoo) + 1) % 3]; ctl.externo = modoVoo === 'auto'; if (modoVoo !== 'auto') { ctl.coletivo = heli.coletivo; } piloto.reset(); aviso('Modo: ' + NOME_MODO[modoVoo]); montarBotoesExtras(); mostrarGuia(null, []); });
+  add('↻', () => iniciarVoo(faseAtual, modoVoo));
   add('✕', sairVoo, 'vermelho');
 }
 function aviso(txt) { fila.push(txt); }
+function mostrarGuia(texto, acoes) {
+  const el = $('#guia'); const chave = (texto || '') + '|' + acoes.map(a => a.t).join(',');
+  if (chave !== guiaUltimo) {
+    guiaUltimo = chave;
+    el.hidden = !texto; if (texto) el.innerHTML = `<div class="guia-alvo">${modoVoo === 'auto' ? '▶️ ' : '🧑‍✈️ '}${texto}</div>${acoes.length ? `<div class="guia-acoes">${acoes.map(a => `<span class="chip">${a.t}</span>`).join('')}</div>` : ''}`;
+  }
+  const usados = new Set(acoes.map(a => a.ctl));
+  $('#ctlCol')?.classList.toggle('destaque', usados.has('col')); $('#ctlPed')?.classList.toggle('destaque', usados.has('ped')); $('#ctlCic')?.classList.toggle('destaque', usados.has('cic'));
+  $('#botoesExtras')?.classList.toggle('destaque', acoes.some(a => a.ctl === 'botao'));
+}
 function atualizarPainel() {
   const el = $('#objetivos');
   if (!missao) { el.innerHTML = '<div class="sub">Voo livre. Experimente os comandos.</div>'; return; }
@@ -193,7 +214,19 @@ function loop(t) {
   const dt = Math.min(0.05, (t - ultimoT) / 1000); ultimoT = t;
   ctl.tick(dt);
   if (ctl.teclas.KeyC) { ctl.teclas.KeyC = false; $('#botoesExtras .btn-mini').click(); }
-  const cmd = { ...ctl.comando(), ...cmdExtra, ...(missao ? missao.cmdExtra : {}) };
+  let cmd = { ...ctl.comando(), ...cmdExtra, ...(missao ? missao.cmdExtra : {}) };
+  if (missao && modoVoo !== 'livre' && missao.estado === 'andamento') {
+    const alvo = missao.guia(); const cmdAuto = alvo ? piloto.calcular(alvo, dt) : null;
+    if (cmdAuto && modoVoo === 'auto') {
+      cmd = { ...cmd, coletivo: cmdAuto.coletivo, cicX: cmdAuto.cicX, cicY: cmdAuto.cicY, pedal: cmdAuto.pedal };
+      ctl.coletivo = cmd.coletivo; ctl.cicX = cmd.cicX; ctl.cicY = cmd.cicY; ctl.pedal = cmd.pedal; ctl.atualizarVisual();
+      if (cmdAuto.extra.cortar) missao.cmdExtra.cortar = true;
+      mostrarGuia(alvo.texto, cmdAuto.acoes.length ? cmdAuto.acoes : [{ ctl: null, t: 'Mantendo' }]);
+    } else if (cmdAuto && modoVoo === 'ajuda') {
+      const d = alvo.botao ? { ctl: 'botao', t: 'Aperte o botão ' + alvo.botao.toUpperCase() } : dicaDeAjuda(cmdAuto, cmd, heli);
+      mostrarGuia(alvo.texto, d ? [d] : []);
+    }
+  }
   // sub-passos para estabilidade numérica
   const n = 2; for (let i = 0; i < n; i++) heli.update(dt / n, cmd);
   if (missao) {
@@ -210,8 +243,11 @@ function loop(t) {
   requestAnimationFrame(loop);
 }
 function fimMissao() {
-  rodando = false; const ok = missao.estado === 'sucesso'; const est = missao.estrelas; const n = faseAtual; const resumo = missao.resumo;
-  setTimeout(() => { if (ok) miniQuiz(n, est, resumo); else { mostrarTela(`<div class="tela centro"><div class="fase-ico grande">💥</div><h2>Não deu certo</h2><p>${resumo}</p><div class="grade-botoes"><button class="btn btn-laranja grande" id="rep">Tentar de novo</button><button class="btn btn-cinza" id="voltar">Briefing</button></div></div>`); $('#rep').onclick = () => iniciarVoo(n); $('#voltar').onclick = () => briefing(n); } }, ok ? 600 : 1200);
+  rodando = false; const ok = missao.estado === 'sucesso'; let est = missao.estrelas; const n = faseAtual; const resumo = missao.resumo;
+  mostrarGuia(null, []);
+  if (modoVoo === 'auto') { setTimeout(() => { mostrarTela(`<div class="tela centro"><div class="fase-ico grande">▶️</div><h2>Demonstração ${ok ? 'concluída' : 'interrompida'}</h2><p>${resumo}</p><p class="sub">A demonstração não dá estrelas. Agora é a sua vez.</p><div class="grade-botoes"><button class="btn btn-laranja grande" id="aj">🧑‍✈️ Fazer com ajuda</button><button class="btn btn-laranja grande" id="so">🎮 Fazer sozinho</button><button class="btn btn-cinza" id="rep">▶️ Ver de novo</button><button class="btn btn-cinza" id="voltar">Briefing</button></div></div>`); $('#aj').onclick = () => iniciarVoo(n, 'ajuda'); $('#so').onclick = () => iniciarVoo(n, 'livre'); $('#rep').onclick = () => iniciarVoo(n, 'auto'); $('#voltar').onclick = () => briefing(n); }, 800); return; }
+  if (modoVoo === 'ajuda') est = Math.min(est, 2);
+  setTimeout(() => { if (ok) miniQuiz(n, est, resumo); else { mostrarTela(`<div class="tela centro"><div class="fase-ico grande">💥</div><h2>Não deu certo</h2><p>${resumo}</p><div class="grade-botoes"><button class="btn btn-laranja grande" id="rep">Tentar de novo</button><button class="btn btn-cinza" id="voltar">Briefing</button></div></div>`); $('#rep').onclick = () => iniciarVoo(n, modoVoo); $('#voltar').onclick = () => briefing(n); } }, ok ? 600 : 1200);
 }
 function sairVoo() { rodando = false; if (faseAtual) briefing(faseAtual); else menu(); }
 
