@@ -150,6 +150,7 @@ function iniciarVoo(n) {
   ctl.zerar(); cmdExtra = {}; fila.length = 0;
   if (estado.giro) ctl.ligarGiro(); else ctl.desligarGiro();
   if (n && MISSOES[n]) { missao = new MISSOES[n](cena, heli, {}); } else { missao = null; cena.limparMarcadores(); heli.reset({ hpFt: 0, oatC: 25, ventoKt: 5, ventoDirDeg: 360 }); }
+  ctl.coletivo = heli.coletivo; ctl.atualizarVisual(); // missões que começam em voo já vêm com o coletivo no pairado
   $('#painelTitulo').textContent = n ? `Fase ${n}: ${FASES[n - 1].titulo}` : `Voo livre · ${ac.curto}`;
   montarBotoesExtras();
   atualizarPainel(); rodando = true; ultimoT = performance.now(); requestAnimationFrame(loop);
