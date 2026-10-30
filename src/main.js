@@ -123,13 +123,22 @@ function briefing(n) {
   if (f.tipo === 'voo') { $('#comAjuda').onclick = () => iniciarVoo(n, 'ajuda'); $('#demo').onclick = () => iniciarVoo(n, 'auto'); }
   $('#comecar').onclick = () => {
     if (f.tipo === 'voo') iniciarVoo(n, 'livre');
-    else if (f.tipo === 'identificar') { mostrarTela('<div class="tela" id="alvo"></div>'); montarIdentificar($('#alvo'), (r) => { const p = r.certas / r.total; miniQuiz(n, p >= 0.9 ? 3 : p >= 0.7 ? 2 : p >= 0.4 ? 1 : 0, `Peças: ${r.certas} certas de primeira, ${r.aposErro} depois de errar, ${r.consultadas} viu a resposta, ${r.puladas} pulou (de ${r.total}).`); }); }
+    else if (f.tipo === 'identificar') { montarIdentificar(telaAtividade(), (r) => { const p = r.certas / r.total; miniQuiz(n, p >= 0.9 ? 3 : p >= 0.7 ? 2 : p >= 0.4 ? 1 : 0, `Peças: ${r.certas} certas de primeira, ${r.aposErro} depois de errar, ${r.consultadas} viu a resposta, ${r.puladas} pulou (de ${r.total}).`); }); }
     else if (f.tipo === 'quiz') quizFase(n);
-    else if (f.tipo === 'metar') { mostrarTela('<div class="tela" id="alvo"></div>'); montarMetar($('#alvo'), embaralhar(METAR).slice(0, 6), (r) => resultadoTeoria(n, r)); }
-    else if (f.tipo === 'fonia') { mostrarTela('<div class="tela" id="alvo"></div>'); montarFonia($('#alvo'), embaralhar(FONIA).slice(0, 5), (r) => resultadoTeoria(n, r)); }
-    else if (f.tipo === 'sipaer') { mostrarTela('<div class="tela" id="alvo"></div>'); montarSipaer($('#alvo'), SIPAER_ORDEM, (r) => resultadoTeoria(n, r, true)); }
+    else if (f.tipo === 'metar') { montarMetar(telaAtividade(), embaralhar(METAR).slice(0, 6), (r) => resultadoTeoria(n, r)); }
+    else if (f.tipo === 'fonia') { montarFonia(telaAtividade(), embaralhar(FONIA).slice(0, 5), (r) => resultadoTeoria(n, r)); }
+    else if (f.tipo === 'sipaer') { montarSipaer(telaAtividade(), SIPAER_ORDEM, (r) => resultadoTeoria(n, r, true)); }
     else if (f.tipo === 'prova') prova();
   };
+}
+
+// atividades fora do voo (quiz, peças, METAR, fonia, SIPAER, prova): barra fixa com saída para a lista de fases
+let pararAtividade = null;
+function telaAtividade() {
+  pararAtividade = null;
+  mostrarTela('<div class="barra-sair"><button class="btn-mini vermelho" id="sairAtv">✕ Sair para as fases</button></div><div class="tela" id="alvo"></div>');
+  $('#sairAtv').onclick = () => { if (!confirm('Sair desta fase? O que você fez agora não vale estrelas.')) return; pararAtividade?.(); pararAtividade = null; telaFases(); };
+  return $('#alvo');
 }
 
 // resumo do quiz: acertos, viu a resposta, pulou e a lista do que revisar
@@ -143,8 +152,7 @@ function quizFase(n) {
   let qs = embaralhar(BANCO[n] || []).slice(0, 8);
   if (n === 16) qs = embaralhar([...qs.slice(0, 4), ...ALTIMETRO.map(exParaQuiz)]).slice(0, 10);
   if (n === 17) qs = embaralhar([...qs.slice(0, 4), ...NAVEGACAO.map(exParaQuiz)]).slice(0, 10);
-  mostrarTela('<div class="tela" id="alvo"></div>');
-  montarQuiz($('#alvo'), qs, { titulo: `Fase ${n}`, aoTerminar: (r) => { const p = r.acertos / r.total; const est = p >= 0.9 ? 3 : p >= 0.7 ? 2 : p >= 0.5 ? 1 : 0; estado.gravarEstrelas(n, est); telaResultado(n, est, resumoQuiz(r)); } });
+  pararAtividade = montarQuiz(telaAtividade(), qs, { titulo: `Fase ${n}`, aoTerminar: (r) => { const p = r.acertos / r.total; const est = p >= 0.9 ? 3 : p >= 0.7 ? 2 : p >= 0.5 ? 1 : 0; estado.gravarEstrelas(n, est); telaResultado(n, est, resumoQuiz(r)); } });
 }
 function resultadoTeoria(n, r, seguirQuiz = false) {
   const p = r.total ? r.acertos / r.total : 0; const est = p >= 0.9 ? 3 : p >= 0.7 ? 2 : p >= 0.5 ? 1 : 0;
@@ -154,8 +162,7 @@ function resultadoTeoria(n, r, seguirQuiz = false) {
 function miniQuiz(n, estPratica, resumo) {
   const qs = embaralhar(BANCO[n] || []).slice(0, 3);
   if (!qs.length) { estado.gravarEstrelas(n, estPratica); return telaResultado(n, estPratica, resumo); }
-  mostrarTela('<div class="tela" id="alvo"></div>');
-  montarQuiz($('#alvo'), qs, { titulo: `Mini-quiz da fase ${n}`, aoTerminar: (r) => { const est = Math.max(0, Math.min(3, Math.round((estPratica * 2 + (r.acertos / r.total) * 3) / 3))); estado.gravarEstrelas(n, est); telaResultado(n, est, `${resumo}<br>Mini-quiz: ${resumoQuiz(r)}`); } });
+  pararAtividade = montarQuiz(telaAtividade(), qs, { titulo: `Mini-quiz da fase ${n}`, aoTerminar: (r) => { const est = Math.max(0, Math.min(3, Math.round((estPratica * 2 + (r.acertos / r.total) * 3) / 3))); estado.gravarEstrelas(n, est); telaResultado(n, est, `${resumo}<br>Mini-quiz: ${resumoQuiz(r)}`); } });
 }
 function telaResultado(n, est, resumo) {
   const f = FASES[n - 1]; const prox = FASES[n];
@@ -169,8 +176,7 @@ function prova() {
   let qs = [];
   for (const [m, fases] of Object.entries(porMateria)) { const pool = embaralhar(fases.flatMap(n => (BANCO[n] || []).map(q => ({ ...q, m })))); qs.push(...pool.slice(0, 8)); }
   qs = embaralhar([...qs, ...embaralhar(BANCO[21] || []).slice(0, 0)]).slice(0, 40);
-  mostrarTela('<div class="tela" id="alvo"></div>');
-  montarQuiz($('#alvo'), qs, { titulo: 'Prova ANAC (simulado)', limiteS: 40 * 60, aoTerminar: (r) => {
+  pararAtividade = montarQuiz(telaAtividade(), qs, { titulo: 'Prova ANAC (simulado)', limiteS: 40 * 60, aoTerminar: (r) => {
     const porM = {}; for (const x of r.respostas) { porM[x.q.m] = porM[x.q.m] || { a: 0, t: 0 }; porM[x.q.m].t++; if (x.ok) porM[x.q.m].a++; }
     const p = r.acertos / qs.length; const est = p >= 0.9 ? 3 : p >= 0.7 ? 2 : p >= 0.5 ? 1 : 0; estado.gravarEstrelas(21, est); estado.registrarProva({ data: new Date().toISOString(), acertos: r.acertos, total: qs.length });
     telaResultado(21, est, `${r.acertos} de ${qs.length} (${(p * 100).toFixed(0)} %) ${p >= 0.7 ? 'APROVADO' : 'reprovado, mínimo 70 %'}.<br>` + Object.entries(porM).map(([m, v]) => `${m}: ${v.a}/${v.t}`).join(' · ') + '<br>' + resumoQuiz({ ...r, total: qs.length }));
@@ -240,7 +246,7 @@ function montarBotoesExtras() {
   if (missao) for (const b of missao.botoes) add(b.rotulo, () => { missao.cmdExtra[b.id] = true; }, 'vermelho');
   if (missao) add('💡 ' + NOME_MODO[modoVoo], () => { const seq = ['livre', 'ajuda', 'auto']; modoVoo = seq[(seq.indexOf(modoVoo) + 1) % 3]; ctl.externo = modoVoo === 'auto'; if (modoVoo !== 'auto') { ctl.coletivo = heli.coletivo; } piloto.reset(); aviso('Modo: ' + NOME_MODO[modoVoo]); montarBotoesExtras(); mostrarGuia(null, []); });
   add('↻', () => iniciarVoo(faseAtual, modoVoo));
-  add('✕', sairVoo, 'vermelho');
+  add('✕ Sair', sairVoo, 'vermelho');
 }
 function aviso(txt) { fila.push(txt); }
 function mostrarGuia(texto, acoes) {
@@ -318,7 +324,8 @@ function fimRota(ok, est, resumo) {
     $('#rep').onclick = () => iniciarVoo('rota:' + id, modo); $('#voltar').onclick = () => telaRotas(focoRota);
   }, ok ? 700 : 1200);
 }
-function sairVoo() { rodando = false; if (rotaId) briefingRota(rotaId, focoRota); else if (faseAtual) briefing(faseAtual); else telaSimulador(); }
+// sair do voo leva direto à lista de onde veio (fases, rotas ou o menu do simulador)
+function sairVoo() { rodando = false; mostrarGuia(null, []); if (rotaId) telaRotas(focoRota); else if (faseAtual) telaFases(); else telaSimulador(); }
 
 // ---------- Início ----------
 menu();

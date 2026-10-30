@@ -123,3 +123,6 @@ select { font: inherit; padding: 8px; border-radius: 8px; }
 /* navegação no painel (simulador e fases) */
 .nav-linha { color: #f3a6ff; font-weight: 700; margin: 2px 0 3px; letter-spacing: .01em; }
 #telas.sobre-3d .tela > h2, #telas.sobre-3d .tela > .sub { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.7); text-align: center; }
+
+/* saída fixa das atividades de estudo (quiz, peças, METAR, fonia, SIPAER, prova) */
+.barra-sair { position: sticky; top: 0; z-index: 5; display: flex; justify-content: flex-end; padding: 8px 16px; background: var(--fundo); }
