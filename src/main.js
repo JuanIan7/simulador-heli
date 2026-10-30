@@ -16,6 +16,7 @@ import { montarQuiz, embaralhar } from './ui/quiz.js';
 import { montarIdentificar } from './ui/identificar.js';
 import { montarFonia, montarMetar, montarSipaer, exParaQuiz } from './ui/teoria.js';
 import { estado } from './estado.js';
+import * as nuvem from './nuvem.js';
 
 const $ = (s) => document.querySelector(s);
 const telas = $('#telas'), jogo = $('#jogo');
@@ -44,9 +45,11 @@ function menu() {
         <div class="linha"><b>Aeronave:</b> ${ac.nome} <button class="btn btn-cinza" id="btnAeronave">Trocar</button></div>
         <div class="linha"><b>Estrelas:</b> ${estado.totalEstrelas()} de ${FASES.length * 3}</div>
       </section>
+      ${cartaoConta()}
       <div class="grade-botoes">
         <button class="btn btn-laranja grande" id="btnFases">🎮 Fases (trilha PPH)</button>
         <button class="btn btn-laranja grande" id="btnSim">🚁 Simulador de voo <span class="sub-btn">voo livre · voo guiado · missões com objetivos</span></button>
+        ${nuvem.disponivel() ? '<button class="btn btn-cinza grande" id="btnRank">🏆 Ranking dos pilotos</button>' : ''}
         <button class="btn btn-cinza grande" id="btnAjustes">⚙️ Ajustes e controles</button>
         <button class="btn btn-cinza grande" id="btnCreditos">ℹ️ Sobre e créditos</button>
       </div>
@@ -54,6 +57,69 @@ function menu() {
     </div>`, true);
   $('#btnAeronave').onclick = telaAeronaves; $('#btnFases').onclick = telaFases; $('#btnSim').onclick = telaSimulador;
   $('#btnAjustes').onclick = telaAjustes; $('#btnCreditos').onclick = telaCreditos;
+  ligarCartaoConta(); $('#btnRank')?.addEventListener('click', () => telaRanking('geral'));
+}
+
+// ---------- Conta (login Google, apelido, ranking e área do desenvolvedor) ----------
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function cartaoConta() {
+  if (!nuvem.disponivel()) return '';
+  const c = nuvem.conta;
+  if (!c.pronto) return '<section class="cartao conta"><div class="sub">Verificando a sua conta…</div></section>';
+  if (!c.user) return `<section class="cartao conta"><div><b>Jogue com a sua conta</b><div class="sub">Entre com o Google para salvar o progresso e aparecer no ranking. Sem entrar, o progresso fica só neste aparelho.</div></div><button class="btn btn-laranja" id="btnEntrar">Entrar com Google</button>${c.erro ? `<div class="sub erro">${esc(c.erro)}</div>` : ''}</section>`;
+  return `<section class="cartao conta"><div><b>👤 ${esc(c.perfil?.apelido || c.user.displayName || 'Piloto')}</b><div class="sub">${esc(c.user.email)} · progresso salvo na conta${nuvem.ehAdmin() ? ' · desenvolvedor' : ''}</div></div>
+    <div class="linha-botoes"><button class="btn btn-cinza" id="btnApelido">Apelido</button>${nuvem.ehAdmin() ? '<button class="btn btn-cinza" id="btnAdmin">🛠 Jogadores</button>' : ''}<button class="btn btn-cinza" id="btnSair">Sair</button></div>${c.erro ? `<div class="sub erro">${esc(c.erro)}</div>` : ''}</section>`;
+}
+function ligarCartaoConta() {
+  $('#btnEntrar')?.addEventListener('click', async () => { try { await nuvem.entrar(); } catch (e) { alert('Não deu para entrar: ' + (e.code || e.message)); } });
+  $('#btnSair')?.addEventListener('click', async () => { if (confirm('Sair da conta? O progresso fica salvo nela e volta quando você entrar de novo.')) { await nuvem.sair(); menu(); } });
+  $('#btnApelido')?.addEventListener('click', telaApelido); $('#btnAdmin')?.addEventListener('click', telaAdmin);
+}
+function telaApelido() {
+  const atual = nuvem.conta.perfil?.apelido || '';
+  mostrarTela(`<div class="tela"><h2>${atual ? 'Trocar apelido' : 'Bem-vindo, piloto!'}</h2>
+    <section class="cartao"><p>${atual ? 'É o nome que aparece no ranking.' : 'Escolha o apelido que vai aparecer no ranking. O seu e-mail não aparece para os outros jogadores.'}</p>
+    <input id="apelido" class="campo" maxlength="24" placeholder="Ex.: Cap Juan" value="${esc(atual || (nuvem.conta.user?.displayName || '').split(' ')[0])}"><div class="sub erro" id="apErro"></div></section>
+    <div class="grade-botoes"><button class="btn btn-laranja grande" id="apSalvar">Salvar</button>${atual ? '<button class="btn btn-cinza" id="voltar">Voltar</button>' : ''}</div></div>`);
+  $('#apSalvar').onclick = async () => { try { await nuvem.definirApelido($('#apelido').value); menu(); } catch (e) { $('#apErro').textContent = e.message; } };
+  $('#voltar')?.addEventListener('click', menu);
+}
+const fmtData = (t) => { const d = t?.toDate ? t.toDate() : t ? new Date(t) : null; return d ? d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—'; };
+async function telaRanking(aba = 'geral', alvo = '1') {
+  if (!nuvem.conta.user) { mostrarTela(`<div class="tela centro"><h2>🏆 Ranking</h2><p>Entre com o Google para ver o ranking e aparecer nele.</p><div class="grade-botoes"><button class="btn btn-laranja grande" id="btnEntrar">Entrar com Google</button><button class="btn btn-cinza" id="voltar">Voltar</button></div></div>`); ligarCartaoConta(); $('#voltar').onclick = menu; return; }
+  mostrarTela('<div class="tela centro"><h2>🏆 Ranking</h2><p class="sub">Carregando…</p></div>');
+  let js; try { js = (await nuvem.listarJogadores()).filter(j => j.apelido); } catch (e) { mostrarTela(`<div class="tela centro"><h2>🏆 Ranking</h2><p>Não deu para carregar (${esc(e.code || e.message)}).</p><button class="btn btn-cinza" id="voltar">Voltar</button></div>`); $('#voltar').onclick = menu; return; }
+  const eu = nuvem.conta.user.uid; let linhas, col;
+  if (aba === 'geral') { linhas = js.map(j => ({ j, v: j.pontos || 0, d: `${j.totalFases || 0}★ fases · ${j.totalRotas || 0}★ rotas` })).sort((a, b) => b.v - a.v); col = 'estrelas'; }
+  else if (aba === 'ativos') { linhas = js.map(j => ({ j, v: j.jogadas || 0, d: `último: ${fmtData(j.atualizadoEm)}` })).sort((a, b) => b.v - a.v); col = 'jogadas'; }
+  else if (aba === 'fase') { linhas = js.map(j => ({ j, v: (j.estrelas || {})[alvo] || 0 })).filter(x => x.v > 0).sort((a, b) => b.v - a.v).map(x => ({ ...x, d: estrelasTxt(x.v) })); col = 'estrelas'; }
+  else { linhas = js.map(j => ({ j, r: (j.rotas || {})[alvo] })).filter(x => x.r && x.r.tempo != null).sort((a, b) => b.r.estrelas - a.r.estrelas || a.r.tempo - b.r.tempo).map(x => ({ j: x.j, v: mmss(x.r.tempo), d: estrelasTxt(x.r.estrelas) })); col = 'tempo'; }
+  const abas = [['geral', '🏆 Geral'], ['ativos', '🔥 Mais ativos'], ['fase', '🎮 Por fase'], ['rota', '🎯 Por rota']];
+  const sel = aba === 'fase' ? `<select id="rkAlvo" class="campo">${FASES.map(f => `<option value="${f.n}" ${String(f.n) === String(alvo) ? 'selected' : ''}>${f.n}. ${f.titulo}</option>`).join('')}</select>`
+    : aba === 'rota' ? `<select id="rkAlvo" class="campo">${ROTAS_ORDEM.map(id => `<option value="${id}" ${id === alvo ? 'selected' : ''}>${ROTAS[id].icone} ${ROTAS[id].titulo}</option>`).join('')}</select>` : '';
+  mostrarTela(`<div class="tela"><h2>🏆 Ranking dos pilotos</h2><div class="abas">${abas.map(([k, t]) => `<button class="aba ${k === aba ? 'sel' : ''}" data-aba="${k}">${t}</button>`).join('')}</div>${sel}
+    <section class="cartao">${linhas.length ? `<ol class="ranking">${linhas.map((x, i) => `<li class="${x.j.uid === eu ? 'eu' : ''}"><span class="pos">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1 + 'º'}</span><span class="nome"><b>${esc(x.j.apelido)}</b>${x.d ? `<span class="sub">${x.d}</span>` : ''}</span><span class="val">${x.v}${col === 'jogadas' ? ' <span class="sub">jogadas</span>' : col === 'estrelas' && aba === 'geral' ? ' ★' : ''}</span></li>`).join('')}</ol>` : '<p class="sub">Ninguém pontuou aqui ainda. Seja o primeiro!</p>'}</section>
+    <p class="sub">${aba === 'geral' ? 'Soma das melhores estrelas de cada fase e de cada rota.' : aba === 'ativos' ? 'Fases e rotas concluídas, contando as repetições.' : aba === 'rota' ? 'Mais estrelas primeiro; no empate, o menor tempo.' : 'Melhor resultado de cada piloto nesta fase.'}</p>
+    <button class="btn btn-cinza" id="voltar">Voltar</button></div>`);
+  telas.querySelectorAll('.aba').forEach(b => b.onclick = () => telaRanking(b.dataset.aba, b.dataset.aba === 'rota' ? ROTAS_ORDEM[0] : '1'));
+  $('#rkAlvo')?.addEventListener('change', (e) => telaRanking(aba, e.target.value)); $('#voltar').onclick = menu;
+}
+async function telaAdmin() {
+  if (!nuvem.ehAdmin()) return menu();
+  mostrarTela('<div class="tela centro"><h2>🛠 Jogadores</h2><p class="sub">Carregando…</p></div>');
+  let js, priv; try { [js, priv] = await Promise.all([nuvem.listarJogadores(), nuvem.listarPrivado()]); } catch (e) { mostrarTela(`<div class="tela centro"><h2>🛠 Jogadores</h2><p>Erro: ${esc(e.code || e.message)}</p><button class="btn btn-cinza" id="voltar">Voltar</button></div>`); $('#voltar').onclick = menu; return; }
+  const uids = [...new Set([...js.map(j => j.uid), ...Object.keys(priv)])], porUid = Object.fromEntries(js.map(j => [j.uid, j]));
+  uids.sort((a, b) => ((porUid[b]?.pontos || 0) - (porUid[a]?.pontos || 0)));
+  mostrarTela(`<div class="tela"><h2>🛠 Jogadores (${uids.length})</h2><p class="sub">Só você vê esta tela. "Zerar" apaga estrelas, rotas e provas da pessoa, mas mantém a conta e o apelido. "Apagar" remove o jogador do ranking; se ele entrar de novo, começa do zero.</p>
+    ${uids.map(uid => { const j = porUid[uid] || {}, p = priv[uid] || {}; const fases = Object.entries(j.estrelas || {}).sort((a, b) => a[0] - b[0]).map(([n, e]) => `F${n} ${e}★`).join(' · ');
+      return `<section class="cartao admin-j"><div><b>${esc(j.apelido || '(sem apelido)')}</b> <span class="sub">${esc(p.email || '')}${p.nome ? ' · ' + esc(p.nome) : ''}</span></div>
+      <div class="sub">${j.pontos || 0}★ no total · ${j.jogadas || 0} jogadas${j.melhorProva != null ? ` · melhor prova ${j.melhorProva}%` : ''} · último acesso ${fmtData(p.ultimoAcesso)} · progresso ${fmtData(j.atualizadoEm)}${j.resetEm ? ' · zerado em ' + fmtData(j.resetEm) : ''}</div>
+      ${fases ? `<div class="sub">${fases}</div>` : ''}
+      <div class="linha-botoes"><button class="btn btn-cinza" data-zerar="${uid}">Zerar progresso</button><button class="btn btn-vermelho" data-apagar="${uid}">Apagar</button></div></section>`; }).join('')}
+    <button class="btn btn-cinza" id="voltar">Voltar</button></div>`);
+  telas.querySelectorAll('[data-zerar]').forEach(b => b.onclick = async () => { const j = porUid[b.dataset.zerar]; if (!confirm(`Zerar o progresso de ${j?.apelido || 'este jogador'}?`)) return; try { await nuvem.zerarJogador(b.dataset.zerar); telaAdmin(); } catch (e) { alert('Erro: ' + (e.code || e.message)); } });
+  telas.querySelectorAll('[data-apagar]').forEach(b => b.onclick = async () => { const j = porUid[b.dataset.apagar]; if (!confirm(`Apagar ${j?.apelido || 'este jogador'} do jogo? Não dá para desfazer.`)) return; try { await nuvem.apagarJogador(b.dataset.apagar); telaAdmin(); } catch (e) { alert('Erro: ' + (e.code || e.message)); } });
+  $('#voltar').onclick = menu;
 }
 
 // ---------- Simulador de voo: livre, guiado e missões ----------
@@ -192,7 +258,7 @@ function telaAjustes() {
     <button class="btn btn-cinza" id="voltar">Voltar</button></div>`);
   $('#assist').oninput = (e) => { estado.assist = +e.target.value; $('#assistV').textContent = e.target.value; };
   $('#giro').onchange = (e) => { estado.giro = e.target.checked; }; $('#cam').onchange = (e) => { estado.camera = e.target.value; };
-  $('#zerar').onclick = () => { if (confirm('Apagar todo o progresso?')) { estado.dados.estrelas = {}; estado.aeronave = estado.aeronave; menu(); } };
+  $('#zerar').onclick = () => { if (confirm(nuvem.conta.user ? 'Apagar todo o progresso? Ele também será apagado da sua conta.' : 'Apagar todo o progresso?')) { estado.zerarLocal(); menu(); } };
   $('#voltar').onclick = menu;
 }
 function telaCreditos() {
@@ -329,6 +395,13 @@ function sairVoo() { rodando = false; mostrarGuia(null, []); if (rotaId) telaRot
 
 // ---------- Início ----------
 menu();
+// login: quando a conta muda, o menu se atualiza; conta nova pede o apelido antes de tudo
+nuvem.aoMudarConta((c) => {
+  if (telas.hidden) return; // em voo: não interrompe
+  if (c.user && !c.perfil && !c.erro) return telaApelido();
+  if ($('#btnFases')) menu();
+});
+nuvem.iniciarNuvem();
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register(import.meta.env.BASE_URL + 'sw.js').catch(() => {});
 // evita zoom por duplo toque no iOS
 document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });

@@ -1,0 +1,26 @@
+rules_version = '2';
+// Regras do banco do Simulador Heli. Colar em Firestore Database › Regras e publicar.
+// jogadores/{uid}: apelido e progresso (todos os jogadores logados leem, para o ranking; cada um só grava o seu).
+// privado/{uid}: e-mail e acessos (só o dono e o desenvolvedor).
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function logado() { return request.auth != null; }
+    function admin() {
+      return logado() && request.auth.token.email_verified == true
+        && request.auth.token.email in ['juanhanzi@gmail.com'];
+    }
+    function dono(uid) { return logado() && request.auth.uid == uid; }
+
+    match /jogadores/{uid} {
+      allow read: if logado();
+      allow create, update: if admin() || (dono(uid)
+        && request.resource.data.apelido is string
+        && request.resource.data.apelido.size() >= 2
+        && request.resource.data.apelido.size() <= 24);
+      allow delete: if admin();
+    }
+    match /privado/{uid} {
+      allow read, write: if dono(uid) || admin();
+    }
+  }
+}

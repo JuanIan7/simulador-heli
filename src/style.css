@@ -126,3 +126,21 @@ select { font: inherit; padding: 8px; border-radius: 8px; }
 
 /* saída fixa das atividades de estudo (quiz, peças, METAR, fonia, SIPAER, prova) */
 .barra-sair { position: sticky; top: 0; z-index: 5; display: flex; justify-content: flex-end; padding: 8px 16px; background: var(--fundo); }
+
+/* conta, ranking e área do desenvolvedor */
+.cartao.conta { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.cartao.conta > div:first-child { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.linha-botoes { display: flex; gap: 6px; flex-wrap: wrap; }
+.sub.erro, .erro { color: var(--verm); }
+.campo { width: 100%; box-sizing: border-box; font-size: 17px; padding: 12px; border: 2px solid var(--cin2); border-radius: 12px; margin: 8px 0; background: #fff; }
+.abas { display: flex; gap: 6px; overflow-x: auto; margin: 8px 0; scrollbar-width: none; }
+.aba { flex: none; border: 0; border-radius: 999px; padding: 8px 14px; font-weight: 700; background: var(--cin2); cursor: pointer; }
+.aba.sel { background: var(--lar); color: #fff; }
+.ranking { list-style: none; margin: 0; padding: 0; }
+.ranking li { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-bottom: 1px solid var(--cin2); }
+.ranking li:last-child { border-bottom: 0; }
+.ranking li.eu { background: rgba(255,106,0,.1); border-radius: 10px; }
+.ranking .pos { width: 34px; text-align: center; font-weight: 800; }
+.ranking .nome { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ranking .val { font-weight: 800; white-space: nowrap; }
+.admin-j { display: flex; flex-direction: column; gap: 6px; overflow-wrap: anywhere; }

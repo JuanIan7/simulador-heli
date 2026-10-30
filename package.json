@@ -1,6 +1,6 @@
 {
   "name": "simulador-heli",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Simulador de voo de helicóptero para estudo (PPH/IFR)",
   "main": "index.js",
   "scripts": {
@@ -17,6 +17,7 @@
   "dependencies": {
     "@capacitor/android": "^8.6.0",
     "@capacitor/core": "^8.6.0",
+    "firebase": "^11.10.0",
     "three": "^0.170.0"
   },
   "devDependencies": {
