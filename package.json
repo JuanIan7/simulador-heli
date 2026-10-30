@@ -1,6 +1,6 @@
 {
   "name": "simulador-heli",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Simulador de voo de helicóptero para estudo (PPH/IFR)",
   "main": "index.js",
   "scripts": {
