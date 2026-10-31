@@ -22,5 +22,12 @@ service cloud.firestore {
     match /privado/{uid} {
       allow read, write: if dono(uid) || admin();
     }
+    // Diário de voo: cada piloto só lê e grava o próprio (nem o desenvolvedor vê).
+    match /diario/{uid} {
+      allow read, write: if dono(uid);
+      match /voos/{voo} {
+        allow read, write: if dono(uid);
+      }
+    }
   }
 }

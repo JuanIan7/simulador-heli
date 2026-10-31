@@ -144,3 +144,4 @@ select { font: inherit; padding: 8px; border-radius: 8px; }
 .ranking .nome { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .ranking .val { font-weight: 800; white-space: nowrap; }
 .admin-j { display: flex; flex-direction: column; gap: 6px; overflow-wrap: anywhere; }
+a.btn { display: block; text-decoration: none; text-align: center; color: inherit; } a.btn .sub-btn { display: block; }

@@ -50,6 +50,7 @@ function menu() {
         <button class="btn btn-laranja grande" id="btnFases">🎮 Fases (trilha PPH)</button>
         <button class="btn btn-laranja grande" id="btnSim">🚁 Simulador de voo <span class="sub-btn">voo livre · voo guiado · missões com objetivos</span></button>
         ${nuvem.disponivel() ? '<button class="btn btn-cinza grande" id="btnRank">🏆 Ranking dos pilotos</button>' : ''}
+        <a class="btn btn-cinza grande" href="diario.html">📒 Diário de voo <span class="sub-btn">registre os seus voos de instrução e confira com a CIV da ANAC</span></a>
         <button class="btn btn-cinza grande" id="btnAjustes">⚙️ Ajustes e controles</button>
         <button class="btn btn-cinza grande" id="btnCreditos">ℹ️ Sobre e créditos</button>
       </div>

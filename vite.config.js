@@ -5,6 +5,6 @@ const build = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
 export default defineConfig({
   base: process.env.BASE_PATH || './',
   define: { __APP_VERSION__: JSON.stringify(pkg.version + '+' + build) },
-  build: { target: 'es2020', chunkSizeWarningLimit: 1500 },
+  build: { target: 'es2020', chunkSizeWarningLimit: 1500, rollupOptions: { input: { main: 'index.html', diario: 'diario.html' } } },
   plugins: [{ name: 'sw-versao', transformIndexHtml: (h) => h, closeBundle() {} }],
 });
