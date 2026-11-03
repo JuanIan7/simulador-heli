@@ -23,6 +23,12 @@ const CATEGORIAS = { transporte: 'Transporte (Uber, táxi)', passagem: 'Passagem
 const PESSOAS_INICIAIS = ['Juan', 'Loureiro', 'Paulo Henrique', 'Meira'];
 const NOME_GRUPO = 'Turma PPH · EACAR 2026';
 const CHAVE_CODIGO = 'gastos-codigo';
+// Lançados uma vez, quando o grupo é criado (o que a turma gastou antes da página existir).
+const GASTOS_INICIAIS = [
+  { id: '2026-11-02-uber1', data: '2026-11-02', descricao: 'Uber 1', categoria: 'transporte', valor: 8000, pagoPor: 'Loureiro', participantes: PESSOAS_INICIAIS, quitados: [], obs: '' },
+  { id: '2026-11-02-uber2', data: '2026-11-02', descricao: 'Uber 2', categoria: 'transporte', valor: 8000, pagoPor: 'Meira', participantes: PESSOAS_INICIAIS, quitados: [], obs: '' },
+  { id: '2026-11-03-cafe', data: '2026-11-03', descricao: 'Café da manhã', categoria: 'alimentacao', valor: 16000, pagoPor: '', participantes: PESSOAS_INICIAIS, quitados: [], obs: 'cerca de R$ 40 por pessoa' },
+];
 
 let user = null, membro = null, grupo = null, gastos = [], membros = [], parar = [], editando = null, filtro = 'todos';
 
@@ -116,6 +122,9 @@ async function criarGrupo() {
   const codigo = Array.from(b, (x) => 'abcdefghjkmnpqrstuvwxyz23456789'[x % 31]).join('').replace(/(.{4})(?=.)/g, '$1-');
   try {
     await setDoc(doc(db, 'gastosConvites', codigo), { grupo: NOME_GRUPO, pessoas: PESSOAS_INICIAIS, criadoEm: serverTimestamp() });
+    const lote = writeBatch(db);
+    GASTOS_INICIAIS.forEach(({ id, ...g }, i) => lote.set(doc(db, 'gastos', id), { ...g, criadoPor: 'Juan', criadoMs: Date.now() + i, criadoEm: serverTimestamp() }, { merge: true }));
+    await lote.commit();
     try { localStorage.setItem(CHAVE_CODIGO, codigo); } catch {}
     telaEntrar(codigo);
   } catch (e) { toast('Não criou: ' + (e.code || e.message)); }
