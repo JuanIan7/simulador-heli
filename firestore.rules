@@ -29,5 +29,26 @@ service cloud.firestore {
         allow read, write: if dono(uid);
       }
     }
+    // Gastos da turma: quem tem o código do grupo entra (gastosMembros) e, a partir daí, lê e lança os gastos de todos.
+    function membroGastos() { return logado() && exists(/databases/$(db)/documents/gastosMembros/$(request.auth.uid)); }
+    match /gastosConvites/{codigo} {
+      allow get: if logado();
+      allow list, create, delete: if admin();
+      allow update: if admin() || (membroGastos()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pessoas']));
+    }
+    match /gastosMembros/{uid} {
+      allow read: if membroGastos() || dono(uid) || admin();
+      allow create: if dono(uid) && request.resource.data.nome is string
+        && exists(/databases/$(db)/documents/gastosConvites/$(request.resource.data.codigo));
+      allow update: if dono(uid) && request.resource.data.codigo == resource.data.codigo;
+      allow delete: if dono(uid) || admin();
+    }
+    match /gastos/{id} {
+      allow read, delete: if membroGastos() || admin();
+      allow create, update: if (membroGastos() || admin())
+        && request.resource.data.valor is int && request.resource.data.valor > 0
+        && request.resource.data.participantes is list;
+    }
   }
 }

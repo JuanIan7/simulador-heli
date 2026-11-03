@@ -1,0 +1,16 @@
+/* Gastos da turma: usa a base do diário (diario.css) e acrescenta acertos, pessoas e gastos em cartões. */
+.acerto { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--cin2); flex-wrap: wrap; }
+.acerto:last-child { border-bottom: 0; }
+.acerto b.v { font-variant-numeric: tabular-nums; }
+.eu { color: var(--lar-esc); }
+.gasto { border-bottom: 1px solid var(--cin2); padding: 10px 0; display: flex; flex-direction: column; gap: 6px; }
+.gasto:last-child { border-bottom: 0; }
+.gasto .linha1 { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.gasto .desc { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.gasto .valor { font-weight: 800; font-size: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.parte { border: 1.5px solid var(--cin2); background: #fff; border-radius: 999px; padding: 4px 10px; font-size: 12.5px; font-weight: 700; min-height: 32px; cursor: pointer; font-variant-numeric: tabular-nums; }
+.parte.pago { background: var(--ok-claro); border-color: var(--ok); color: var(--ok); }
+.parte.deve { background: var(--alerta-claro); border-color: #e7c46a; color: var(--alerta); }
+.parte.pagador { background: var(--lar-claro); border-color: var(--lar); color: var(--lar-esc); cursor: default; }
+.tabela td.pos { color: var(--ok); } .tabela td.neg { color: var(--verm); }
+.codigo { font-family: ui-monospace, Menlo, monospace; font-size: 13px; background: var(--fundo); border-radius: 8px; padding: 6px 8px; overflow-wrap: anywhere; }
