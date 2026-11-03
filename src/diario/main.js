@@ -2,6 +2,7 @@
 // Banco (Firestore): diario/{uid} = perfil (nome, CANAC, escola, instrutor, aeronave padrão, meta)
 //                    diario/{uid}/voos/{id} = um voo. Regras em firestore.rules (só o dono lê e grava).
 // O login é o mesmo do Simulador Heli: quem já entrou no jogo já entra aqui.
+import '../embutido.js';
 import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';

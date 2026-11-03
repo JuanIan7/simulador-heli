@@ -47,3 +47,5 @@ td.n, th.n { text-align: right; }
 .rodape img { width: 34px; height: 34px; } .rodape a { color: var(--lar-esc); font-weight: 700; }
 .linha-acao { display: flex; gap: 8px; flex-wrap: wrap; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+.embed .topo, .embed .rodape { display: none; }
+.embed .wrap { padding-block: 4px 8px; padding-left: 0; padding-right: 0; }

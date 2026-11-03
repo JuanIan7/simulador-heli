@@ -4,6 +4,7 @@
 //                    gastos/{id} = um gasto: valor em centavos, quem pagou ('' = cada um pagou a sua parte),
 //                    participantes[] (dividem em partes iguais) e quitados[] (já acertaram com quem pagou).
 // Regras em firestore.rules: só membros leem e gravam.
+import '../embutido.js';
 import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, deleteDoc, updateDoc, collection, onSnapshot, serverTimestamp, writeBatch, arrayUnion } from 'firebase/firestore';
@@ -170,7 +171,7 @@ function telaPrincipal() {
   const pessoas = [...new Set([...(grupo.pessoas || []), ...Object.keys(r.pessoa)])];
   const lista = filtro === 'pendentes' ? gastos.filter((g) => partes(g).some((p) => !p.quitado)) : filtro === 'todos' ? gastos : gastos.filter((g) => g.categoria === filtro);
   const entrou = new Set(membros.map((m) => m.nome));
-  const link = `${location.origin}${location.pathname}?c=${membro.codigo}`;
+  const link = `${location.origin}${location.pathname.replace(/[^/]*$/, '')}hangar.html?c=${membro.codigo}`;
   el.innerHTML = `
     <section class="cartao"><div class="cab"><div><h2>${esc(grupo.grupo)}</h2><div class="sub">${pessoas.length} pessoa(s) · ${gastos.length} gasto(s)</div></div>
       <button class="pri" id="btNovo">+ Novo gasto</button></div>
@@ -201,7 +202,7 @@ function telaPrincipal() {
       <div class="tabela"><table><tbody>${Object.entries(CATEGORIAS).filter(([k]) => r.porCat[k]).map(([k, t]) => `<tr><td>${esc(t)}</td><td class="n">${brl(r.porCat[k])}</td></tr>`).join('') || '<tr><td class="sub">Sem gastos ainda.</td></tr>'}</tbody></table></div>
     </section>
     <section class="cartao"><h3>Convidar a turma</h3>
-      <p class="sub">Mande este link no grupo. Cada um entra com o próprio Google e escolhe o nome.</p>
+      <p class="sub">É o link do Hangar da Turma (estudo, materiais, gastos e diário num lugar só). Cada um entra com o próprio Google e escolhe o nome.</p>
       <div class="codigo">${esc(link)}</div>
       <div class="linha-acao"><button id="btLink">${navigator.share ? 'Compartilhar link' : 'Copiar link'}</button></div>
       <form id="fPessoa" class="form"><label>Acrescentar pessoa<input id="nPessoa" maxlength="24" placeholder="Nome"></label><div class="linha-acao" style="align-items:end"><button type="submit">Acrescentar</button></div></form>
