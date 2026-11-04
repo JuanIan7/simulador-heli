@@ -57,7 +57,8 @@ select { font: inherit; padding: 8px; border-radius: 8px; }
 #canvas3d { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 #hud { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 #controles { position: absolute; inset: 0; pointer-events: none; }
-.ctl-esq { position: absolute; left: max(12px, env(safe-area-inset-left)); bottom: 100px; display: flex; gap: 10px; align-items: flex-end; pointer-events: none; }
+.ctl-esq { position: absolute; left: max(12px, env(safe-area-inset-left)); bottom: 100px; display: flex; gap: 18px; align-items: flex-end; pointer-events: none; }
+.ctl-esq .ctl-col { margin-bottom: 64px; } /* coletivo acima da linha dos pedais: os polegares não se encostam */
 .ctl-dir { position: absolute; right: max(12px, env(safe-area-inset-right)); bottom: 100px; pointer-events: none; }
 .ctl-col, .ctl-ped, .ctl-cic { position: relative; pointer-events: auto; touch-action: none; background: rgba(0,0,0,.35); border: 2px solid rgba(255,255,255,.5); border-radius: 16px; }
 .ctl-col { width: 56px; height: 170px; } .ctl-ped { width: 130px; height: 56px; } .ctl-cic { width: 150px; height: 150px; border-radius: 50%; }
@@ -76,7 +77,7 @@ select { font: inherit; padding: 8px; border-radius: 8px; }
 .btn-mini { background: rgba(255,255,255,.85); border: 0; border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: 13px; cursor: pointer; } .btn-mini.vermelho { background: var(--verm); color: #fff; }
 #instrutor { position: absolute; left: 50%; bottom: 112px; transform: translateX(-50%) translateY(20px); width: min(520px, 70vw); background: rgba(255,106,0,.92); color: #fff; padding: 10px 14px; border-radius: 12px; font-size: 14px; opacity: 0; transition: .3s; pointer-events: none; text-align: center; }
 #instrutor.on { opacity: 1; transform: translateX(-50%) translateY(0); }
-@media (max-width: 700px) { .ctl-col { height: 130px; } .ctl-ped { width: 100px; } .ctl-cic { width: 120px; height: 120px; } .ctl-esq, .ctl-dir { bottom: 76px; } #instrutor { bottom: 86px; font-size: 12px; } }
+@media (max-width: 700px) { .ctl-col { height: 130px; } .ctl-ped { width: 100px; } .ctl-cic { width: 120px; height: 120px; } .ctl-esq, .ctl-dir { bottom: 76px; } .ctl-esq { gap: 14px; } .ctl-esq .ctl-col { margin-bottom: 56px; } #instrutor { bottom: 86px; font-size: 12px; } }
 @media (orientation: portrait) and (max-width: 700px) { #painel { width: 90vw; margin-top: 40px; } #botoesExtras { margin-top: 0; max-width: 95vw; } }
 
 /* vitrine: 3D atrás do menu */
