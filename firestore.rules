@@ -44,6 +44,17 @@ service cloud.firestore {
       allow update: if dono(uid) && request.resource.data.codigo == resource.data.codigo;
       allow delete: if dono(uid) || admin();
     }
+    // Materiais acrescentados pela turma: todos os membros leem e acrescentam; cada um tira o que pôs.
+    match /materiais/{id} {
+      allow read: if membroGastos() || admin();
+      allow create: if (membroGastos() || admin())
+        && request.resource.data.autor == request.auth.uid
+        && request.resource.data.titulo is string && request.resource.data.titulo.size() >= 2 && request.resource.data.titulo.size() <= 120
+        && request.resource.data.link is string && request.resource.data.link.matches('https://.+') && request.resource.data.link.size() <= 1000
+        && request.resource.data.secao in ['eacar', 'essenciais', 'sn', 'esquilo', 'outros'];
+      allow update: if admin();
+      allow delete: if admin() || (membroGastos() && resource.data.autor == request.auth.uid);
+    }
     match /gastos/{id} {
       allow read, delete: if membroGastos() || admin();
       allow create, update: if (membroGastos() || admin())

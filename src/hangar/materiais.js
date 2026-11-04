@@ -15,4 +15,7 @@ export const DRIVE = {
   sn32: '1gNWAbiJXVwMBaDEueO-u44tElq5PL_C_', sn38: '1wFHKw9ntXv04g5tdukp5c_UqgRtDP5wV',
   sn41: '1NkDB-8EhT7kzhqSY1D3FAEakSYCrChJE', sn42: '1rZlUhF3dyG9Ndd7BWw311RUjWADnzENS',
   dominio: '1ZSEEj2caL5Is-2_q3lqMIgy_pSz8KATl',
+  eacarpre: '1KN5AIDkgIEXjhYWROx7S171XsJpCza98', eacaracio: '1TZh0GSH08Owdv2q-Y3gIqAB3CFnCvQg6',
+  eacaremerg: '1AH5d69d8jNSjpS9VN_y8W5-0CCJtbbgB', eacarman: '1F9NRJxf99wo-Y_ucPUpH3YD2Oo2CwQFA',
+  eacarpoh: '14mh45x5Z9dpaUVyDmIkFec5Hqk_D5t_5', eacarfonia: '1sHQ5p6cNZkbyZBKR2ZBM1LaXUjKGYhKG',
 };

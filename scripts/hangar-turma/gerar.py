@@ -14,7 +14,7 @@ def bloco(ini, fim):
     return "\n".join(L[a:b])
 
 css = hub[hub.index("<style>") + 7: hub.index("</style>")]
-css += "\n.quadro{width:100%;border:0;display:block;min-height:70vh;background:transparent}\n.membro{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--linha)}\n"
+css += "\n.quadro{width:100%;border:0;display:block;min-height:70vh;background:transparent}\n.membro{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--linha)}\n.mat-turma{display:inline-flex;align-items:center;gap:4px}\n.mat-turma .sub{font-size:12px}\n"
 (sim / "src/hangar").mkdir(exist_ok=True)
 (sim / "src/hangar/hangar.css").write_text(css.strip() + "\n", encoding="utf-8")
 
@@ -29,6 +29,9 @@ sn = next(l for l in L if l.startswith("const SN = "))
 ligar_treino = next(i for i, l in enumerate(L) if l.startswith("  treino(){ $('#mtBtn')"))
 ligar_treino = "\n".join(L[ligar_treino:ligar_treino + 5])
 esquilo = bloco("  { dia: 'esquilo'", "];")
+ckdados = bloco("// ---------- checklists ----------", "// ---------- fim checklists ----------")
+checklists = bloco("checklists(){", "revisao(){")
+ligar_ck = bloco("  checklists(c){", "  treino(){ $('#mtBtn')")
 for nome, txt in [("acessos", acessos), ("ligar", ligar_treino)]:
     for proibido in ["464823", "1Password", "NOTION", "PAINEL", "GDAF", "53357"]:
         assert proibido not in txt, (nome, proibido)
@@ -36,7 +39,8 @@ for nome, txt in [("acessos", acessos), ("ligar", ligar_treino)]:
 modelo = (Path(sys.argv[1])).read_text(encoding="utf-8")
 saida = (modelo.replace("/*@SN@*/", sn).replace("/*@ESQUILO@*/", esquilo)
          .replace("/*@REVISAO@*/", revisao).replace("/*@TREINO@*/", treino).replace("/*@ACESSOS@*/", acessos)
-         .replace("/*@METAR@*/", metar).replace("/*@LIGAR_TREINO@*/", ligar_treino))
+         .replace("/*@METAR@*/", metar).replace("/*@LIGAR_TREINO@*/", ligar_treino)
+         .replace("/*@CKDADOS@*/", ckdados).replace("/*@CHECKLISTS@*/", checklists).replace("/*@LIGAR_CK@*/", ligar_ck))
 assert "/*@" not in saida
 (sim / "src/hangar/main.js").write_text(saida, encoding="utf-8")
 print("ok", len(saida))

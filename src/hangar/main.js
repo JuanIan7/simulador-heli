@@ -5,7 +5,7 @@
 // Revisão, treino e acessos vêm do Hangar CCOA (repo hangar-ccoa) por scripts/hangar-turma/gerar.py, sem os dados pessoais.
 import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, onSnapshot, serverTimestamp, arrayUnion, deleteField } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, collection, onSnapshot, serverTimestamp, arrayUnion, deleteField } from 'firebase/firestore';
 import { FIREBASE_CONFIG, ADMINS } from '../firebase-config.js';
 import { FONIA, ALFABETO, NUMEROS, PALAVRAS_PADRAO, TRANSPONDER } from '../data/fonia.js';
 import { METAR } from '../data/quiz-teoria.js';
@@ -24,9 +24,9 @@ const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTi
 function toast(t){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2400); }
 const pdf = (k, rot) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_blank" rel="noopener">📄 ${esc(rot)}</a>` : `<span class="sub">📄 ${esc(rot)}</span>`;
 
-const ABAS = [['inicio','Início'],['estudo','Estudo'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['gastos','Gastos'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
+const ABAS = [['inicio','Início'],['checklists','Checklists'],['estudo','Estudo'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['gastos','Gastos'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
 let aba = (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
-let user = null, membro = null, grupo = null, membros = [], parar = [];
+let user = null, membro = null, grupo = null, membros = [], mats = [], parar = [];
 
 // ---------- conteúdo ----------
 const CRONO = [
@@ -61,6 +61,73 @@ const CRONO = [
   ]},
 ];
 const SN = [['sn10','SN-10','Baixa RPM: estol do rotor'],['sn11','SN-11','Baixo G: extremamente perigoso'],['sn22','SN-22','Anel de vórtice'],['sn24','SN-24','Estol de rotor por baixa RPM'],['sn25','SN-25','Gelo no carburador'],['sn29','SN-29','Piloto de avião em helicóptero'],['sn32','SN-32','Vento forte e turbulência'],['sn38','SN-38','Autorrotação de treino'],['sn41','SN-41','Distrações do piloto'],['sn42','SN-42','Guinada inesperada']];
+// ---------- checklists ----------
+// Cartões da EACAR (R22 Beta II), transcritos para marcar item a item. Vale o cartão da aeronave e o instrutor.
+const CHECK = [
+  { id: 'prevoo', nome: 'Pré-voo externo', pdf: 'eacarpre', grupos: [
+    ['Janela de inspeção', [['Master switch','Ligada'],['Luzes pressão do óleo / alternador','Ligadas'],['Luzes de aviso','Checadas'],['Liquidômetro','Checado'],['Master switch','Desligada'],['Tanque aux.','Nível / tampa fechada / sem vazamentos'],['Transmissão principal','Nível do óleo / sem vazamentos'],['Freio rotor','Checado / solto'],['Flexplate','Sem rachaduras e porcas fixas'],['Yoke flanges','Sem rachaduras'],['Tela temp transmissão principal','Normal'],['Roda livre','Sem vazamentos'],['Tomada estática','Desobstruída / firme'],['Terminais esféricos','Livres e sem folgas'],['Treliças','Sem rachaduras / dobras'],['Braçadeiras','Apertadas'],['Controle do rotor de cauda','Livre'],['Janela de inspeção','Fechada']]],
+    ['Motor, lado direito', [['Duto de ar','Fixo'],['Concha do aquecimento carb.','Fixa'],['Defletoras do motor','Sem rachaduras'],['Terminais elétricos','Checados'],['Linha de combustível','Sem vazamentos'],['Radiador de óleo','Desobstruído'],['Linhas de óleo','Sem vazamentos e atrito'],['Escapamento do motor','Sem rachaduras'],['Condição geral do motor','Checada'],['Correias em V','Tensão / condição'],['Roda livre','Sem vazamentos'],['Rolamento superior','Sem vazamentos / tela temp'],['Sulco da polia inferior','Suave e uniforme'],['Flexplate','Sem rachaduras e porcas fixas'],['Yoke flanges','Sem rachaduras'],['Treliças','Sem rachaduras / dobras'],['Controle do rotor de cauda','Livre']]],
+    ['Motor, parte traseira', [['Porca central do fan','Frenada e alinhada'],['Fan','Sem rachaduras'],['Rolamento inferior','Tela temp']]],
+    ['Empenagem', [['Estabilizadores','Sem rachaduras'],['Braçadeiras','Apertadas'],['Luzes','Checadas']]],
+    ['Rotor de cauda', [['Caixa de 90°','Nível do óleo / sem vazamentos / tela temp'],['Pás','Limpas, sem danos ou rachaduras'],['Terminais esféricos','Livres e sem folgas'],['Porcas','Apertadas'],['Parafuso e rolamento do batimento','Checado'],['Bellcrank','Livre e sem folga']]],
+    ['Cone de cauda', [['Rebites','Fixos'],['Superfície da cauda','Sem amassos / rachaduras'],['Luz da strobe','Fixa'],['Antena','Fixa'],['Parafusos de fixação','Apertados']]],
+    ['Motor, lado esquerdo', [['Defletora do motor','Sem rachaduras'],['Escapamento do motor','Sem rachaduras'],['Nível do óleo do motor','Entre 4 e 6 qt'],['Linha de combustível','Sem vazamentos'],['Haste da manete','Atuando'],['Bateria e relay','Fixos'],['Correia do alternador','Tensão e condição'],['Treliças','Sem rachaduras / dobras'],['Condição geral do motor','Checada'],['Tanque de combustível','Nível / tampa fechada / sem vazamentos']]],
+    ['Rotor principal (não puxe a pá para baixo: levante a oposta)', [['Pás','Limpas, sem danos ou rachaduras'],['Guarda-pó','Fixo e sem vazamentos'],['Parafusos da cabeça do rotor','Contrapinos instalados'],['Terminais esféricos','Livres e sem folgas'],['Porcas','Apertadas'],['Link de mudança de passo','Frenado'],['Braçadeiras','Apertadas'],['Tesoura da estrela rotativa','Sem folga excessiva']]],
+    ['Fuselagem', [['Compartimento de bagagem','Checado'],['Comandos removíveis','Fixos ou armazenados'],['Comando do coletivo','Ambos desobstruídos'],['Cintos','Checados'],['Portas','Contrapinos instalados'],['Trem de pouso','Checado'],['Rodas de manobra','Removidas'],['Luzes de navegação e farol de pouso','Checados'],['Tubo de pitot','Desobstruído'],['Bolha (plex)','Checada e limpa'],['Abertura de ventilação','Desobstruída']]],
+    ['Interior', [['Itens soltos','Removidos ou armazenados'],['Instrumentos, switches e controles','Checados']]],
+  ]},
+  { id: 'antes', nome: 'Antes do acionamento', pdf: 'eacaracio', grupos: [
+    ['Antes do acionamento', [['Cintos','Afivelados'],['Fricção cíclico / coletivo','Solta'],['Cíclico / coletivo / pedais','Comandos livres'],['Manete','Toda livre'],['Coletivo todo embaixo','Fricção presa'],['Cíclico neutro','Fricção presa'],['Pedais','Neutros'],['Freio rotor','Solto'],['Luz de mapa','Apagada'],['Válvula de combustível','Aberta'],['Disjuntores','Todos para baixo'],['Governador','Desligado'],['Farol de pouso','Desligado'],['Aquecimento do carburador','Abaixado e destravado'],['Trim','Abaixado'],['Mistura','Rica'],['Guarda-mistura','Instalado'],['Aviônicos e switches','Desligados'],['Clutch','Desengrazada'],['Altímetro','Ajustado']]],
+  ]},
+  { id: 'acion', nome: 'Acionamento e táxi', pdf: 'eacaracio', grupos: [
+    ['Acionamento e táxi', [['Master switch','Ligado'],['Girar manete para priming','Se necessário'],['Manete','Fechada'],['Área','Livre'],['Strobe','Ligada'],['Ignição','Start, depois Both'],['Luz starter on','Apagada'],['Marcha lenta','RPM 50 a 60%'],['Clutch','Engrazada'],['Alternador','Ligado'],['Pás girando','Menos de 5 s'],['Pressão do óleo em 30 s','Mín. 25 psi'],['Aviônicos e rádio','Ligados'],['Headset','Colocados'],['Luz da clutch','Apagada'],['Aquecimento','RPM 70 a 75%'],['Instrumentos','Todos no arco verde'],['Cheque de magnetos a 75%','Queda máx. 7% em 2 s'],['Aquecimento do carburador','Carb temp aumenta / diminui'],['Cheque de roda livre a 75%','Agulhas de RPM separam'],['Portas','Travadas'],['Placar de limite de VNE e P.A.','Checados'],['Fricção: cíclico, depois coletivo','Soltas'],['Governador ON','RPM 102 a 104%'],['Luzes de aviso','Todas apagadas'],['Levantar coletivo, reduzir RPM','Buzina / luz a 97%']]],
+  ]},
+  { id: 'corte', nome: 'Corte', pdf: 'eacaracio', grupos: [
+    ['Corte', [['Coletivo','Todo para baixo'],['Cíclico / pedais','Neutros'],['Governador','Desligado'],['Ajustar manete','RPM 70 a 75%'],['Coletivo, depois cíclico','Travados'],['Aquecimento do carburador','Abaixado e travado'],['CHT','Abaixo de 350 °F'],['Manete','Fechada'],['Clutch','Desengrazada'],['Esperar 30 s','Cortar a mistura'],['Guarda-mistura','De volta na mistura'],['Magnetos / alternador / aviônicos','Desligados'],['Esperar 30 s','Aplicar freio rotor'],['Rotor parado / clutch apagada','Strobe e master switch OFF']]],
+  ]},
+];
+const EMERG = [
+  ['Falha de potência', ['Abaixe o coletivo, ajustando a RPM na faixa verde.','65 kt; reacionamento em voo se houver tempo.','A 40 ft inicie o flare; a 8 ft nivele.','Puxe o coletivo para amortecer o pouso.']],
+  ['Falha de potência abaixo de 8 ft', ['Pedal direito para manter a proa.','Deixe o helicóptero descer.','Puxe o coletivo para amortecer o pouso.']],
+  ['Perda do rotor de cauda em voo reto', ['Entre imediatamente em autorrotação.','Mantenha 70 kt se praticável.','Escolhido o local, manete além do batente e pouso em autorrotação normal.']],
+  ['Perda do rotor de cauda no pairado', ['Feche a manete além do batente.','Deixe o helicóptero descer.','Puxe o coletivo para amortecer o pouso.']],
+  ['Travamento do rotor de cauda', ['Use manete ou coletivo para orientar a proa: fechar a manete ou abaixar o coletivo guina para a esquerda; abrir a manete ou subir o coletivo guina para a direita.']],
+  ['Fogo em voo', ['Autorrotação; se houver tempo: master bat OFF, ventilação da cabine ON, aquecimento da cabine OFF.','Motor funcionando: pouso normal e feche a válvula de combustível.','Motor parou: feche a válvula de combustível e pouse em autorrotação.']],
+  ['Fogo elétrico', ['Master bat OFF e alternador OFF.','Pouse imediatamente, apague o fogo e inspecione os danos.']],
+  ['Fogo no acionamento', ['Continue a partida para sugar as chamas e o combustível para dentro do motor.','Se pegar: 50 a 60% por pouco tempo, corte e inspecione.','Se não pegar: feche a válvula de combustível, master bat OFF, apague o fogo e inspecione.']],
+  ['Pouso na água sem potência', ['Procedimento de pane de motor até tocar a água.','Cíclico para o lado ao tocar a água, para parar as pás.','Solte o cinto e saia quando as pás pararem.']],
+  ['Pouso na água com potência', ['Pairado sobre a água: o passageiro sai e você se afasta.','Bat OFF, alt OFF, manete além do batente, pedal direito, coletivo todo em cima ao tocar a água.','Cíclico para o lado; solte o cinto e saia quando as pás pararem.']],
+  ['Tacômetro com pane', ['Um só: use o que funciona.','Os dois: deixe o governador controlar a RPM e pouse assim que praticável.']],
+  ['Pane do governador', ['Segure firme a manete para sobrepor o governador e passe o governador para OFF.']],
+  ['Reacionamento em voo', ['Mistura toda rica, manete fechada.','Manete levemente aberta, starter com a mão esquerda.']],
+];
+const LUZES = [
+  ['OIL','pe','Perda de pressão confirmada: pouse IMEDIATAMENTE. Continuar pode danificar o motor e causar falha.'],
+  ['LOW FUEL','pe','Cerca de 1 US gal, uns 5 min de voo. Não use a luz como referência de combustível.'],
+  ['CLUTCH','al','Acesa por mais de 10 s: puxe o disjuntor da clutch e pouse assim que praticável; com outra indicação de problema, pouse imediatamente.'],
+  ['ALT','al','Desligue o que não é necessário, alternador OFF e ON após 1 s. Continuou acesa: pouse assim que praticável.'],
+  ['BRAKE','al','Libere o freio do rotor imediatamente (em voo ou antes de dar partida).'],
+  ['STARTER ON','al','Não apagou ao soltar a chave: corte a mistura e desligue a bateria na hora.'],
+  ['GOV OFF','al','Governador desligado.'],
+  ['LOW RPM','al','Abra a manete; se não bastar, alivie o coletivo (com altura) e, em voo à frente, cíclico para trás. Apaga com o coletivo todo embaixo.'],
+  ['MR TEMP · MR CHIP · TR CHIP','al','Com ruído, vibração ou temperatura: pouse imediatamente. Sem outra indicação: pouse assim que praticável.'],
+];
+const VELOC = [['Decolagem e subida','60 kt'],['Maior razão de subida (Vy)','53 kt'],['Máximo alcance','83 kt'],['Autorrotação','65 kt']];
+const VNE = [['SL',[102,102,102,102,102,102,102]],['2000',[102,102,102,102,102,99,96]],['4000',[102,102,102,98,94,91,87]],['6000',[102,98,94,90,87,82,77]],['8000',[94,90,86,80,75,69,64]],['10000',[86,80,74,68,62,57,0]],['12000',[74,67,61,0,0,0,0]],['14000',[61,0,0,0,0,0,0]]];
+const MAPT = [['SL',['21.5','21.8','22.1','22.3','22.6','22.9','23.2']],['2000',['21.1','21.4','21.6','21.9','22.2','22.5','22.8']],['4000',['20.7','21.0','21.2','21.5','21.8','22.0','22.3']],['6000',['20.3','20.6','20.8','21.1','21.3','21.6','21.9']],['8000',['19.9','20.2','20.4','20.7','20.9','FT','FT']]];
+const FONIA_SISY = [
+  ['Táxi e circuito em SISY (coordenação 130,40)', ['Para coordenação 130,40, o PR-HMI acionado no spot da EACAR vai iniciar o táxi para a cabeceira 09 (ou 27, conforme o vento).','HMI alinha e decola da cabeceira 09 (ou alinha e mantém) no Graciosa.','HMI no través / na do vento / girando base / na final da 09 no Graciosa.']],
+  ['Saindo para o Iraí ou área 531 (Controle Curitiba 119,95)', ['HMI decolado da cabeceira 09, segue com proa do Iraí, transfere Controle 119,95.','Controle Curitiba, bom dia, é o PR-HMI.','HMI decolado de SISY, notificado 1 hora, treinamento no Iraí 500 ft (ou na área 531, 500 ft).','Controle: acione o código transponder 0340. Você: 0340 para o HMI.']],
+  ['Indo ao Bacacheri (Torre 118,90)', ['Ao Controle: HMI decolado de SISY, notificado 1 hora, intenções de toque e arremetida no Bacacheri.','Controle: acione 0340 e mantenha o setor do Iraí para coordenar com a Torre. Depois: coordene com a Torre em 118,90.','Torre Bacacheri, bom dia, é o PR-HMI. Torre: voe proa de Atuba e reporte na vertical.','Torre Bacacheri, o HMI está na vertical de Atuba. Torre: entre na perna do vento da 18 e reporte girando base.','HMI girando base da 18. Torre: autorizado o toque e arremetida na 18, vento 180° com 5 kt (o pedido varia: escute).','HMI arremeteu na 18, intenções de retornar ao SISY.']],
+  ['Voltando a SISY', ['Controle Curitiba, o HMI arremeteu no Bacacheri. Controle: reporte no Iraí.','Controle, o HMI está na vertical do Iraí, visual com o local de pouso. Controle: frequência livre.','Para coordenação 130,40, o HMI se aproximando pelo setor X com proa tal; vai cruzar o ponto médio para ingressar na do vento da 09/27 (ou ingressa direto, conforme a cabeceira).','HMI na do vento / base / final da 09/27. HMI livrando o eixo da pista para o spot da EACAR.']],
+];
+let ckSel = 'prevoo';
+const ckLer = (id) => { try { return JSON.parse(localStorage.getItem('ck-' + id) || '[]'); } catch { return []; } };
+const ckGravar = (id, v) => { try { localStorage.setItem('ck-' + id, JSON.stringify(v)); } catch {} };
+const ckCartao = () => `<div class="caixa destaque"><div class="rotulo">Antes de todo acionamento</div><h3>Checklists do R22 (EACAR)</h3>
+      <p class="sub">Pré-voo externo, antes do acionamento, acionamento e táxi, corte, emergências e luzes de aviso, para marcar item a item.</p>
+      <div class="linha-acao"><button class="pri" data-ckabrir="prevoo">✅ Pré-voo</button><button data-ckabrir="antes">Antes do acionamento</button><button data-ckabrir="acion">Acionamento</button><button data-ckabrir="corte">Corte</button><button data-ckabrir="emerg">🚨 Emergências</button></div></div>`;
+const ckAbrir = (c) => c.querySelectorAll('[data-ckabrir]').forEach(b => b.addEventListener('click', (e) => { e.preventDefault(); const v = b.dataset.ckabrir; if (v !== 'emerg') ckSel = v; irPara('checklists'); if (v === 'emerg') setTimeout(() => document.getElementById('ck-emerg')?.scrollIntoView({ behavior: 'smooth' }), 60); }));
 const IDS = CRONO.flatMap(d => d.itens.map(i => i.id));
 const feitos = (m) => IDS.filter(id => m?.estudo?.[id]).length;
 
@@ -133,6 +200,10 @@ function abrir() {
     const eu = membros.find((m) => m.uid === user.uid); if (eu) membro = eu;
     if (aba === 'inicio' || aba === 'estudo') render();
   }, () => {}));
+  parar.push(onSnapshot(collection(db, 'materiais'), (s) => {
+    mats = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.titulo || '').localeCompare(b.titulo || ''));
+    if (aba === 'materiais') render();
+  }, () => {}));
 }
 
 // ---------- telas ----------
@@ -155,7 +226,7 @@ inicio(){
   const f = feitos(membro), link = `${location.origin}${location.pathname}?c=${membro.codigo}`;
   const turma = membros.slice().sort((a,b) => (a.nome||'').localeCompare(b.nome||''));
   const faltam = (grupo?.pessoas || []).filter((p) => !membros.some((m) => m.nome === p));
-  return `<div class="grade">
+  return `${ckCartao()}<div class="grade">
     <div class="caixa destaque"><div class="rotulo">Olá, ${esc(membro.nome)}</div><h3>Seu estudo: ${f} de ${IDS.length} itens</h3><div class="barra"><i style="width:${f/IDS.length*100}%"></i></div>
       <p class="sub">Comandos, aerodinâmica, limites e emergências do R22, tráfego e fonia; depois, o Esquilo. Marque cada item ao terminar.</p>
       <div class="linha-acao"><button class="pri" data-ir="estudo">Abrir o cronograma</button><button data-ir="revisao">Revisão R22</button></div></div>
@@ -180,6 +251,23 @@ estudo(){
   <p class="intro">Cada um marca o próprio progresso (a turma vê quantos itens cada um fez, na aba Início). Os PDFs abrem no Google Drive; os vídeos abrem a busca no YouTube.</p>
   <div class="grade">${CRONO.map(d => `<div class="caixa"><div class="dia-cab"><b>${esc(d.nome)}</b><span class="sub">${esc(d.meta)}</span></div>
     <ul class="lista-check">${d.itens.map(i => { const ok = !!membro?.estudo?.[i.id]; return `<li class="${ok?'feito':''}"><button class="check" aria-pressed="${ok}" aria-label="Marcar ${esc(i.t)}" data-prog="${i.id}">✓</button><div class="txt"><div class="titulo">${esc(i.t)}</div><div class="sub">${esc(i.d)}</div><div class="links">${i.l.map(([tp,a,b]) => tp==='pdf' ? pdf(a,b) : `<a href="${yt(a)}" target="_blank" rel="noopener">▶ ${esc(b)}</a>`).join('')}</div></div></li>`; }).join('')}</ul></div>`).join('')}</div>`;
+},
+checklists(){
+  const c = CHECK.find(x => x.id === ckSel) || CHECK[0], marc = ckLer(c.id), total = c.grupos.reduce((s, g) => s + g[1].length, 0);
+  const OAT = [-20,-10,0,10,20,30,40], cabT = `<thead><tr><th>Alt. (ft)</th>${OAT.map(t => `<th class="n">${t}°</th>`).join('')}</tr></thead>`;
+  let n = 0;
+  return `<div class="cab"><h2>Checklists do R22</h2><span class="selo la">${marc.length}/${total} conferidos</span></div>
+  <p class="intro">Cartões da EACAR para usar antes de todo acionamento. Toque em cada item ao conferir; "Zerar" limpa para o próximo voo. Vale o cartão da aeronave e o que o instrutor mandar.</p>
+  <div class="chips">${CHECK.map(x => `<button class="chip" aria-pressed="${x.id===c.id}" data-cksel="${x.id}">${esc(x.nome)}</button>`).join('')}<button class="chip" data-ckir="ck-emerg">🚨 Emergências</button><button class="chip" data-ckir="ck-lim">Limites</button><button class="chip" data-ckir="ck-fonia">Fonia SISY</button></div>
+  <div class="barra"><i style="width:${total ? marc.length/total*100 : 0}%"></i></div>
+  <div class="linha-acao"><button data-ckzerar="1">Zerar este checklist</button><span class="links">${pdf(c.pdf, 'Cartão original')}</span></div>
+  <div class="grade">${c.grupos.map(([t, its]) => `<div class="caixa"><h3>${esc(t)}</h3><ul class="lista-check">${its.map(([a, b]) => { const k = n++, ok = marc.includes(k); return `<li class="${ok?'feito':''}"><button class="check" aria-pressed="${ok}" aria-label="Conferir ${esc(a)}" data-ck="${k}">✓</button><div class="txt"><div class="titulo">${esc(a)}</div></div><div class="ck-val">${esc(b)}</div></li>`; }).join('')}</ul></div>`).join('')}</div>
+  <div class="caixa destaque" id="ck-emerg"><h3>🚨 Procedimentos de emergência</h3><div class="grade">${EMERG.map(([t, ps]) => `<div><div class="titulo">${esc(t)}</div><ul class="ck-passos">${ps.map(p => `<li>${esc(p)}</li>`).join('')}</ul></div>`).join('')}</div><div class="links">${pdf('eacaremerg', 'Cartão de emergência')}</div></div>
+  <div class="caixa"><h3>Luzes de aviso</h3>${LUZES.map(([l, cl, t]) => `<div class="ck-luz"><span class="selo ${cl}">${esc(l)}</span><span>${esc(t)}</span></div>`).join('')}</div>
+  <div class="caixa" id="ck-lim"><h3>Limites e velocidades</h3><div class="linha-acao">${VELOC.map(([a, b]) => `<span class="selo la">${esc(a)}: ${esc(b)}</span>`).join('')}</div>
+    <div class="rotulo">Vne (KIAS) por altitude-pressão e OAT</div><div class="tabela"><table>${cabT}<tbody>${VNE.map(([a, vs]) => `<tr><td class="titulo">${a}</td>${vs.map(v => `<td class="n">${v || '<span class="sub">sem voo</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    <div class="rotulo">Pressão de admissão máxima contínua (pol Hg) · decolagem (5 min): some 0,9</div><div class="tabela"><table>${cabT}<tbody>${MAPT.map(([a, vs]) => `<tr><td class="titulo">${a}</td>${vs.map(v => `<td class="n">${v === 'FT' ? '<span class="sub">acel. total</span>' : v}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>
+  <div class="caixa" id="ck-fonia"><h3>Fonia do circuito SISY (EACAR)</h3><p class="sub">Exemplo com o PR-HMI; o transponder e as instruções variam. Escute o órgão.</p>${FONIA_SISY.map(([t, fs]) => `<div class="titulo">${esc(t)}</div><ul class="ck-passos">${fs.map(f => `<li>${esc(f)}</li>`).join('')}</ul>`).join('')}<div class="links">${pdf('eacarfonia', 'Roteiro de fonia')}</div></div>`;
 },
 revisao(){
   return `<h2>Revisão rápida do R22</h2><p class="intro">Resumo do POH (rev. 22/02/2024) e das Safety Notices, tirado da nota de estudo do cofre. Vale o POH da aeronave da escola.</p>
@@ -231,11 +319,21 @@ treino(){
 },
 materiais(){
   const ess = [['r22poh','POH R22 (Robinson, fev/2024)'],['r22br','R22: Suplemento Brasileiro do POH'],['delanir','Delanir: apostila PPH/PCH (aluno)'],['resumao','Resumão Piloto Privado'],['ica1004','ICA 100-4: regras para helicópteros (DECEA)'],['ica10012','ICA 100-12: regras do ar (DECEA)'],['mca10016','MCA 100-16: fraseologia (DECEA, 2025)'],['codmet','Códigos meteorológicos (METAR, TAF)'],['planovoo','Plano de voo'],['rbac67','RBAC 67: certificado médico (CMA)'],['faa6','FAA Helicopter Flying Handbook, cap. 6: peso e balanceamento'],['faa7','FAA Helicopter Flying Handbook, cap. 7: desempenho'],['is141','IS 141-007: programas de instrução (ANAC)']];
-  return `<h2>Materiais</h2><p class="intro">Os PDFs ficam numa pasta do Google Drive compartilhada com a turma. Se o Drive pedir acesso, toque em "Solicitar acesso" com a mesma conta Google que você usa aqui.</p>
-  <div class="caixa destaque"><h3>Essenciais do PPH</h3><div class="links">${ess.map(([k,t])=>pdf(k,t)).join('')}</div></div>
-  <div class="caixa"><h3>Safety Notices do R22</h3><div class="links">${SN.map(([k,c,t]) => pdf(k, c + ' · ' + t)).join('')}</div></div>
-  <div class="caixa"><h3>Esquilo (2º momento)</h3><div class="links">${pdf('dominio','Livro Domínio da Máquina: emergências do Esquilo AS350/H125 (Cmte Deccache, 2024)')}</div>
+  const eacar = [['eacarpre','Checklist pré-voo externo R22'],['eacaracio','Checklist de acionamento e corte R22'],['eacaremerg','Procedimentos de emergência R22'],['eacarman','Manual de Manobras R22 (Otavio Rosa e Rudi Barlem)'],['eacarpoh','POH R22: tradução para alunos (EACAR, 2026)'],['eacarfonia','Roteiro de fonia do circuito SISY']];
+  const extras = (s) => mats.filter((m) => m.secao === s).map((m) => `<span class="mat-turma"><a href="${esc(m.link)}" target="_blank" rel="noopener noreferrer">📎 ${esc(m.titulo)}</a>${m.autor === user.uid ? `<button class="mini fantasma" data-matdel="${esc(m.id)}" aria-label="Tirar ${esc(m.titulo)}">×</button>` : ''}<span class="sub">${esc(m.nome || '')}</span></span>`).join('');
+  return `<h2>Materiais</h2><p class="intro">Os PDFs ficam numa pasta do Google Drive compartilhada com a turma. Se o Drive pedir acesso, toque em "Solicitar acesso" com a mesma conta Google que você usa aqui. O que alguém da turma acrescentar aparece direto na seção escolhida.</p>
+  <div class="caixa destaque"><h3>Material da EACAR</h3><div class="links">${eacar.map(([k,t])=>pdf(k,t)).join('')}${extras('eacar')}</div>
+    <p class="sub">Os três cartões também estão na aba <a href="#checklists" data-ir="checklists">Checklists</a>, para marcar item a item.</p></div>
+  <div class="caixa"><h3>Essenciais do PPH</h3><div class="links">${ess.map(([k,t])=>pdf(k,t)).join('')}${extras('essenciais')}</div></div>
+  <div class="caixa"><h3>Safety Notices do R22</h3><div class="links">${SN.map(([k,c,t]) => pdf(k, c + ' · ' + t)).join('')}${extras('sn')}</div></div>
+  <div class="caixa"><h3>Esquilo (2º momento)</h3><div class="links">${pdf('dominio','Livro Domínio da Máquina: emergências do Esquilo AS350/H125 (Cmte Deccache, 2024)')}${extras('esquilo')}</div>
     <p class="sub">Livro comprado pela turma: uso só entre nós.</p></div>
+  ${mats.some((m) => m.secao === 'outros') ? `<div class="caixa"><h3>Outros</h3><div class="links">${extras('outros')}</div></div>` : ''}
+  <div class="caixa"><h3>Acrescentar material</h3><p class="sub">Coloque o arquivo no seu Google Drive (ou em outro site), copie o link de compartilhamento e cole aqui. Ele aparece na hora para a turma. No Drive, deixe o arquivo como "Qualquer pessoa com o link".</p>
+    <form id="fMat" class="form"><label class="largo">Título<input id="mTit" required maxlength="120" placeholder="Ex.: Resumo de autorrotação do Meira"></label>
+      <label>Seção<select id="mSec"><option value="eacar">Material da EACAR</option><option value="essenciais">Essenciais do PPH</option><option value="sn">Safety Notices</option><option value="esquilo">Esquilo</option><option value="outros">Outros</option></select></label>
+      <label>Link<input id="mLink" required type="url" placeholder="https://drive.google.com/..."></label>
+      <div class="largo linha-acao"><button class="pri" type="submit">Acrescentar</button><span class="sub" id="mMsg"></span></div></form></div>
   <div class="caixa"><h3>Pasta completa</h3><div class="links">${DRIVE_PASTA ? `<a class="pdf" href="https://drive.google.com/drive/folders/${DRIVE_PASTA}" target="_blank" rel="noopener">📁 Abrir a pasta no Google Drive</a>` : ''}<a href="${SIMULADOR}" target="_blank" rel="noopener">Simulador Heli (21 fases)</a></div></div>`;
 },
 gastos(){ return quadro('gastos.html', 'Gastos da turma'); },
@@ -308,7 +406,7 @@ function fonia(){
 // ---------- ligações ----------
 const LIGAR = {
   inicio(c){
-    c.querySelectorAll('[data-ir]').forEach(b => b.addEventListener('click', (e) => { e.preventDefault(); irPara(b.dataset.ir); }));
+    c.querySelectorAll('[data-ir]').forEach(b => b.addEventListener('click', (e) => { e.preventDefault(); irPara(b.dataset.ir); })); ckAbrir(c);
     $('#btLink').onclick = () => { const link = $('#lkTurma').value;
       if (navigator.share) navigator.share({ title: 'Hangar da Turma', text: 'Hangar da Turma do PPH: estudo, materiais, gastos e diário de voo. Entre com o seu Google:', url: link }).catch(() => {});
       else navigator.clipboard.writeText(link).then(() => toast('Link copiado'), () => toast(link)); };
@@ -323,6 +421,21 @@ const LIGAR = {
     $('#fnSel').onchange = (e) => { fnI = +e.target.value; fnP = 0; fonia(); };
     $('#fnBox').onclick = (e) => { const b = e.target.closest('[data-fn]'); if (!b) return; const [k,j] = b.dataset.fn.split('|').map(Number), o = DADOS.FONIA[fnI].passos[k].opcoes[j];
       if (o.ok) { fnP = k + 1; fonia(); } else { b.classList.add('errada'); const ex = $(`[data-fnexp="${k}"]`); if (ex) ex.textContent = o.erro || 'Não é a frase padrão.'; } }; },
+  checklists(c){ c.firstElementChild.addEventListener('click', (e) => { const b = e.target.closest('[data-ck],[data-cksel],[data-ckzerar],[data-ckir]'); if (!b) return;
+    if (b.dataset.cksel) { ckSel = b.dataset.cksel; return render(); }
+    if (b.dataset.ckir) return document.getElementById(b.dataset.ckir)?.scrollIntoView({ behavior: 'smooth' });
+    if (b.dataset.ckzerar) { ckGravar(ckSel, []); return render(); }
+    const k = +b.dataset.ck, m = ckLer(ckSel), i = m.indexOf(k); if (i < 0) m.push(k); else m.splice(i, 1); ckGravar(ckSel, m); render(); }); },
+  materiais(c){
+    c.querySelectorAll('[data-ir]').forEach(b => b.addEventListener('click', (e) => { e.preventDefault(); irPara(b.dataset.ir); }));
+    c.querySelectorAll('[data-matdel]').forEach(b => b.onclick = () => { if (confirm('Tirar este material da lista?')) deleteDoc(doc(db, 'materiais', b.dataset.matdel)).catch(() => toast('Não deu para tirar.')); });
+    $('#fMat').onsubmit = async (e) => {
+      e.preventDefault(); const titulo = $('#mTit').value.trim(), link = $('#mLink').value.trim();
+      if (!/^https:\/\//.test(link)) return ($('#mMsg').textContent = 'O link precisa começar com https://');
+      try { await addDoc(collection(db, 'materiais'), { titulo, link, secao: $('#mSec').value, autor: user.uid, nome: membro.nome, em: serverTimestamp() }); toast('Material acrescentado'); }
+      catch (e2) { $('#mMsg').textContent = 'Não salvou (' + (e2.code || e2.message) + ').'; }
+    };
+  },
 };
 
 document.getElementById('abas').addEventListener('click', (e) => { const b = e.target.closest('[data-aba]'); if (b && membro) irPara(b.dataset.aba); });

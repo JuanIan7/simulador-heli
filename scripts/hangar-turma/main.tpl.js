@@ -5,7 +5,7 @@
 // Revisão, treino e acessos vêm do Hangar CCOA (repo hangar-ccoa) por scripts/hangar-turma/gerar.py, sem os dados pessoais.
 import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, onSnapshot, serverTimestamp, arrayUnion, deleteField } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, collection, onSnapshot, serverTimestamp, arrayUnion, deleteField } from 'firebase/firestore';
 import { FIREBASE_CONFIG, ADMINS } from '../firebase-config.js';
 import { FONIA, ALFABETO, NUMEROS, PALAVRAS_PADRAO, TRANSPONDER } from '../data/fonia.js';
 import { METAR } from '../data/quiz-teoria.js';
@@ -24,9 +24,9 @@ const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTi
 function toast(t){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2400); }
 const pdf = (k, rot) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_blank" rel="noopener">📄 ${esc(rot)}</a>` : `<span class="sub">📄 ${esc(rot)}</span>`;
 
-const ABAS = [['inicio','Início'],['estudo','Estudo'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['gastos','Gastos'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
+const ABAS = [['inicio','Início'],['checklists','Checklists'],['estudo','Estudo'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['gastos','Gastos'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
 let aba = (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
-let user = null, membro = null, grupo = null, membros = [], parar = [];
+let user = null, membro = null, grupo = null, membros = [], mats = [], parar = [];
 
 // ---------- conteúdo ----------
 const CRONO = [
@@ -52,6 +52,7 @@ const CRONO = [
 /*@ESQUILO@*/
 ];
 /*@SN@*/
+/*@CKDADOS@*/
 const IDS = CRONO.flatMap(d => d.itens.map(i => i.id));
 const feitos = (m) => IDS.filter(id => m?.estudo?.[id]).length;
 
@@ -124,6 +125,10 @@ function abrir() {
     const eu = membros.find((m) => m.uid === user.uid); if (eu) membro = eu;
     if (aba === 'inicio' || aba === 'estudo') render();
   }, () => {}));
+  parar.push(onSnapshot(collection(db, 'materiais'), (s) => {
+    mats = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.titulo || '').localeCompare(b.titulo || ''));
+    if (aba === 'materiais') render();
+  }, () => {}));
 }
 
 // ---------- telas ----------
@@ -146,7 +151,7 @@ inicio(){
   const f = feitos(membro), link = `${location.origin}${location.pathname}?c=${membro.codigo}`;
   const turma = membros.slice().sort((a,b) => (a.nome||'').localeCompare(b.nome||''));
   const faltam = (grupo?.pessoas || []).filter((p) => !membros.some((m) => m.nome === p));
-  return `<div class="grade">
+  return `${ckCartao()}<div class="grade">
     <div class="caixa destaque"><div class="rotulo">Olá, ${esc(membro.nome)}</div><h3>Seu estudo: ${f} de ${IDS.length} itens</h3><div class="barra"><i style="width:${f/IDS.length*100}%"></i></div>
       <p class="sub">Comandos, aerodinâmica, limites e emergências do R22, tráfego e fonia; depois, o Esquilo. Marque cada item ao terminar.</p>
       <div class="linha-acao"><button class="pri" data-ir="estudo">Abrir o cronograma</button><button data-ir="revisao">Revisão R22</button></div></div>
@@ -172,15 +177,26 @@ estudo(){
   <div class="grade">${CRONO.map(d => `<div class="caixa"><div class="dia-cab"><b>${esc(d.nome)}</b><span class="sub">${esc(d.meta)}</span></div>
     <ul class="lista-check">${d.itens.map(i => { const ok = !!membro?.estudo?.[i.id]; return `<li class="${ok?'feito':''}"><button class="check" aria-pressed="${ok}" aria-label="Marcar ${esc(i.t)}" data-prog="${i.id}">✓</button><div class="txt"><div class="titulo">${esc(i.t)}</div><div class="sub">${esc(i.d)}</div><div class="links">${i.l.map(([tp,a,b]) => tp==='pdf' ? pdf(a,b) : `<a href="${yt(a)}" target="_blank" rel="noopener">▶ ${esc(b)}</a>`).join('')}</div></div></li>`; }).join('')}</ul></div>`).join('')}</div>`;
 },
+/*@CHECKLISTS@*/
 /*@REVISAO@*/
 /*@TREINO@*/
 materiais(){
   const ess = [['r22poh','POH R22 (Robinson, fev/2024)'],['r22br','R22: Suplemento Brasileiro do POH'],['delanir','Delanir: apostila PPH/PCH (aluno)'],['resumao','Resumão Piloto Privado'],['ica1004','ICA 100-4: regras para helicópteros (DECEA)'],['ica10012','ICA 100-12: regras do ar (DECEA)'],['mca10016','MCA 100-16: fraseologia (DECEA, 2025)'],['codmet','Códigos meteorológicos (METAR, TAF)'],['planovoo','Plano de voo'],['rbac67','RBAC 67: certificado médico (CMA)'],['faa6','FAA Helicopter Flying Handbook, cap. 6: peso e balanceamento'],['faa7','FAA Helicopter Flying Handbook, cap. 7: desempenho'],['is141','IS 141-007: programas de instrução (ANAC)']];
-  return `<h2>Materiais</h2><p class="intro">Os PDFs ficam numa pasta do Google Drive compartilhada com a turma. Se o Drive pedir acesso, toque em "Solicitar acesso" com a mesma conta Google que você usa aqui.</p>
-  <div class="caixa destaque"><h3>Essenciais do PPH</h3><div class="links">${ess.map(([k,t])=>pdf(k,t)).join('')}</div></div>
-  <div class="caixa"><h3>Safety Notices do R22</h3><div class="links">${SN.map(([k,c,t]) => pdf(k, c + ' · ' + t)).join('')}</div></div>
-  <div class="caixa"><h3>Esquilo (2º momento)</h3><div class="links">${pdf('dominio','Livro Domínio da Máquina: emergências do Esquilo AS350/H125 (Cmte Deccache, 2024)')}</div>
+  const eacar = [['eacarpre','Checklist pré-voo externo R22'],['eacaracio','Checklist de acionamento e corte R22'],['eacaremerg','Procedimentos de emergência R22'],['eacarman','Manual de Manobras R22 (Otavio Rosa e Rudi Barlem)'],['eacarpoh','POH R22: tradução para alunos (EACAR, 2026)'],['eacarfonia','Roteiro de fonia do circuito SISY']];
+  const extras = (s) => mats.filter((m) => m.secao === s).map((m) => `<span class="mat-turma"><a href="${esc(m.link)}" target="_blank" rel="noopener noreferrer">📎 ${esc(m.titulo)}</a>${m.autor === user.uid ? `<button class="mini fantasma" data-matdel="${esc(m.id)}" aria-label="Tirar ${esc(m.titulo)}">×</button>` : ''}<span class="sub">${esc(m.nome || '')}</span></span>`).join('');
+  return `<h2>Materiais</h2><p class="intro">Os PDFs ficam numa pasta do Google Drive compartilhada com a turma. Se o Drive pedir acesso, toque em "Solicitar acesso" com a mesma conta Google que você usa aqui. O que alguém da turma acrescentar aparece direto na seção escolhida.</p>
+  <div class="caixa destaque"><h3>Material da EACAR</h3><div class="links">${eacar.map(([k,t])=>pdf(k,t)).join('')}${extras('eacar')}</div>
+    <p class="sub">Os três cartões também estão na aba <a href="#checklists" data-ir="checklists">Checklists</a>, para marcar item a item.</p></div>
+  <div class="caixa"><h3>Essenciais do PPH</h3><div class="links">${ess.map(([k,t])=>pdf(k,t)).join('')}${extras('essenciais')}</div></div>
+  <div class="caixa"><h3>Safety Notices do R22</h3><div class="links">${SN.map(([k,c,t]) => pdf(k, c + ' · ' + t)).join('')}${extras('sn')}</div></div>
+  <div class="caixa"><h3>Esquilo (2º momento)</h3><div class="links">${pdf('dominio','Livro Domínio da Máquina: emergências do Esquilo AS350/H125 (Cmte Deccache, 2024)')}${extras('esquilo')}</div>
     <p class="sub">Livro comprado pela turma: uso só entre nós.</p></div>
+  ${mats.some((m) => m.secao === 'outros') ? `<div class="caixa"><h3>Outros</h3><div class="links">${extras('outros')}</div></div>` : ''}
+  <div class="caixa"><h3>Acrescentar material</h3><p class="sub">Coloque o arquivo no seu Google Drive (ou em outro site), copie o link de compartilhamento e cole aqui. Ele aparece na hora para a turma. No Drive, deixe o arquivo como "Qualquer pessoa com o link".</p>
+    <form id="fMat" class="form"><label class="largo">Título<input id="mTit" required maxlength="120" placeholder="Ex.: Resumo de autorrotação do Meira"></label>
+      <label>Seção<select id="mSec"><option value="eacar">Material da EACAR</option><option value="essenciais">Essenciais do PPH</option><option value="sn">Safety Notices</option><option value="esquilo">Esquilo</option><option value="outros">Outros</option></select></label>
+      <label>Link<input id="mLink" required type="url" placeholder="https://drive.google.com/..."></label>
+      <div class="largo linha-acao"><button class="pri" type="submit">Acrescentar</button><span class="sub" id="mMsg"></span></div></form></div>
   <div class="caixa"><h3>Pasta completa</h3><div class="links">${DRIVE_PASTA ? `<a class="pdf" href="https://drive.google.com/drive/folders/${DRIVE_PASTA}" target="_blank" rel="noopener">📁 Abrir a pasta no Google Drive</a>` : ''}<a href="${SIMULADOR}" target="_blank" rel="noopener">Simulador Heli (21 fases)</a></div></div>`;
 },
 gastos(){ return quadro('gastos.html', 'Gastos da turma'); },
@@ -193,7 +209,7 @@ diario(){ return `<p class="sub">Só você vê os seus voos.</p>` + quadro('diar
 // ---------- ligações ----------
 const LIGAR = {
   inicio(c){
-    c.querySelectorAll('[data-ir]').forEach(b => b.addEventListener('click', (e) => { e.preventDefault(); irPara(b.dataset.ir); }));
+    c.querySelectorAll('[data-ir]').forEach(b => b.addEventListener('click', (e) => { e.preventDefault(); irPara(b.dataset.ir); })); ckAbrir(c);
     $('#btLink').onclick = () => { const link = $('#lkTurma').value;
       if (navigator.share) navigator.share({ title: 'Hangar da Turma', text: 'Hangar da Turma do PPH: estudo, materiais, gastos e diário de voo. Entre com o seu Google:', url: link }).catch(() => {});
       else navigator.clipboard.writeText(link).then(() => toast('Link copiado'), () => toast(link)); };
@@ -204,6 +220,17 @@ const LIGAR = {
     updateDoc(doc(db, 'gastosMembros', user.uid), { ['estudo.' + id]: ok ? hoje() : deleteField() }).catch(() => toast('Não salvou. Tente de novo.'));
   }); },
 /*@LIGAR_TREINO@*/
+/*@LIGAR_CK@*/
+  materiais(c){
+    c.querySelectorAll('[data-ir]').forEach(b => b.addEventListener('click', (e) => { e.preventDefault(); irPara(b.dataset.ir); }));
+    c.querySelectorAll('[data-matdel]').forEach(b => b.onclick = () => { if (confirm('Tirar este material da lista?')) deleteDoc(doc(db, 'materiais', b.dataset.matdel)).catch(() => toast('Não deu para tirar.')); });
+    $('#fMat').onsubmit = async (e) => {
+      e.preventDefault(); const titulo = $('#mTit').value.trim(), link = $('#mLink').value.trim();
+      if (!/^https:\/\//.test(link)) return ($('#mMsg').textContent = 'O link precisa começar com https://');
+      try { await addDoc(collection(db, 'materiais'), { titulo, link, secao: $('#mSec').value, autor: user.uid, nome: membro.nome, em: serverTimestamp() }); toast('Material acrescentado'); }
+      catch (e2) { $('#mMsg').textContent = 'Não salvou (' + (e2.code || e2.message) + ').'; }
+    };
+  },
 };
 
 document.getElementById('abas').addEventListener('click', (e) => { const b = e.target.closest('[data-aba]'); if (b && membro) irPara(b.dataset.aba); });
