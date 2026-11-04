@@ -4,7 +4,8 @@
 // Os PDFs ficam numa pasta do Google Drive do Juan compartilhada com a turma; aqui só vão os links.
 // Revisão, treino e acessos vêm do Hangar CCOA (repo hangar-ccoa) por scripts/hangar-turma/gerar.py, sem os dados pessoais.
 import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
+import { entrarGoogle, navegadorRuim, avisoNavegador, ligarAviso } from '../entrar-google.js';
 import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, collection, onSnapshot, serverTimestamp, arrayUnion, deleteField } from 'firebase/firestore';
 import { FIREBASE_CONFIG, ADMINS } from '../firebase-config.js';
 import { FONIA, ALFABETO, NUMEROS, PALAVRAS_PADRAO, TRANSPONDER } from '../data/fonia.js';
@@ -136,7 +137,6 @@ const daUrl = new URLSearchParams(location.search).get('c');
 if (daUrl) { try { localStorage.setItem(CHAVE_CODIGO, daUrl); } catch {} history.replaceState(null, '', location.pathname + location.hash); }
 const codigoGuardado = () => { try { return localStorage.getItem(CHAVE_CODIGO); } catch { return null; } };
 
-getRedirectResult(auth).catch(() => {});
 onAuthStateChanged(auth, async (u) => {
   user = u; parar.forEach((f) => f()); parar = []; membro = null; grupo = null; membros = [];
   conta();
@@ -154,13 +154,9 @@ function telaLogin(erro) {
   $('#abas').innerHTML = '';
   $('#conteudo').innerHTML = `<div class="caixa destaque" style="align-items:center;text-align:center"><h2>Hangar da Turma</h2>
     <p class="intro">Estudo, revisão do R22, treino de METAR e fonia, materiais, gastos da turma e o seu diário de voo, num lugar só. Entre com a sua conta Google.</p>
-    <button class="pri" id="btEntrar">Entrar com Google</button>${erro ? `<p class="sub" style="color:var(--perigo)">${esc(erro)}</p>` : ''}
-    <p class="sub">No iPhone, se a janela do Google não abrir, use o Safari (fora do atalho da tela de início).</p></div>`;
-  $('#btEntrar').onclick = async () => {
-    const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' });
-    try { await signInWithPopup(auth, p); }
-    catch (e) { if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/cancelled-popup-request'].includes(e.code)) return signInWithRedirect(auth, p); if (e.code !== 'auth/popup-closed-by-user') telaLogin('Não deu para entrar: ' + (e.code || e.message)); }
-  };
+    <button class="pri" id="btEntrar">Entrar com Google</button>${erro && erro !== 'navegador' ? `<p class="sub" style="color:var(--perigo)">${esc(erro)}</p>` : ''}${erro === 'navegador' || navegadorRuim() ? avisoNavegador(location.origin + location.pathname + (codigoGuardado() ? '?c=' + codigoGuardado() : '')) : ''}</div>`;
+  ligarAviso();
+  $('#btEntrar').onclick = async () => { const r = await entrarGoogle(auth); if (r) telaLogin(r); };
 }
 
 async function telaEntrar(codigo, erro) {

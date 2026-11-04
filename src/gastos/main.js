@@ -6,7 +6,8 @@
 // Regras em firestore.rules: só membros leem e gravam.
 import '../embutido.js';
 import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
+import { entrarGoogle, navegadorRuim, avisoNavegador, ligarAviso } from '../entrar-google.js';
 import { getFirestore, doc, getDoc, setDoc, deleteDoc, updateDoc, collection, onSnapshot, serverTimestamp, writeBatch, arrayUnion } from 'firebase/firestore';
 import { FIREBASE_CONFIG, ADMINS } from '../firebase-config.js';
 
@@ -41,7 +42,6 @@ const daUrl = new URLSearchParams(location.search).get('c');
 if (daUrl) { try { localStorage.setItem(CHAVE_CODIGO, daUrl); } catch {} history.replaceState(null, '', location.pathname); }
 const codigoGuardado = () => { try { return localStorage.getItem(CHAVE_CODIGO); } catch { return null; } };
 
-getRedirectResult(auth).catch(() => {});
 onAuthStateChanged(auth, async (u) => {
   user = u; pararTudo(); membro = null; grupo = null; gastos = []; membros = [];
   topo();
@@ -73,14 +73,10 @@ function topo() {
 function telaLogin(erro) {
   el.innerHTML = `<section class="cartao login"><h2>Entre com a sua conta Google</h2>
     <p class="sub">É o mesmo login do Simulador Heli e do Diário de voo.</p>
-    <button class="pri" id="btEntrar">Entrar com Google</button>${erro ? `<p class="erro">${esc(erro)}</p>` : ''}
-    <p class="sub">No iPhone, se a janela do Google não abrir, use o Safari (fora do atalho da tela de início).</p></section>
+    <button class="pri" id="btEntrar">Entrar com Google</button>${erro && erro !== 'navegador' ? `<p class="erro">${esc(erro)}</p>` : ''}${erro === 'navegador' || navegadorRuim() ? avisoNavegador() : ''}</section>
     <section class="cartao"><h3>Para que serve</h3><p>Cada um lança o que gastou no curso (Uber, comida, hospedagem…), com quem dividiu. A página mostra quem ainda deve para quem, deixa marcar quando a pessoa pagou e soma o total gasto no curso.</p></section>`;
-  $('#btEntrar').onclick = async () => {
-    const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' });
-    try { await signInWithPopup(auth, p); }
-    catch (e) { if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/cancelled-popup-request'].includes(e.code)) return signInWithRedirect(auth, p); if (e.code !== 'auth/popup-closed-by-user') telaLogin('Não deu para entrar: ' + (e.code || e.message)); }
-  };
+  ligarAviso();
+  $('#btEntrar').onclick = async () => { const r = await entrarGoogle(auth); if (r) telaLogin(r); };
 }
 
 async function telaEntrar(codigo, erro) {

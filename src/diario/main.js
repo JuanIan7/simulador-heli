@@ -4,7 +4,8 @@
 // O login é o mesmo do Simulador Heli: quem já entrou no jogo já entra aqui.
 import '../embutido.js';
 import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
+import { entrarGoogle, navegadorRuim, avisoNavegador, ligarAviso } from '../entrar-google.js';
 import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { FIREBASE_CONFIG } from '../firebase-config.js';
 import { LOCAIS, dividirVoo, crepusculoCivil, paraMin, paraHHMM } from './crepusculo.js';
@@ -27,7 +28,6 @@ let user = null, perfil = null, voos = [], pararVoos = null, editando = null, fi
 
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2600); }
 
-getRedirectResult(auth).catch(() => {});
 onAuthStateChanged(auth, async (u) => {
   user = u; pararVoos?.(); pararVoos = null; voos = []; perfil = null;
   topo();
@@ -51,14 +51,10 @@ function topo() {
 function telaLogin(erro) {
   el.innerHTML = `<section class="cartao login"><h2>Entre com a sua conta Google</h2>
     <p class="sub">Cada piloto tem o próprio diário: só você vê os seus voos. É o mesmo login do Simulador Heli.</p>
-    <button class="pri" id="btEntrar">Entrar com Google</button>${erro ? `<p class="erro">${esc(erro)}</p>` : ''}
-    <p class="sub">No iPhone, se a janela do Google não abrir, use o Safari (fora do atalho da tela de início).</p></section>
+    <button class="pri" id="btEntrar">Entrar com Google</button>${erro && erro !== 'navegador' ? `<p class="erro">${esc(erro)}</p>` : ''}${erro === 'navegador' || navegadorRuim() ? avisoNavegador() : ''}</section>
     <section class="cartao"><h3>Para que serve</h3><p>Anote cada voo na hora, com o horário, o tempo diurno e noturno, os pousos e o que foi treinado. Depois confira com a CIV Digital da ANAC se o voo foi lançado igual. Quando tudo bater, marque como "Conferido".</p></section>`;
-  $('#btEntrar').onclick = async () => {
-    const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' });
-    try { await signInWithPopup(auth, p); }
-    catch (e) { if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/cancelled-popup-request'].includes(e.code)) return signInWithRedirect(auth, p); if (e.code !== 'auth/popup-closed-by-user') telaLogin('Não deu para entrar: ' + (e.code || e.message)); }
-  };
+  ligarAviso();
+  $('#btEntrar').onclick = async () => { const r = await entrarGoogle(auth); if (r) telaLogin(r); };
 }
 
 function telaPerfil(primeira) {

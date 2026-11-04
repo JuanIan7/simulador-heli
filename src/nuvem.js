@@ -29,7 +29,6 @@ export async function iniciarNuvem() {
   if (!disponivel()) { conta.pronto = true; return; }
   try {
     const { auth, A } = await carregar();
-    A.getRedirectResult(auth).catch(() => {});
     A.onAuthStateChanged(auth, async (u) => {
       conta.user = u; conta.perfil = null; pararDoc?.(); pararDoc = null;
       if (u) { try { await sincronizarEntrada(u); } catch (e) { conta.erro = 'Não foi possível ler o seu progresso na nuvem (' + (e.code || e.message) + ').'; } }
@@ -39,14 +38,10 @@ export async function iniciarNuvem() {
 }
 
 export async function entrar() {
-  const { auth, A } = await carregar();
-  const prov = new A.GoogleAuthProvider(); prov.setCustomParameters({ prompt: 'select_account' });
-  try { await A.signInWithPopup(auth, prov); }
-  catch (e) {
-    if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/cancelled-popup-request'].includes(e.code)) return A.signInWithRedirect(auth, prov);
-    if (e.code === 'auth/popup-closed-by-user') return;
-    throw e;
-  }
+  const [{ auth }, { entrarGoogle }] = await Promise.all([carregar(), import('./entrar-google.js')]);
+  const r = await entrarGoogle(auth);
+  if (r === 'navegador') throw new Error('este navegador não deixa entrar com o Google. Abra o jogo no Chrome ou no Safari (fora do WhatsApp/Instagram e do atalho da tela de início).');
+  if (r) throw new Error(r.replace('Não deu para entrar: ', ''));
 }
 export async function sair() {
   const { auth, A } = await carregar(); pararDoc?.(); pararDoc = null;
