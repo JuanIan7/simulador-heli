@@ -8,6 +8,7 @@ import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
 import { entrarGoogle, navegadorRuim, avisoNavegador, ligarAviso } from '../entrar-google.js';
 import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { FIREBASE_CONFIG } from '../firebase-config.js';
+import { limpar, limparNome, soDigitos, formatarMatricula, matriculaValida, formatarIcao, icaoValido, formatarModelo, fecharDuracao, dataValida, hojeIso, celulaCsv, ligarMascaras } from '../entrada.js';
 import { LOCAIS, dividirVoo, crepusculoCivil, paraMin, paraHHMM } from './crepusculo.js';
 
 const app = initializeApp(FIREBASE_CONFIG), auth = getAuth(app), db = getFirestore(app);
@@ -62,24 +63,27 @@ function telaPerfil(primeira) {
   el.innerHTML = `<section class="cartao"><div class="cab"><h2>${primeira ? 'Seus dados de piloto' : 'Editar meus dados'}</h2></div>
     <p class="sub">${primeira ? 'Preencha uma vez. Os dados da aeronave e do instrutor viram o padrão de cada voo novo.' : ''}</p>
     <form id="fPerfil" class="form">
-      <label class="largo">Nome completo<input id="pNome" required value="${esc(p.nome)}"></label>
-      <label>CANAC<input id="pCanac" inputmode="numeric" value="${esc(p.canac)}" placeholder="6 dígitos"></label>
-      <label>Escola<input id="pEscola" value="${esc(p.escola)}"></label>
-      <label>Curso<input id="pCurso" value="${esc(p.curso)}"></label>
-      <label>Instrutor (padrão)<input id="pInstrutor" value="${esc(p.instrutor)}"></label>
-      <label>CANAC do instrutor<input id="pCanacInstr" inputmode="numeric" value="${esc(p.canacInstrutor)}"></label>
-      <label>Aeronave (modelo)<input id="pModelo" value="${esc(p.modelo)}"></label>
-      <label>Matrícula padrão<input id="pMatricula" value="${esc(p.matricula)}" placeholder="PR-XXX"></label>
-      <label>Aeródromo de origem padrão<input id="pOrigem" value="${esc(p.origem)}" placeholder="SISY"></label>
+      <label class="largo">Nome completo<input id="pNome" required data-m="nome" maxlength="80" value="${esc(p.nome)}"></label>
+      <label>CANAC<input id="pCanac" data-m="canac" value="${esc(p.canac)}" placeholder="6 dígitos"></label>
+      <label>Escola<input id="pEscola" data-m="texto" maxlength="60" value="${esc(p.escola)}"></label>
+      <label>Curso<input id="pCurso" data-m="texto" maxlength="60" value="${esc(p.curso)}"></label>
+      <label>Instrutor (padrão)<input id="pInstrutor" data-m="nome" maxlength="80" value="${esc(p.instrutor)}"></label>
+      <label>CANAC do instrutor<input id="pCanacInstr" data-m="canac" value="${esc(p.canacInstrutor)}"></label>
+      <label>Aeronave (modelo)<input id="pModelo" data-m="modelo" value="${esc(p.modelo)}"></label>
+      <label>Matrícula padrão<input id="pMatricula" data-m="matricula" value="${esc(p.matricula)}" placeholder="PR-XXX"></label>
+      <label>Aeródromo de origem padrão<input id="pOrigem" data-m="icao" value="${esc(p.origem)}" placeholder="SISY"></label>
       <label>Local do cálculo diurno/noturno<select id="pLocal">${Object.entries(LOCAIS).map(([k, v]) => `<option value="${k}" ${k === p.local ? 'selected' : ''}>${v.nome}</option>`).join('')}</select></label>
-      <label>Meta de horas do curso<input id="pMeta" type="number" min="0" step="0.5" value="${esc(p.meta)}"></label>
+      <label>Meta de horas do curso<input id="pMeta" type="number" min="0" max="2000" step="0.5" value="${esc(p.meta)}"></label>
       <div class="largo linha-acao"><button class="pri" type="submit">Salvar</button>${primeira ? '' : '<button type="button" id="pVoltar">Voltar</button>'}</div>
     </form><p class="erro" id="pErro"></p></section>`;
+  ligarMascaras(el);
   $('#pVoltar')?.addEventListener('click', telaPrincipal);
   $('#fPerfil').onsubmit = async (e) => {
     e.preventDefault();
-    const d = { nome: $('#pNome').value.trim(), canac: $('#pCanac').value.trim(), escola: $('#pEscola').value.trim(), curso: $('#pCurso').value.trim(), instrutor: $('#pInstrutor').value.trim(), canacInstrutor: $('#pCanacInstr').value.trim(), modelo: $('#pModelo').value.trim(), matricula: $('#pMatricula').value.trim().toUpperCase(), origem: $('#pOrigem').value.trim().toUpperCase(), local: $('#pLocal').value, meta: Number($('#pMeta').value) || 0, email: user.email, atualizadoEm: serverTimestamp() };
-    if (d.nome.length < 3) { $('#pErro').textContent = 'Escreva o nome completo.'; return; }
+    const d = { nome: limparNome($('#pNome').value, 80), canac: soDigitos($('#pCanac').value, 6), escola: limpar($('#pEscola').value, 60), curso: limpar($('#pCurso').value, 60), instrutor: limparNome($('#pInstrutor').value, 80), canacInstrutor: soDigitos($('#pCanacInstr').value, 6), modelo: formatarModelo($('#pModelo').value).trim(), matricula: formatarMatricula($('#pMatricula').value), origem: formatarIcao($('#pOrigem').value), local: LOCAIS[$('#pLocal').value] ? $('#pLocal').value : 'piraquara', meta: Math.min(2000, Math.max(0, Number($('#pMeta').value) || 0)), email: user.email, atualizadoEm: serverTimestamp() };
+    const erro = d.nome.length < 3 ? 'Escreva o nome completo.' : d.canac && d.canac.length !== 6 ? 'O CANAC tem 6 dígitos.' : d.canacInstrutor && d.canacInstrutor.length !== 6 ? 'O CANAC do instrutor tem 6 dígitos.'
+      : !matriculaValida(d.matricula) ? 'Matrícula no formato PR-ABC.' : !icaoValido(d.origem) ? 'O aeródromo de origem tem 4 letras (ex.: SISY).' : '';
+    if (erro) { $('#pErro').textContent = erro; return; }
     try { await setDoc(doc(db, 'diario', user.uid), d, { merge: true }); perfil = d; topo(); toast('Dados salvos'); if (primeira) location.reload(); else telaPrincipal(); }
     catch (e2) { $('#pErro').textContent = 'Não salvou: ' + (e2.code || e2.message); }
   };
@@ -138,28 +142,29 @@ function telaVoo(v) {
   let tocado = { diurno: v.id != null, noturno: v.id != null };
   el.innerHTML = `<section class="cartao"><div class="cab"><h2>${v.id ? 'Voo de ' + dBR(v.data) : 'Novo voo'}</h2><button type="button" id="vVoltar">Voltar</button></div>
     <form id="fVoo" class="form">
-      <label>Data<input id="vData" type="date" required value="${esc(v.data)}"></label>
-      <label>Aeronave (modelo)<input id="vModelo" value="${esc(v.modelo)}"></label>
-      <label>Matrícula<input id="vMatricula" value="${esc(v.matricula)}" placeholder="PR-XXX"></label>
-      <label>Origem (ICAO)<input id="vOrigem" value="${esc(v.origem)}"></label>
-      <label>Destino (ICAO)<input id="vDestino" value="${esc(v.destino)}"></label>
+      <label>Data<input id="vData" type="date" required min="2000-01-01" max="${hojeIso(1)}" value="${esc(v.data)}"></label>
+      <label>Aeronave (modelo)<input id="vModelo" data-m="modelo" value="${esc(v.modelo)}"></label>
+      <label>Matrícula<input id="vMatricula" data-m="matricula" value="${esc(v.matricula)}" placeholder="PR-XXX"></label>
+      <label>Origem (ICAO)<input id="vOrigem" data-m="icao" placeholder="SISY" value="${esc(v.origem)}"></label>
+      <label>Destino (ICAO)<input id="vDestino" data-m="icao" placeholder="SISY" value="${esc(v.destino)}"></label>
       <label>Início (hora local)<input id="vInicio" type="time" value="${esc(v.inicio)}"></label>
       <label>Fim (hora local)<input id="vFim" type="time" value="${esc(v.fim)}"></label>
       <div class="largo dica" id="vCalc">Informe início e fim: o diário sugere o tempo diurno e o noturno.</div>
-      <label>Tempo diurno (h:min)<input id="vDiurno" value="${hm(v.diurno)}" inputmode="numeric" placeholder="00:00"></label>
-      <label>Tempo noturno (h:min)<input id="vNoturno" value="${hm(v.noturno)}" inputmode="numeric" placeholder="00:00"></label>
+      <label>Tempo diurno (h:min)<input id="vDiurno" data-m="duracao" value="${hm(v.diurno)}" placeholder="00:00"></label>
+      <label>Tempo noturno (h:min)<input id="vNoturno" data-m="duracao" value="${hm(v.noturno)}" placeholder="00:00"></label>
       <label>Função a bordo<select id="vFuncao">${Object.entries(FUNCOES).map(([k, t]) => `<option value="${k}" ${k === v.funcao ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
-      <label>Pousos diurnos<input id="vPousosD" type="number" min="0" value="${v.pousosD || 0}"></label>
-      <label>Pousos noturnos<input id="vPousosN" type="number" min="0" value="${v.pousosN || 0}"></label>
-      <label>Navegação (h:min)<input id="vNav" value="${hm(v.navegacao)}" inputmode="numeric"></label>
-      <label>Capota / IFR (h:min)<input id="vCapota" value="${hm(v.capota)}" inputmode="numeric"></label>
-      <label>Instrutor<input id="vInstrutor" value="${esc(v.instrutor)}"></label>
-      <label>CANAC do instrutor<input id="vCanacInstr" inputmode="numeric" value="${esc(v.canacInstrutor)}"></label>
+      <label>Pousos diurnos<input id="vPousosD" type="number" min="0" max="99" step="1" value="${v.pousosD || 0}"></label>
+      <label>Pousos noturnos<input id="vPousosN" type="number" min="0" max="99" step="1" value="${v.pousosN || 0}"></label>
+      <label>Navegação (h:min)<input id="vNav" data-m="duracao" value="${hm(v.navegacao)}" placeholder="00:00"></label>
+      <label>Capota / IFR (h:min)<input id="vCapota" data-m="duracao" value="${hm(v.capota)}" placeholder="00:00"></label>
+      <label>Instrutor<input id="vInstrutor" data-m="nome" maxlength="80" value="${esc(v.instrutor)}"></label>
+      <label>CANAC do instrutor<input id="vCanacInstr" data-m="canac" value="${esc(v.canacInstrutor)}"></label>
       <div class="largo"><h3 style="margin-bottom:6px">O que foi treinado</h3><div class="chips" id="vEx">${EXERCICIOS.map((x) => `<button type="button" class="chip" aria-pressed="${ex.has(x)}" data-x="${esc(x)}">${esc(x)}</button>`).join('')}</div></div>
-      <label class="largo">Observações (o que aprendi, o que errei, o que o instrutor pediu)<textarea id="vObs">${esc(v.obs)}</textarea></label>
+      <label class="largo">Observações (o que aprendi, o que errei, o que o instrutor pediu)<textarea id="vObs" data-m="texto" maxlength="2000">${esc(v.obs)}</textarea></label>
       <label>Situação na CIV Digital<select id="vCiv">${Object.entries(CIV).map(([k, c]) => `<option value="${k}" ${k === (v.civ || 'nao') ? 'selected' : ''}>${c[1]}</option>`).join('')}</select></label>
       <div class="largo linha-acao"><button class="pri" type="submit">Salvar voo</button>${v.id ? '<button type="button" class="perigo" id="vApagar">Apagar</button>' : ''}</div>
     </form><p class="erro" id="vErro"></p></section>`;
+  ligarMascaras(el);
   const recalcular = () => {
     const d = $('#vData').value, i = $('#vInicio').value, f = $('#vFim').value, local = LOCAIS[perfil.local] || LOCAIS.piraquara;
     if (!d || !i || !f) return;
@@ -177,15 +182,19 @@ function telaVoo(v) {
   $('#vApagar')?.addEventListener('click', async () => { if (!confirm('Apagar este voo do seu diário?')) return; await deleteDoc(doc(db, 'diario', user.uid, 'voos', v.id)); toast('Voo apagado'); telaPrincipal(); });
   $('#fVoo').onsubmit = async (e) => {
     e.preventDefault();
-    const minDe = (s) => { const m = paraMin($(s).value.trim()); return m == null ? (/^\d+$/.test($(s).value.trim()) ? +$(s).value.trim() : 0) : m; };
+    const minDe = (s) => Math.min(24 * 60, paraMin(fecharDuracao($(s).value)) ?? 0);
+    const pousos = (s) => Math.min(99, Math.max(0, Math.floor(+$(s).value) || 0));
     const d = {
-      data: $('#vData').value, modelo: $('#vModelo').value.trim(), matricula: $('#vMatricula').value.trim().toUpperCase(), origem: $('#vOrigem').value.trim().toUpperCase(), destino: $('#vDestino').value.trim().toUpperCase(),
-      inicio: $('#vInicio').value, fim: $('#vFim').value, diurno: minDe('#vDiurno'), noturno: minDe('#vNoturno'), funcao: $('#vFuncao').value,
-      pousosD: +$('#vPousosD').value || 0, pousosN: +$('#vPousosN').value || 0, navegacao: minDe('#vNav'), capota: minDe('#vCapota'),
-      instrutor: $('#vInstrutor').value.trim(), canacInstrutor: $('#vCanacInstr').value.trim(),
-      exercicios: [...el.querySelectorAll('#vEx [aria-pressed="true"]')].map((b) => b.dataset.x), obs: $('#vObs').value.trim(), civ: $('#vCiv').value, atualizadoEm: serverTimestamp(),
+      data: $('#vData').value, modelo: formatarModelo($('#vModelo').value).trim(), matricula: formatarMatricula($('#vMatricula').value), origem: formatarIcao($('#vOrigem').value), destino: formatarIcao($('#vDestino').value),
+      inicio: /^\d{2}:\d{2}$/.test($('#vInicio').value) ? $('#vInicio').value : '', fim: /^\d{2}:\d{2}$/.test($('#vFim').value) ? $('#vFim').value : '', diurno: minDe('#vDiurno'), noturno: minDe('#vNoturno'), funcao: FUNCOES[$('#vFuncao').value] ? $('#vFuncao').value : 'instrucao',
+      pousosD: pousos('#vPousosD'), pousosN: pousos('#vPousosN'), navegacao: minDe('#vNav'), capota: minDe('#vCapota'),
+      instrutor: limparNome($('#vInstrutor').value, 80), canacInstrutor: soDigitos($('#vCanacInstr').value, 6),
+      exercicios: [...el.querySelectorAll('#vEx [aria-pressed="true"]')].map((b) => b.dataset.x).filter((x) => EXERCICIOS.includes(x)), obs: limpar($('#vObs').value, 2000, { multilinha: true }), civ: CIV[$('#vCiv').value] ? $('#vCiv').value : 'nao', atualizadoEm: serverTimestamp(),
     };
-    if (!d.data) { $('#vErro').textContent = 'Informe a data.'; return; }
+    if (!dataValida(d.data, '2000-01-01', hojeIso(1))) { $('#vErro').textContent = 'Informe uma data válida (não pode ser no futuro).'; return; }
+    if (!matriculaValida(d.matricula)) { $('#vErro').textContent = 'Matrícula no formato PR-ABC.'; return; }
+    if (!icaoValido(d.origem) || !icaoValido(d.destino)) { $('#vErro').textContent = 'Origem e destino têm 4 letras (código ICAO, ex.: SISY).'; return; }
+    if (d.canacInstrutor && d.canacInstrutor.length !== 6) { $('#vErro').textContent = 'O CANAC do instrutor tem 6 dígitos.'; return; }
     if (d.diurno + d.noturno <= 0) { $('#vErro').textContent = 'Informe o tempo de voo (início e fim, ou diurno/noturno).'; return; }
     const id = v.id || (d.data + '-' + (d.inicio || '').replace(':', '') + '-' + Math.random().toString(36).slice(2, 6));
     try { await setDoc(doc(db, 'diario', user.uid, 'voos', id), v.id ? d : { ...d, criadoEm: serverTimestamp() }, { merge: true }); toast('Voo salvo'); telaPrincipal(); }
@@ -195,7 +204,7 @@ function telaVoo(v) {
 
 function linhasCsv() {
   const cab = ['Data', 'Modelo', 'Matrícula', 'Origem', 'Destino', 'Início', 'Fim', 'Diurno', 'Noturno', 'Total', 'Função', 'Pousos diurnos', 'Pousos noturnos', 'Navegação', 'Capota', 'Instrutor', 'CANAC instrutor', 'Treinado', 'Observações', 'CIV'];
-  const q = (x) => '"' + String(x ?? '').replace(/"/g, '""') + '"';
+  const q = celulaCsv;
   return [cab.map(q).join(';'), ...[...voos].reverse().map((v) => [dBR(v.data), v.modelo, v.matricula, v.origem, v.destino, v.inicio, v.fim, hm(v.diurno), hm(v.noturno), hm((v.diurno || 0) + (v.noturno || 0)), FUNCOES[v.funcao], v.pousosD, v.pousosN, hm(v.navegacao), hm(v.capota), v.instrutor, v.canacInstrutor, (v.exercicios || []).join(', '), v.obs, CIV[v.civ || 'nao'][1]].map(q).join(';'))].join('\r\n');
 }
 function baixarCsv() {
