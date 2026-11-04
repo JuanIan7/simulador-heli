@@ -6,8 +6,9 @@ import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
 const ua = navigator.userAgent;
 const android = /Android/i.test(ua), iphone = /iPhone|iPad|iPod/i.test(ua);
-// navegador de dentro de outro app (WhatsApp, Instagram, Facebook, Line, app do Google, WebView do Android) ou atalho da tela de início do iPhone
-export const navegadorRuim = () => /FBAN|FBAV|Instagram|WhatsApp|Line\/|GSA\/|; wv\)/i.test(ua) || navigator.standalone === true;
+// navegador de dentro de outro app (WhatsApp, Instagram, Facebook, Line, app do Google, WebView do Android), navegador embutido
+// do iPhone (app do Claude e outros: o Safari de verdade, o Chrome e o Firefox do iPhone trazem "Safari/" no nome) ou atalho da tela de início
+export const navegadorRuim = () => /FBAN|FBAV|Instagram|WhatsApp|Line\/|GSA\/|; wv\)/i.test(ua) || (iphone && !/Safari\//.test(ua)) || navigator.standalone === true;
 
 // devolve null quando entrou ou a pessoa fechou a janela; 'navegador' quando este navegador não deixa; ou a mensagem de erro
 export async function entrarGoogle(auth) {
@@ -20,12 +21,15 @@ export async function entrarGoogle(auth) {
   }
 }
 
-// caixa "abra no Chrome/Safari", com botão que tenta abrir direto e outro que copia o link
-export function avisoNavegador(url = location.href) {
+// caixa "abra no Chrome/Safari", com botão que tenta abrir direto e outro que copia o link.
+// Sem "forte" (navegador que parece bom) fica só uma linha: alguns navegadores embutidos não se identificam e dão "missing initial state".
+export function avisoNavegador(forte, url = location.href) {
+  if (!forte) return `<p class="sub aviso-navegador" style="margin-top:10px">Apareceu "missing initial state"? O link abriu dentro de outro app (Claude, WhatsApp...).
+    <button type="button" data-copiar-link="${url.replace(/"/g, '&quot;')}">Copiar o link</button> e abra no ${iphone ? 'Safari' : 'Chrome'}.</p>`;
   const sem = url.replace(/^https:\/\//, '');
   const abrir = android ? `intent://${sem}#Intent;scheme=https;package=com.android.chrome;end` : iphone ? `x-safari-https://${sem}` : '';
   return `<div class="aviso-navegador" style="margin-top:10px;text-align:left">
-    <p><b>Este navegador não deixa entrar com o Google.</b> Isso acontece quando o link abre dentro do WhatsApp, do Instagram ou pelo atalho da tela de início.
+    <p><b>Este navegador não deixa entrar com o Google.</b> Isso acontece quando o link abre dentro de outro app (Claude, WhatsApp, Instagram) ou pelo atalho da tela de início.
     Abra no ${iphone ? 'Safari' : 'Chrome'} e entre de novo por lá.</p>
     <p style="display:flex;gap:8px;flex-wrap:wrap">${abrir ? `<button class="pri" type="button" data-abrir-em="${abrir}">Abrir no ${iphone ? 'Safari' : 'Chrome'}</button>` : ''}
     <button type="button" data-copiar-link="${url.replace(/"/g, '&quot;')}">Copiar o link</button></p></div>`;

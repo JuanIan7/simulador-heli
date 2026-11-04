@@ -51,7 +51,7 @@ function topo() {
 function telaLogin(erro) {
   el.innerHTML = `<section class="cartao login"><h2>Entre com a sua conta Google</h2>
     <p class="sub">Cada piloto tem o próprio diário: só você vê os seus voos. É o mesmo login do Simulador Heli.</p>
-    <button class="pri" id="btEntrar">Entrar com Google</button>${erro && erro !== 'navegador' ? `<p class="erro">${esc(erro)}</p>` : ''}${erro === 'navegador' || navegadorRuim() ? avisoNavegador() : ''}</section>
+    <button class="pri" id="btEntrar">Entrar com Google</button>${erro && erro !== 'navegador' ? `<p class="erro">${esc(erro)}</p>` : ''}${avisoNavegador(erro === 'navegador' || navegadorRuim())}</section>
     <section class="cartao"><h3>Para que serve</h3><p>Anote cada voo na hora, com o horário, o tempo diurno e noturno, os pousos e o que foi treinado. Depois confira com a CIV Digital da ANAC se o voo foi lançado igual. Quando tudo bater, marque como "Conferido".</p></section>`;
   ligarAviso();
   $('#btEntrar').onclick = async () => { const r = await entrarGoogle(auth); if (r) telaLogin(r); };

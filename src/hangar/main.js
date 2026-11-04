@@ -154,7 +154,7 @@ function telaLogin(erro) {
   $('#abas').innerHTML = '';
   $('#conteudo').innerHTML = `<div class="caixa destaque" style="align-items:center;text-align:center"><h2>Hangar da Turma</h2>
     <p class="intro">Estudo, revisão do R22, treino de METAR e fonia, materiais, gastos da turma e o seu diário de voo, num lugar só. Entre com a sua conta Google.</p>
-    <button class="pri" id="btEntrar">Entrar com Google</button>${erro && erro !== 'navegador' ? `<p class="sub" style="color:var(--perigo)">${esc(erro)}</p>` : ''}${erro === 'navegador' || navegadorRuim() ? avisoNavegador(location.origin + location.pathname + (codigoGuardado() ? '?c=' + codigoGuardado() : '')) : ''}</div>`;
+    <button class="pri" id="btEntrar">Entrar com Google</button>${erro && erro !== 'navegador' ? `<p class="sub" style="color:var(--perigo)">${esc(erro)}</p>` : ''}${avisoNavegador(erro === 'navegador' || navegadorRuim(), location.origin + location.pathname + (codigoGuardado() ? '?c=' + codigoGuardado() : ''))}</div>`;
   ligarAviso();
   $('#btEntrar').onclick = async () => { const r = await entrarGoogle(auth); if (r) telaLogin(r); };
 }

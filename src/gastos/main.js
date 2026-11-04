@@ -73,7 +73,7 @@ function topo() {
 function telaLogin(erro) {
   el.innerHTML = `<section class="cartao login"><h2>Entre com a sua conta Google</h2>
     <p class="sub">É o mesmo login do Simulador Heli e do Diário de voo.</p>
-    <button class="pri" id="btEntrar">Entrar com Google</button>${erro && erro !== 'navegador' ? `<p class="erro">${esc(erro)}</p>` : ''}${erro === 'navegador' || navegadorRuim() ? avisoNavegador() : ''}</section>
+    <button class="pri" id="btEntrar">Entrar com Google</button>${erro && erro !== 'navegador' ? `<p class="erro">${esc(erro)}</p>` : ''}${avisoNavegador(erro === 'navegador' || navegadorRuim())}</section>
     <section class="cartao"><h3>Para que serve</h3><p>Cada um lança o que gastou no curso (Uber, comida, hospedagem…), com quem dividiu. A página mostra quem ainda deve para quem, deixa marcar quando a pessoa pagou e soma o total gasto no curso.</p></section>`;
   ligarAviso();
   $('#btEntrar').onclick = async () => { const r = await entrarGoogle(auth); if (r) telaLogin(r); };
