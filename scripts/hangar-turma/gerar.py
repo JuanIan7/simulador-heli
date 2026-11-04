@@ -22,7 +22,7 @@ revisao = bloco("revisao(){", "treino(){")
 treino = bloco("treino(){", "materiais(){")
 acessos = bloco("acessos(){", "};")
 # fora do material da turma: CANAC, cofre de senhas e atalhos pessoais
-acessos = re.sub(r'\s*<p class="sub">CANAC:.*?</p>', "", acessos)
+acessos = re.sub(r'\s*<p class="sub">CANAC.*?</p>', "", acessos)
 acessos = re.sub(r'\s*<div class="caixa"><h3>Meus atalhos</h3>.*?</div></div>`;', "\n  `;", acessos, flags=re.S)
 metar = bloco("function decodificarMetar(txt){", "// ---------- ligações ----------")
 sn = next(l for l in L if l.startswith("const SN = "))
