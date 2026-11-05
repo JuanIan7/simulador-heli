@@ -3,9 +3,7 @@
 // Com null, o jogo funciona sem contas (progresso só no aparelho) e o botão de entrar não aparece.
 export const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyAtAk46_NGyYk_3OD8PbhPfu9l9NieL_sY',
-  // no GitHub Pages o login passa pelo próprio site (juanian7.github.io/__/auth/, repo juanian7.github.io): no Safari e no Chrome do iPhone
-  // o login por simulador-heli.firebaseapp.com perde o estado e dá "missing initial state"
-  authDomain: globalThis.location?.hostname === 'juanian7.github.io' ? 'juanian7.github.io' : 'simulador-heli.firebaseapp.com',
+  authDomain: 'simulador-heli.firebaseapp.com',
   projectId: 'simulador-heli',
   storageBucket: 'simulador-heli.firebasestorage.app',
   messagingSenderId: '28951497338',
