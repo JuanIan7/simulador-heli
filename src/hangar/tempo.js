@@ -118,7 +118,74 @@ export function lerTaf(raw) {
   return { icao, raw: raw.trim(), emitido: em ? horaZ(em[1], em[2], em[3]) : null, de: val ? horaZ(val[1], val[2]) : null, ate: val ? horaZ(val[3], val[4]) : null, grupos };
 }
 
-// ---------- busca de dados ----------
+// ---------- como ler o METAR (a turma ainda está aprendendo) ----------
+const RUMOS = ['norte', 'nordeste', 'leste', 'sudeste', 'sul', 'sudoeste', 'oeste', 'noroeste'];
+const rumoTxt = (g) => RUMOS[Math.round(+g / 45) % 8];
+const OITAVOS = { FEW: 'poucas nuvens (1 a 2 oitavos do céu)', SCT: 'nuvens esparsas (3 a 4 oitavos)', BKN: 'céu nublado (5 a 7 oitavos)', OVC: 'céu encoberto (8 oitavos)', VV: 'céu obscurecido; só se enxerga na vertical' };
+// Explica cada grupo do METAR, na ordem em que aparece.
+export function explicar(raw) {
+  const t = raw.trim().replace(/=$/, '').split(/\s+/), out = [];
+  let i = 0, m, vento = null, tendencia = false;
+  const add = (tok, nome, txt) => out.push({ tok, nome, txt });
+  if (/^(METAR|SPECI)$/.test(t[i])) add(t[i], 'Tipo', t[i++] === 'SPECI' ? 'SPECI: observação especial, fora de hora, porque o tempo mudou.' : 'METAR: observação de rotina, feita a cada hora.');
+  if (/^[A-Z]{4}$/.test(t[i] || '')) { const e = ESTACOES.find((x) => x.icao === t[i]); add(t[i], 'Aeródromo', `Indicador ICAO do aeródromo${e ? `: ${e.nome}` : ''}. SB = Brasil.`); i++; }
+  if ((m = /^(\d{2})(\d{2})(\d{2})Z$/.exec(t[i] || ''))) { add(t[i], 'Dia e hora', `Dia ${m[1]}, ${m[2]}:${m[3]} UTC (Z), que é ${String((+m[2] + 24 + fuso) % 24).padStart(2, '0')}:${m[3]} em Brasília. O METAR é sempre em UTC.`); i++; }
+  for (; i < t.length; i++) {
+    const x = t[i];
+    if (x === 'AUTO') { add(x, 'Automático', 'Observação feita só por sensores, sem observador.'); continue; }
+    if (x === 'NOSIG') { add(x, 'Tendência', 'Sem mudança significativa prevista nas próximas 2 horas.'); continue; }
+    if (x === 'BECMG' || x === 'TEMPO') { tendencia = true; add(x, 'Tendência', `${x === 'BECMG' ? 'Mudando' : 'Temporariamente'} nas próximas 2 horas: o que vem depois é a previsão, não o observado.`); continue; }
+    if (x === 'RMK') { add(t.slice(i).join(' '), 'Observações', 'Comentários do observador (RMK). No Brasil costuma trazer o nome de quem observou ou avisos locais.'); break; }
+    if ((m = /^(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?(KT|MPS)$/.exec(x))) {
+      const vel = m[4] === 'MPS' ? Math.round(+m[2] * 1.944) : +m[2], raj = m[3] ? (m[4] === 'MPS' ? Math.round(+m[3] * 1.944) : +m[3]) : null;
+      vento = { dir: m[1], vel, raj };
+      add(x, 'Vento', vel === 0 ? 'Vento calmo (00000KT).' : `${m[1] === 'VRB' ? 'Direção variável' : `De ${m[1]}° (${rumoTxt(m[1])})`}, ${vel} kt (${Math.round(vel * 1.852)} km/h)${raj ? `, com rajadas de ${raj} kt` : ''}. Os 3 primeiros dígitos são a direção DE ONDE o vento vem, em graus verdadeiros; depois a velocidade; G = rajada (gust).`); continue;
+    }
+    if ((m = /^(\d{3})V(\d{3})$/.exec(x))) { add(x, 'Variação do vento', `A direção varia entre ${m[1]}° e ${m[2]}°. Vento que oscila muda a componente de través.`); continue; }
+    if (x === 'CAVOK') { add(x, 'CAVOK', 'Ceiling And Visibility OK: visibilidade de 10 km ou mais, sem nuvens abaixo de 5.000 ft, sem CB nem fenômeno significativo. O melhor cenário.'); continue; }
+    if (/^\d{4}$/.test(x) && !tendencia && !out.some((o) => o.nome === 'Visibilidade')) { add(x, 'Visibilidade', x === '9999' ? 'Visibilidade horizontal de 10 km ou mais (9999 é o máximo que o código informa).' : `Visibilidade horizontal de ${+x >= 1000 ? (+x / 1000).toLocaleString('pt-BR') + ' km' : x + ' m'}. Mínimo VFR de referência: 5 km.`); continue; }
+    if (/^\d{4}$/.test(x)) { add(x, 'Visibilidade prevista', `${x === '9999' ? '10 km ou mais' : (+x / 1000).toLocaleString('pt-BR') + ' km'} na tendência.`); continue; }
+    if ((m = /^R(\d{2}[LCR]?)\/(P|M)?(\d{4})(V(P|M)?\d{4})?([UDN])?$/.exec(x))) { add(x, 'Alcance visual na pista', `RVR da pista ${m[1]}: ${m[3]} m. Só aparece com visibilidade baixa.`); continue; }
+    if ((m = /^(FEW|SCT|BKN|OVC|VV)(\d{3})(CB|TCU)?$/.exec(x))) { add(x, 'Nuvens', `${OITAVOS[m[1]]}, base a ${+m[2] * 100} ft acima do aeródromo${m[3] === 'CB' ? '. CB = cumulonimbus: trovoada, turbulência e granizo' : m[3] === 'TCU' ? '. TCU = cúmulo em torre: convecção forte, pode virar CB' : ''}. Os 3 dígitos ×100 dão a altura da base em pés. Teto é a base da primeira camada BKN ou OVC.`); continue; }
+    if (['NSC', 'SKC', 'CLR', 'NCD'].includes(x)) { add(x, 'Nuvens', x === 'NSC' ? 'Sem nuvens significativas (nenhuma abaixo de 5.000 ft, sem CB).' : 'Céu claro.'); continue; }
+    if ((m = /^(M?\d{2})\/(M?\d{2})$/.exec(x))) { const T = +m[1].replace('M', '-'), D = +m[2].replace('M', '-'), dif = T - D;
+      add(x, 'Temperatura / ponto de orvalho', `${T} °C e ${D} °C (M = negativo). Diferença de ${dif} °C: ${dif <= 2 ? 'ar quase saturado, risco de névoa, nevoeiro e nuvens baixas, principalmente de manhã' : dif <= 4 ? 'ar úmido, fique de olho em nuvens baixas de manhã' : 'ar relativamente seco'}.`); continue; }
+    if ((m = /^Q(\d{4})$/.exec(x))) { add(x, 'QNH', `Pressão ajustada ao nível do mar: ${+m[1]} hPa. É o que se coloca no altímetro para ele indicar a altitude do aeródromo no solo. ${+m[1] < 1010 ? 'Pressão baixa: tempo instável.' : +m[1] > 1020 ? 'Pressão alta: tempo mais estável.' : 'Pressão perto do padrão (1013).'}`); continue; }
+    if ((m = /^A(\d{4})$/.exec(x))) { add(x, 'Altímetro (pol. Hg)', `${(+m[1] / 100).toFixed(2)} inHg = ${Math.round(+m[1] / 100 * 33.8639)} hPa (padrão americano).`); continue; }
+    if ((m = /^WS\s?(ALL RWY|R\d{2}[LCR]?)$/.exec(x))) { add(x, 'Cortante de vento', 'Windshear reportado na pista: atenção na aproximação e na decolagem.'); continue; }
+    if (/^RE/.test(x)) { add(x, 'Tempo recente', `${fenomeno(x.slice(2)) || x.slice(2)} na última hora.`); continue; }
+    if (x === 'NSW') { add(x, 'Tempo', 'Sem fenômeno significativo (na tendência).'); continue; }
+    const f = fenomeno(x); if (f) { add(x, 'Tempo presente', `${f[0].toUpperCase() + f.slice(1)}. Intensidade: "-" fraca, nada = moderada, "+" forte; VC = nas proximidades (até 16 km).`); continue; }
+    add(x, 'Grupo', 'Grupo não reconhecido aqui; veja a decodificação completa no REDEMET.');
+  }
+  return out;
+}
+const PISTA_SISY = [90, 270]; // pouso só na 09, decolagem só pela 27 (AISWEB)
+// O que o METAR significa para o nosso voo de instrução. `e` é a estação; `l` o lugar escolhido.
+function interpretar(m, e, l) {
+  const r = m.r, itens = [];
+  const pertoSisy = km(l, ESTACOES[0]) < 30;
+  if (r.vento && r.vento.vel > 0 && r.vento.dir !== 'VRB') {
+    const d = +r.vento.dir, v = r.vento.raj || r.vento.vel;
+    if (pertoSisy) {
+      const ang = (p) => Math.abs(((d - p + 540) % 360) - 180), a09 = ang(90), trav = Math.round(v * Math.sin(ang(90) * Math.PI / 180)), proa09 = Math.round(v * Math.cos(a09 * Math.PI / 180));
+      itens.push(`Vento em Piraquara (pista 09/27): través de cerca de ${trav} kt; na 09 (pouso) é ${proa09 >= 0 ? 'de proa' : 'de cauda'} ${Math.abs(proa09)} kt, na 27 (decolagem) é ${proa09 >= 0 ? 'de cauda' : 'de proa'} ${Math.abs(proa09)} kt${r.vento.raj ? ' (contando a rajada)' : ''}. No R22, vento de cauda e través forte pedem atenção no pairado e na decolagem.`);
+    } else itens.push(`Vento de ${rumoTxt(d)} com ${r.vento.vel} kt${r.vento.raj ? ' e rajadas de ' + r.vento.raj : ''}. Pense na pista em uso e na componente de través.`);
+    if (r.vento.raj && r.vento.raj - r.vento.vel >= 10) itens.push('Rajadas bem acima do vento médio: turbulência mecânica perto do solo e pairado mais difícil.');
+  } else if (r.vento) itens.push('Vento calmo ou variável fraco: sem componente de través, mas menos sustentação de translação na decolagem.');
+  if (r.vis != null) itens.push(r.vis >= 8000 ? 'Visibilidade boa para o VFR.' : r.vis >= 5000 ? 'Visibilidade reduzida: ainda acima dos 5 km de referência, mas confira a tendência.' : 'Visibilidade abaixo dos 5 km de referência: fora dos mínimos para a instrução.');
+  if (r.teto != null) itens.push(r.teto >= 3000 ? `Teto de ${r.teto} ft: folga para o circuito e a área de treinamento.` : r.teto >= 1500 ? `Teto de ${r.teto} ft: dá para o circuito, mas o voo tem que ficar 500 ft abaixo das nuvens; a área de treino a 500 ft AGL fica apertada se baixar mais.` : `Teto de ${r.teto} ft: abaixo dos 1.500 ft de referência. Não é dia de instrução VFR enquanto isso não subir.`);
+  else if (r.nuvens.length) itens.push('Só FEW ou SCT: não forma teto, mas a base mais baixa é a referência para manter 500 ft abaixo das nuvens.');
+  if (r.cb) itens.push('CB no METAR: trovoada por perto. Helicóptero de instrução fica no chão até passar.');
+  if (r.temp != null && r.orv != null && r.temp - r.orv <= 2) itens.push('Temperatura colada no ponto de orvalho: nevoeiro e nuvens baixas podem se formar rápido, sobretudo de manhã cedo e ao anoitecer.');
+  if (r.qnh && e.elev != null) {
+    const pa = Math.round(e.elev + (1013.25 - r.qnh) * 27), isa = 15 - 2 * e.elev / 1000, da = r.temp != null ? Math.round(pa + 120 * (r.temp - isa)) : null;
+    itens.push(`QNH ${r.qnh}: altitude-pressão em ${e.icao} de ${pa.toLocaleString('pt-BR')} ft${da != null ? `; altitude-densidade de cerca de ${da.toLocaleString('pt-BR')} ft` : ''}. ${da != null && da > 4500 ? 'Alta para o R22: menos potência e menos sustentação, confira o gráfico de pairado fora do efeito solo.' : 'Dentro do normal para a região.'}`);
+  }
+  if (m.idade != null && m.idade > 70) itens.push(`Observação com ${Math.floor(m.idade / 60)} h: já pode estar velha. Confira se saiu um METAR novo.`);
+  return itens;
+}
+
 const txt = async (u) => { const r = await fetch(u); if (!r.ok) throw new Error(r.status); return r.text(); };
 const json = async (u) => { const r = await fetch(u); if (!r.ok) throw new Error(r.status); return r.json(); };
 export async function buscarMetar(icaos) {
@@ -206,7 +273,10 @@ function cartaoMetar(e) {
   return `<div class="tp-est">${cab}<span class="selo ${m.c.n}" title="${esc(m.c.por)}">${m.c.t}</span></div>
     ${chips(m.r)}${m.c.por ? `<div class="sub">Motivo: ${esc(m.c.por)}</div>` : ''}
     <div class="mono tp-raw">${esc(m.raw)}</div>
-    <div class="sub">${m.quando ? `às ${hhmm(m.quando)}${m.idade != null ? ` (há ${m.idade >= 60 ? Math.floor(m.idade / 60) + ' h ' + (m.idade % 60) + ' min' : m.idade + ' min'})` : ''}` : ''} · <button class="mini" type="button" data-tp-ler="${e.icao}">Ler por partes</button></div><div id="tpLer-${e.icao}"></div></div>`;
+    <div class="sub">${m.quando ? `às ${hhmm(m.quando)}${m.idade != null ? ` (há ${m.idade >= 60 ? Math.floor(m.idade / 60) + ' h ' + (m.idade % 60) + ' min' : m.idade + ' min'})` : ''}` : ''}</div>
+    <details class="tp-ler" ${e === proximas(localAtual(), 1)[0] ? 'open' : ''}><summary>Como ler este METAR</summary>
+      <div class="tp-exp">${explicar(m.raw).map((x) => `<code>${esc(x.tok)}</code><span><b>${esc(x.nome)}:</b> ${esc(x.txt)}</span>`).join('')}</div>
+      <div class="tp-int"><b>O que isso significa para o nosso voo</b><ul>${interpretar(m, e, localAtual()).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div></details></div>`;
 }
 function cartaoTaf(e) {
   const t = dados.taf[e.icao];
@@ -255,7 +325,7 @@ export async function carregarTempo(render, forcar) {
   ]);
   carregando = false; ultima = new Date(); render();
 }
-export function ligarTempo(c, { decodificarMetar, toast, render }) {
+export function ligarTempo(c, { toast, render }) {
   const ir = async (novo) => { local = novo; guardar(); ultima = null; await carregarTempo(render, true); };
   c.querySelectorAll('[data-tp-est]').forEach((b) => b.onclick = () => ir(porEstacao(ESTACOES.find((e) => e.icao === b.dataset.tpEst))));
   c.querySelector('#tpForm').onsubmit = async (e) => {
@@ -272,11 +342,6 @@ export function ligarTempo(c, { decodificarMetar, toast, render }) {
   c.querySelector('#tpAtual').onclick = () => carregarTempo(render, true);
   c.querySelectorAll('[data-tp-dia]').forEach((b) => b.onclick = () => { dia = +b.dataset.tpDia; render(); });
   c.querySelector('[data-tp-noite]')?.addEventListener('click', () => { noite = !noite; render(); });
-  c.querySelectorAll('[data-tp-ler]').forEach((b) => b.onclick = () => {
-    const m = dados.metar[b.dataset.tpLer], alvo = c.querySelector('#tpLer-' + b.dataset.tpLer); if (!m || !alvo) return;
-    if (alvo.innerHTML) { alvo.innerHTML = ''; b.textContent = 'Ler por partes'; return; }
-    const d = decodificarMetar(m.raw); alvo.innerHTML = `<dl class="decod">${d.r.map(([a, v]) => `<dt>${esc(a)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`; b.textContent = 'Fechar';
-  });
   carregarTempo(render, false);
 }
 

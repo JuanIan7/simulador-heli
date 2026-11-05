@@ -141,3 +141,9 @@ th{font-size:12px;color:var(--tinta3);text-transform:uppercase;letter-spacing:.0
 .tp-tab tr.tp-ok td:first-child{box-shadow:inset 4px 0 0 var(--ok)}
 .tp-tab tr.tp-pe{background:var(--perigo-claro)}
 .tp-tab tr.tp-al{background:var(--alerta-claro)}
+.tp-ler summary{cursor:pointer;font-weight:700;font-size:13.5px;color:var(--laranja-esc)}
+.tp-exp{display:grid;grid-template-columns:auto 1fr;gap:5px 10px;font-size:13.5px;margin-top:8px;align-items:start}
+.tp-exp code{font-family:var(--mono);font-size:12.5px;background:var(--chao);padding:2px 6px;border-radius:6px;white-space:nowrap}
+.tp-int{margin-top:10px;font-size:13.5px;background:var(--laranja-claro);border-radius:10px;padding:8px 12px}
+.tp-int ul{margin:4px 0 0;padding-left:18px}
+.tp-int li{margin:3px 0}
