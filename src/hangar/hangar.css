@@ -54,6 +54,12 @@ textarea{min-height:70px;resize:vertical}
 .form .largo{grid-column:1/-1}
 .linha-acao{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
+/* ditado: o campo e o microfone lado a lado; o microfone pulsa vermelho enquanto ouve */
+.campo-voz{display:flex;gap:8px;align-items:flex-start}
+.campo-voz>:first-child{flex:1;min-width:0}
+.voz{flex:none;width:40px;height:40px;min-height:40px;padding:0;border-radius:50%;border:1.5px solid var(--linha);background:var(--painel);font-size:17px;line-height:1;display:grid;place-items:center}
+.voz[aria-pressed="true"]{background:var(--perigo);border-color:var(--perigo);color:#fff;animation:voz-pulsa 1.1s ease-in-out infinite}
+@keyframes voz-pulsa{50%{opacity:.5}}
 .chip{border:1.5px solid var(--linha);background:var(--painel);color:var(--tinta);border-radius:999px;padding:4px 11px;font:600 13px var(--corpo);cursor:pointer;min-height:32px}
 .chip[aria-pressed="true"]{background:var(--laranja);border-color:var(--laranja);color:var(--sobre-laranja)}
 .selo{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:700;white-space:nowrap}
@@ -117,3 +123,9 @@ th{font-size:12px;color:var(--tinta3);text-transform:uppercase;letter-spacing:.0
 .membro{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--linha)}
 .mat-turma{display:inline-flex;align-items:center;gap:4px}
 .mat-turma .sub{font-size:12px}
+.acerto{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--linha);flex-wrap:wrap}
+.acerto:last-child{border-bottom:0}
+.pix-caixa{display:flex;flex-direction:column;gap:6px}
+.pix-form{display:flex;gap:8px;flex-wrap:wrap}
+.pix-form input{flex:1 1 220px}
+.pix-tit{font-weight:700;margin-top:4px}

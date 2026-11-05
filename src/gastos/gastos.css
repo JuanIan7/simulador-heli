@@ -14,3 +14,7 @@
 .parte.pagador { background: var(--lar-claro); border-color: var(--lar); color: var(--lar-esc); cursor: default; }
 .tabela td.pos { color: var(--ok); } .tabela td.neg { color: var(--verm); }
 .codigo { font-family: ui-monospace, Menlo, monospace; font-size: 13px; background: var(--fundo); border-radius: 8px; padding: 6px 8px; overflow-wrap: anywhere; }
+.pix-caixa { display: flex; flex-direction: column; gap: 6px; }
+.pix-form { display: flex; gap: 8px; flex-wrap: wrap; }
+.pix-form input { flex: 1 1 220px; min-width: 0; }
+.pix-tit { font-weight: 700; margin-top: 6px; }

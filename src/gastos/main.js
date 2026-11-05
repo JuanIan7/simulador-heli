@@ -10,6 +10,7 @@ import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
 import { entrarGoogle, navegadorRuim, avisoNavegador, ligarAviso } from '../entrar-google.js';
 import { getFirestore, doc, getDoc, setDoc, deleteDoc, updateDoc, collection, onSnapshot, serverTimestamp, writeBatch, arrayUnion } from 'firebase/firestore';
 import { FIREBASE_CONFIG, ADMINS } from '../firebase-config.js';
+import { brl, partes, calcular, pixDe, caixaPix, ligarPix, digitandoPix } from './contas.js';
 
 const app = initializeApp(FIREBASE_CONFIG), auth = getAuth(app), db = getFirestore(app);
 auth.languageCode = 'pt';
@@ -18,7 +19,6 @@ const el = $('#app');
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
 const dBR = (iso) => iso ? iso.split('-').reverse().join('/') : '';
-const brl = (c) => ((c || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const centavos = (s) => { const t = String(s).trim().replace(/[R$\s]/g, ''); const n = Number(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t); return Number.isFinite(n) ? Math.round(n * 100) : NaN; };
 
 const CATEGORIAS = { transporte: 'Transporte (Uber, táxi)', passagem: 'Passagem', hospedagem: 'Hospedagem', alimentacao: 'Alimentação', curso: 'Escola e curso', material: 'Material', outros: 'Outros' };
@@ -56,11 +56,11 @@ function erroGeral(t, e) { el.innerHTML = `<div class="cartao"><p class="erro">$
 
 function abrirGrupo() {
   topo();
-  parar.push(onSnapshot(doc(db, 'gastosConvites', membro.codigo), (s) => { grupo = s.data() || { grupo: NOME_GRUPO, pessoas: [] }; if (!editando) telaPrincipal(); }, (e) => erroGeral('Erro ao ler o grupo', e)));
-  parar.push(onSnapshot(collection(db, 'gastosMembros'), (s) => { membros = s.docs.map((d) => d.data()); if (!editando && grupo) telaPrincipal(); }, () => {}));
+  parar.push(onSnapshot(doc(db, 'gastosConvites', membro.codigo), (s) => { grupo = s.data() || { grupo: NOME_GRUPO, pessoas: [] }; if (!editando && !digitandoPix()) telaPrincipal(); }, (e) => erroGeral('Erro ao ler o grupo', e)));
+  parar.push(onSnapshot(collection(db, 'gastosMembros'), (s) => { membros = s.docs.map((d) => d.data()); if (!editando && grupo && !digitandoPix()) telaPrincipal(); }, () => {}));
   parar.push(onSnapshot(collection(db, 'gastos'), (s) => {
     gastos = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.data + (b.criadoMs || 0)).localeCompare(a.data + (a.criadoMs || 0)));
-    if (!editando && grupo) telaPrincipal();
+    if (!editando && grupo && !digitandoPix()) telaPrincipal();
   }, (e) => erroGeral('Erro ao ler os gastos', e)));
 }
 
@@ -127,48 +127,16 @@ async function criarGrupo() {
   } catch (e) { toast('Não criou: ' + (e.code || e.message)); }
 }
 
-// ---------- contas ----------
-function partes(g) {
-  const ps = g.participantes || [], n = ps.length, base = n ? Math.floor((g.valor || 0) / n) : 0, sobra = n ? (g.valor || 0) - base * n : 0;
-  return ps.map((p, i) => ({ nome: p, valor: base + (i < sobra ? 1 : 0), pagador: !!g.pagoPor && p === g.pagoPor, quitado: !g.pagoPor || p === g.pagoPor || (g.quitados || []).includes(p) }));
-}
-function calcular(lista) {
-  const r = { total: 0, pendente: 0, porCat: {}, pessoa: {}, deve: {} };
-  const P = (n) => (r.pessoa[n] ||= { parte: 0, desembolso: 0, deve: 0, receber: 0 });
-  for (const g of lista) {
-    r.total += g.valor || 0; r.porCat[g.categoria] = (r.porCat[g.categoria] || 0) + (g.valor || 0);
-    if (g.pagoPor) P(g.pagoPor).desembolso += g.valor || 0;
-    for (const p of partes(g)) {
-      P(p.nome).parte += p.valor;
-      if (!g.pagoPor) { P(p.nome).desembolso += p.valor; continue; }
-      if (p.pagador) continue;
-      if (p.quitado) { P(p.nome).desembolso += p.valor; P(g.pagoPor).desembolso -= p.valor; continue; }
-      r.pendente += p.valor; P(p.nome).deve += p.valor; P(g.pagoPor).receber += p.valor;
-      const k = p.nome + '→' + g.pagoPor; r.deve[k] = (r.deve[k] || 0) + p.valor;
-    }
-  }
-  // Compensa quem deve um para o outro: sobra só a diferença de cada par.
-  r.acertos = [];
-  const visto = new Set();
-  for (const k of Object.keys(r.deve)) {
-    const [a, b] = k.split('→'); const par = [a, b].sort().join('|');
-    if (visto.has(par)) continue; visto.add(par);
-    const liq = (r.deve[a + '→' + b] || 0) - (r.deve[b + '→' + a] || 0);
-    if (liq) r.acertos.push(liq > 0 ? { de: a, para: b, valor: liq } : { de: b, para: a, valor: -liq });
-  }
-  r.acertos.sort((x, y) => y.valor - x.valor);
-  return r;
-}
-
 // ---------- telas ----------
-function telaPrincipal() {
+function telaPrincipal(trocandoPix = false) {
   editando = null;
   const eu = membro.nome, r = calcular(gastos), minha = r.pessoa[eu] || { parte: 0, deve: 0, receber: 0 };
   const pessoas = [...new Set([...(grupo.pessoas || []), ...Object.keys(r.pessoa)])];
   const lista = filtro === 'pendentes' ? gastos.filter((g) => partes(g).some((p) => !p.quitado)) : filtro === 'todos' ? gastos : gastos.filter((g) => g.categoria === filtro);
   const entrou = new Set(membros.map((m) => m.nome));
   const link = `${location.origin}${location.pathname.replace(/[^/]*$/, '')}hangar.html?c=${membro.codigo}`;
-  el.innerHTML = `
+  const pix = caixaPix(membro, trocandoPix);
+  el.innerHTML = `${pix ? `<section class="cartao">${pix}</section>` : ''}
     <section class="cartao"><div class="cab"><div><h2>${esc(grupo.grupo)}</h2><div class="sub">${pessoas.length} pessoa(s) · ${gastos.length} gasto(s)</div></div>
       <button class="pri" id="btNovo">+ Novo gasto</button></div>
       <div class="totais">
@@ -181,9 +149,9 @@ function telaPrincipal() {
       </div>
     </section>
     <section class="cartao"><h3>Quem deve para quem</h3>
-      ${r.acertos.length ? r.acertos.map((a) => `<div class="acerto"><span><b class="${a.de === eu ? 'eu' : ''}">${esc(a.de)}</b> deve <b class="v">${brl(a.valor)}</b> a <b class="${a.para === eu ? 'eu' : ''}">${esc(a.para)}</b></span><button class="mini" data-quitar="${esc(a.de)}|${esc(a.para)}">Marcar como pago</button></div>`).join('')
+      ${r.acertos.length ? r.acertos.map((a) => `<div class="acerto"><span><b class="${a.de === eu ? 'eu' : ''}">${esc(a.de)}</b> deve <b class="v">${brl(a.valor)}</b> a <b class="${a.para === eu ? 'eu' : ''}">${esc(a.para)}</b></span><span class="linha-acao">${pixDe(membros, a.para) ? `<button class="mini" data-pix-copiar="${esc(pixDe(membros, a.para))}">Copiar Pix de ${esc(a.para)}</button>` : ''}<button class="mini" data-quitar="${esc(a.de)}|${esc(a.para)}">✓ Pago</button></span></div>`).join('')
         : '<div class="vazio">Ninguém deve nada a ninguém. Tudo acertado.</div>'}
-      ${r.acertos.length ? '<div class="dica">Já compensa o que um deve ao outro. "Marcar como pago" quita todas as partes pendentes entre os dois. Para quitar só um gasto, toque no nome da pessoa no gasto.</div>' : ''}
+      ${r.acertos.length ? `<div class="dica">Já compensa o que um deve ao outro. Pague pelo Pix (o botão copia a chave de quem recebe) e toque em "✓ Pago": quita todas as partes pendentes entre os dois. Para quitar só um gasto, toque no nome da pessoa no gasto.${membro.pix ? ` Sua chave Pix: <b>${esc(membro.pix)}</b> <button class="mini" data-pix-trocar>Trocar</button>` : ''}</div>` : ''}
     </section>
     <section class="cartao"><div class="cab"><h2>Gastos</h2></div>
       <div class="chips"><button class="chip" aria-pressed="${filtro === 'todos'}" data-f="todos">Todos</button><button class="chip" aria-pressed="${filtro === 'pendentes'}" data-f="pendentes">Com pendência</button>${Object.entries(CATEGORIAS).filter(([k]) => r.porCat[k]).map(([k, t]) => `<button class="chip" aria-pressed="${filtro === k}" data-f="${k}">${esc(t.split(' (')[0])}</button>`).join('')}</div>
@@ -203,11 +171,11 @@ function telaPrincipal() {
       <div class="linha-acao"><button id="btLink">${navigator.share ? 'Compartilhar link' : 'Copiar link'}</button></div>
       <form id="fPessoa" class="form"><label>Acrescentar pessoa<input id="nPessoa" maxlength="24" placeholder="Nome"></label><div class="linha-acao" style="align-items:end"><button type="submit">Acrescentar</button></div></form>
     </section>`;
+  ligarPix(el, { db, uid: user.uid, quem: eu, gastos: () => gastos, toast, depois: (v, trocar) => { if (v) membro.pix = v; telaPrincipal(!!trocar); } });
   $('#btNovo').onclick = () => telaGasto(null);
   el.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { filtro = b.dataset.f; telaPrincipal(); });
   el.querySelectorAll('[data-ed]').forEach((b) => b.onclick = () => telaGasto(gastos.find((g) => g.id === b.dataset.ed)));
   el.querySelectorAll('[data-parte]').forEach((b) => b.onclick = () => alternarQuitado(b.dataset.parte, b.dataset.nome));
-  el.querySelectorAll('[data-quitar]').forEach((b) => b.onclick = () => { const [de, para] = b.dataset.quitar.split('|'); quitarPar(de, para); });
   $('#btCsv')?.addEventListener('click', baixarCsv); $('#btCopiar')?.addEventListener('click', () => copiar(resumo(r), 'Resumo copiado'));
   $('#btLink').onclick = () => navigator.share ? navigator.share({ title: 'Gastos da turma', text: 'Controle de gastos do curso de PPH. Entre com o seu Google:', url: link }).catch(() => {}) : copiar(link, 'Link copiado');
   $('#fPessoa').onsubmit = async (e) => { e.preventDefault(); const n = $('#nPessoa').value.trim(); if (n.length < 2) return; try { await updateDoc(doc(db, 'gastosConvites', membro.codigo), { pessoas: arrayUnion(n) }); toast(n + ' acrescentado'); } catch (e2) { toast('Não salvou: ' + (e2.code || e2.message)); } };
@@ -220,7 +188,7 @@ function cartaoGasto(g) {
     <div class="chips">${ps.map((p) => p.pagador ? `<span class="parte pagador">${esc(p.nome)} pagou</span>`
       : g.pagoPor ? `<button class="parte ${p.quitado ? 'pago' : 'deve'}" data-parte="${g.id}" data-nome="${esc(p.nome)}" title="Toque para ${p.quitado ? 'voltar para pendente' : 'marcar como pago'}">${p.quitado ? '✓ ' : ''}${esc(p.nome)} ${brl(p.valor)}${p.quitado ? '' : ' · deve'}</button>`
       : `<span class="parte pago">✓ ${esc(p.nome)} ${brl(p.valor)}</span>`).join('')}
-      <button class="mini" data-ed="${g.id}">Editar</button></div></div>`;
+      <button class="mini" data-ed="${g.id}">✏️ Editar</button></div></div>`;
 }
 
 async function alternarQuitado(id, nome) {
@@ -228,17 +196,6 @@ async function alternarQuitado(id, nome) {
   const q = new Set(g.quitados || []); const pago = !q.has(nome); pago ? q.add(nome) : q.delete(nome);
   try { await updateDoc(doc(db, 'gastos', id), { quitados: [...q], atualizadoPor: membro.nome, atualizadoEm: serverTimestamp() }); toast(pago ? `${nome}: pago` : `${nome}: voltou para pendente`); }
   catch (e) { toast('Não salvou: ' + (e.code || e.message)); }
-}
-
-async function quitarPar(a, b) {
-  if (!confirm(`Marcar como pago tudo o que está pendente entre ${a} e ${b}?`)) return;
-  const lote = writeBatch(db); let n = 0;
-  for (const g of gastos) {
-    const devedor = g.pagoPor === b ? a : g.pagoPor === a ? b : null;
-    if (!devedor || !(g.participantes || []).includes(devedor) || (g.quitados || []).includes(devedor)) continue;
-    lote.update(doc(db, 'gastos', g.id), { quitados: arrayUnion(devedor), atualizadoPor: membro.nome, atualizadoEm: serverTimestamp() }); n++;
-  }
-  try { await lote.commit(); toast(`${n} parte(s) marcada(s) como paga(s)`); } catch (e) { toast('Não salvou: ' + (e.code || e.message)); }
 }
 
 function telaGasto(g) {

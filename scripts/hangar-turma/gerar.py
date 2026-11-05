@@ -14,7 +14,7 @@ def bloco(ini, fim):
     return "\n".join(L[a:b])
 
 css = hub[hub.index("<style>") + 7: hub.index("</style>")]
-css += "\n.quadro{width:100%;border:0;display:block;min-height:70vh;background:transparent}\n.membro{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--linha)}\n.mat-turma{display:inline-flex;align-items:center;gap:4px}\n.mat-turma .sub{font-size:12px}\n"
+css += "\n.quadro{width:100%;border:0;display:block;min-height:70vh;background:transparent}\n.membro{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--linha)}\n.mat-turma{display:inline-flex;align-items:center;gap:4px}\n.mat-turma .sub{font-size:12px}\n.acerto{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--linha);flex-wrap:wrap}\n.acerto:last-child{border-bottom:0}\n.pix-caixa{display:flex;flex-direction:column;gap:6px}\n.pix-form{display:flex;gap:8px;flex-wrap:wrap}\n.pix-form input{flex:1 1 220px}\n.pix-tit{font-weight:700;margin-top:4px}\n"
 (sim / "src/hangar").mkdir(exist_ok=True)
 (sim / "src/hangar/hangar.css").write_text(css.strip() + "\n", encoding="utf-8")
 

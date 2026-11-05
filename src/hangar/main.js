@@ -1,6 +1,7 @@
 // Hangar da Turma (curso de PPH na EACAR): um link só para a turma. Cada um entra com o próprio Google;
 // quem tem o código do grupo (o mesmo dos Gastos) vê estudo, revisão, treino, materiais, gastos e o próprio diário de voo.
-// Banco: gastosConvites/{codigo} (grupo e pessoas) e gastosMembros/{uid} (nome, e-mail e o progresso do estudo em `estudo`).
+// Banco: gastosConvites/{codigo} (grupo e pessoas) e gastosMembros/{uid} (nome, e-mail, chave `pix` e o progresso do estudo em `estudo`).
+// O Início mostra o que cada um deve e a quem (com a chave Pix para copiar), lido de gastos/{id} (contas em src/gastos/contas.js).
 // Os PDFs ficam numa pasta do Google Drive do Juan compartilhada com a turma; aqui só vão os links.
 // Revisão, treino e acessos vêm do Hangar CCOA (repo hangar-ccoa) por scripts/hangar-turma/gerar.py, sem os dados pessoais.
 import { initializeApp } from 'firebase/app';
@@ -11,6 +12,7 @@ import { FIREBASE_CONFIG, ADMINS } from '../firebase-config.js';
 import { FONIA, ALFABETO, NUMEROS, PALAVRAS_PADRAO, TRANSPONDER } from '../data/fonia.js';
 import { METAR } from '../data/quiz-teoria.js';
 import { DRIVE_PASTA, DRIVE } from './materiais.js';
+import { calcular, caixaPix, alertaAcertos, ligarPix, digitandoPix } from '../gastos/contas.js';
 
 const app = initializeApp(FIREBASE_CONFIG), auth = getAuth(app), db = getFirestore(app);
 auth.languageCode = 'pt';
@@ -27,7 +29,7 @@ const pdf = (k, rot) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_
 
 const ABAS = [['inicio','Início'],['checklists','Checklists'],['estudo','Estudo'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['gastos','Gastos'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
 let aba = (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
-let user = null, membro = null, grupo = null, membros = [], mats = [], parar = [];
+let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], parar = [], trocandoPix = false;
 
 // ---------- conteúdo ----------
 const CRONO = [
@@ -138,7 +140,7 @@ if (daUrl) { try { localStorage.setItem(CHAVE_CODIGO, daUrl); } catch {} history
 const codigoGuardado = () => { try { return localStorage.getItem(CHAVE_CODIGO); } catch { return null; } };
 
 onAuthStateChanged(auth, async (u) => {
-  user = u; parar.forEach((f) => f()); parar = []; membro = null; grupo = null; membros = [];
+  user = u; parar.forEach((f) => f()); parar = []; membro = null; grupo = null; membros = []; gastos = [];
   conta();
   if (!u) return telaLogin();
   try { const s = await getDoc(doc(db, 'gastosMembros', u.uid)); membro = s.exists() ? s.data() : null; }
@@ -190,11 +192,15 @@ async function telaEntrar(codigo, erro) {
 
 function abrir() {
   conta(); render();
-  parar.push(onSnapshot(doc(db, 'gastosConvites', membro.codigo), (s) => { grupo = s.data() || null; if (aba === 'inicio') render(); }, () => {}));
+  parar.push(onSnapshot(doc(db, 'gastosConvites', membro.codigo), (s) => { grupo = s.data() || null; if (aba === 'inicio' && !digitandoPix()) render(); }, () => {}));
   parar.push(onSnapshot(collection(db, 'gastosMembros'), (s) => {
     membros = s.docs.map((d) => ({ uid: d.id, ...d.data() }));
     const eu = membros.find((m) => m.uid === user.uid); if (eu) membro = eu;
-    if (aba === 'inicio' || aba === 'estudo') render();
+    if ((aba === 'inicio' && !digitandoPix()) || aba === 'estudo') render();
+  }, () => {}));
+  parar.push(onSnapshot(collection(db, 'gastos'), (s) => {
+    gastos = s.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (aba === 'inicio' && !digitandoPix()) render();
   }, () => {}));
   parar.push(onSnapshot(collection(db, 'materiais'), (s) => {
     mats = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.titulo || '').localeCompare(b.titulo || ''));
@@ -222,7 +228,12 @@ inicio(){
   const f = feitos(membro), link = `${location.origin}${location.pathname}?c=${membro.codigo}`;
   const turma = membros.slice().sort((a,b) => (a.nome||'').localeCompare(b.nome||''));
   const faltam = (grupo?.pessoas || []).filter((p) => !membros.some((m) => m.nome === p));
-  return `${ckCartao()}<div class="grade">
+  const pix = caixaPix(membro, trocandoPix);
+  return `${pix ? `<div class="caixa destaque">${pix}</div>` : ''}
+  <div class="caixa"><div class="cab"><div class="rotulo">Seus acertos da turma</div><button class="mini" data-ir="gastos">Ver os gastos</button></div>
+    ${alertaAcertos(calcular(gastos), membro.nome, membros)}
+    ${membro.pix && !trocandoPix ? `<p class="sub">Sua chave Pix: <b>${esc(membro.pix)}</b> <button class="mini" data-pix-trocar>Trocar</button></p>` : ''}</div>
+  ${ckCartao()}<div class="grade">
     <div class="caixa destaque"><div class="rotulo">Olá, ${esc(membro.nome)}</div><h3>Seu estudo: ${f} de ${IDS.length} itens</h3><div class="barra"><i style="width:${f/IDS.length*100}%"></i></div>
       <p class="sub">Comandos, aerodinâmica, limites e emergências do R22, tráfego e fonia; depois, o Esquilo. Marque cada item ao terminar.</p>
       <div class="linha-acao"><button class="pri" data-ir="estudo">Abrir o cronograma</button><button data-ir="revisao">Revisão R22</button></div></div>
@@ -403,6 +414,7 @@ function fonia(){
 const LIGAR = {
   inicio(c){
     c.querySelectorAll('[data-ir]').forEach(b => b.addEventListener('click', (e) => { e.preventDefault(); irPara(b.dataset.ir); })); ckAbrir(c);
+    ligarPix(c, { db, uid: user.uid, quem: membro.nome, gastos: () => gastos, toast, depois: (v, trocar) => { if (v) membro.pix = v; trocandoPix = !!trocar; render(); } });
     $('#btLink').onclick = () => { const link = $('#lkTurma').value;
       if (navigator.share) navigator.share({ title: 'Hangar da Turma', text: 'Hangar da Turma do PPH: estudo, materiais, gastos e diário de voo. Entre com o seu Google:', url: link }).catch(() => {});
       else navigator.clipboard.writeText(link).then(() => toast('Link copiado'), () => toast(link)); };
