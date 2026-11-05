@@ -180,7 +180,7 @@ function interpretar(m, e, l) {
   if (r.temp != null && r.orv != null && r.temp - r.orv <= 2) itens.push('Temperatura colada no ponto de orvalho: nevoeiro e nuvens baixas podem se formar rápido, sobretudo de manhã cedo e ao anoitecer.');
   if (r.qnh && e.elev != null) {
     const pa = Math.round(e.elev + (1013.25 - r.qnh) * 27), isa = 15 - 2 * e.elev / 1000, da = r.temp != null ? Math.round(pa + 120 * (r.temp - isa)) : null;
-    itens.push(`QNH ${r.qnh}: altitude-pressão em ${e.icao} de ${pa.toLocaleString('pt-BR')} ft${da != null ? `; altitude-densidade de cerca de ${da.toLocaleString('pt-BR')} ft` : ''}. ${da != null && da > 4500 ? 'Alta para o R22: menos potência e menos sustentação, confira o gráfico de pairado fora do efeito solo.' : 'Dentro do normal para a região.'}`);
+    itens.push(`QNH ${r.qnh}: altitude-pressão em ${e.icao} de ${pa.toLocaleString('pt-BR')} ft${da != null ? `; altitude-densidade de cerca de ${da.toLocaleString('pt-BR')} ft` : ''}. ${da != null && da > 6000 ? 'Alta: menos potência e menos sustentação no R22, confira o gráfico de pairado fora do efeito solo (HOGE) no POH.' : da != null && da > 4000 ? 'Normal para Curitiba numa tarde quente; o R22 perde um pouco de margem de potência, planeje o peso.' : 'Dentro do normal para a região.'}`);
   }
   if (m.idade != null && m.idade > 70) itens.push(`Observação com ${Math.floor(m.idade / 60)} h: já pode estar velha. Confira se saiu um METAR novo.`);
   return itens;
