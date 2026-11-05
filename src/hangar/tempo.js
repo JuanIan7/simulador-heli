@@ -200,6 +200,15 @@ export async function buscarTaf(icaos) {
   t.split('\n').map((l) => l.trim()).filter((l) => /^[A-Z]{4} \d{6}Z/.test(l)).forEach((l) => { por[l.slice(0, 4)] = lerTaf(l); });
   return por;
 }
+// Últimas 24 h de METAR (e SPECI) de cada aeródromo, do mais novo para o mais velho: mostra a tendência do dia.
+export async function buscarHistorico(icaos) {
+  if (!icaos.length) return {};
+  const t = await txt('https://api.met.no/weatherapi/tafmetar/1.0/metar.txt?icao=' + icaos.join(','));
+  const por = {}, visto = new Set();
+  t.split('\n').map((l) => l.trim()).filter((l) => /^[A-Z]{4} \d{6}Z/.test(l) && !visto.has(l) && visto.add(l)).forEach((l) => { (por[l.slice(0, 4)] ||= []).push(lerMetar(l)); });
+  for (const k in por) por[k].sort((a, b) => (b.quando || 0) - (a.quando || 0));
+  return por;
+}
 export const buscarPrevisao = (lat, lon) => json(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,dew_point_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,visibility,cloud_cover,cloud_cover_low,precipitation_probability,precipitation,pressure_msl,weather_code,cape&daily=sunrise,sunset,precipitation_probability_max&timezone=America/Sao_Paulo&forecast_days=3&wind_speed_unit=kn`);
 async function geocodificar(q) {
   const r = await json('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br,ar,py,uy&q=' + encodeURIComponent(q));
@@ -231,7 +240,7 @@ function horas(prev) {
 }
 
 // ---------- estado e tela ----------
-let local = null, dados = { metar: {}, taf: {}, prev: null, erro: {} }, carregando = false, dia = 0, noite = false, ultima = null;
+let local = null, dados = { metar: {}, taf: {}, hist: {}, prev: null, erro: {} }, carregando = false, dia = 0, noite = false, ultima = null;
 const guardar = () => { try { localStorage.setItem(CHAVE, JSON.stringify(local)); } catch {} };
 const lembrado = () => { try { return JSON.parse(localStorage.getItem(CHAVE) || 'null'); } catch { return null; } };
 const porEstacao = (e) => ({ nome: `${e.nome} (${e.icao})`, lat: e.lat, lon: e.lon, elev: e.elev, icao: e.icao });
@@ -276,7 +285,17 @@ function cartaoMetar(e) {
     <div class="sub">${m.quando ? `às ${hhmm(m.quando)}${m.idade != null ? ` (há ${m.idade >= 60 ? Math.floor(m.idade / 60) + ' h ' + (m.idade % 60) + ' min' : m.idade + ' min'})` : ''}` : ''}</div>
     <details class="tp-ler" ${e === proximas(localAtual(), 1)[0] ? 'open' : ''}><summary>Como ler este METAR</summary>
       <div class="tp-exp">${explicar(m.raw).map((x) => `<code>${esc(x.tok)}</code><span><b>${esc(x.nome)}:</b> ${esc(x.txt)}</span>`).join('')}</div>
-      <div class="tp-int"><b>O que isso significa para o nosso voo</b><ul>${interpretar(m, e, localAtual()).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div></details></div>`;
+      <div class="tp-int"><b>O que isso significa para o nosso voo</b><ul>${interpretar(m, e, localAtual()).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div></details>
+    ${historico(e)}</div>`;
+}
+const REDEMET_OLD = 'https://redemet.decea.mil.br/old/?i=produtos&p=consulta-de-mensagens-opmet';
+// Últimas 24 h do aeródromo: uma linha por METAR, do mais novo para o mais velho, com a cor da referência da turma.
+function historico(e) {
+  const h = dados.hist[e.icao]; if (!h || h.length < 2) return '';
+  const linha = (m) => `<tr class="tp-${m.c.n}" title="${esc(m.c.por)}"><td class="mono">${m.quando ? hhmm(m.quando) : ''}</td><td>${esc(ventoTxt(m.r.vento))}</td><td>${esc(visTxt(m.r.vis, m.r.cavok))}</td><td>${m.r.teto != null ? m.r.teto + ' ft' : m.r.cavok || m.r.semNuvens ? '—' : m.r.nuvens[0] ? '(' + m.r.nuvens[0].base + ' ' + m.r.nuvens[0].cob + ')' : '—'}</td><td>${esc(m.r.fen.join('; '))}</td><td>${m.r.temp != null ? m.r.temp + '/' + m.r.orv : ''}</td><td>${m.r.qnh || ''}</td></tr>`;
+  return `<details class="tp-ler"><summary>Últimas 24 h em ${e.icao} (${h.length} observações): como está ficando</summary>
+    <div class="tabela"><table class="tp-tab"><thead><tr><th>Hora</th><th>Vento</th><th>Visib.</th><th>Teto</th><th>Tempo</th><th>T/Td</th><th>QNH</th></tr></thead><tbody>${h.map(linha).join('')}</tbody></table></div>
+    <p class="sub">Leia de cima para baixo (o mais novo primeiro): teto subindo e vento firmando costumam vir juntos com a melhora. Histórico oficial, com dias anteriores: <a href="${REDEMET_OLD}" target="_blank" rel="noopener noreferrer">consulta de mensagens do REDEMET</a> (ICAO ${e.icao}).</p></details>`;
 }
 function cartaoTaf(e) {
   const t = dados.taf[e.icao];
@@ -300,7 +319,7 @@ function sites(l, est) {
   const icao = est[0]?.icao || 'SBBI', lista = est.map((e) => e.icao).join(','), ll = `${l.lat.toFixed(3)},${l.lon.toFixed(3)}`;
   const mb = `${Math.abs(l.lat).toFixed(3)}${l.lat < 0 ? 'S' : 'N'}${Math.abs(l.lon).toFixed(3)}${l.lon < 0 ? 'W' : 'E'}`;
   const S = [
-    ['REDEMET (DECEA)', 'Oficial. METAR, TAF, SIGMET, satélite, radar e cartas SIGWX do Brasil. Entre sem conta.', [['Consulta METAR/TAF', 'https://redemet.decea.mil.br/?i=produtos&p=consulta-de-mensagens-opmet'], ['Página inicial (satélite, radar, SIGWX)', 'https://redemet.decea.mil.br/']]],
+    ['REDEMET (DECEA)', 'Oficial. METAR, TAF, SIGMET, satélite, radar e cartas SIGWX do Brasil. Entre sem conta. A "consulta de mensagens" mostra METAR e TAF antigos, por aeródromo e data: é o canal oficial para ver o histórico.', [['Consulta de mensagens (METAR/TAF antigos)', REDEMET_OLD], ['Página inicial (satélite, radar, SIGWX)', 'https://redemet.decea.mil.br/']]],
     ['AISWEB (DECEA)', 'Oficial. Ficha do aeródromo (pista, frequências, cartas), NOTAM e as mensagens meteorológicas dele.', [[`Aeródromo ${icao}`, `https://aisweb.decea.mil.br/?i=aerodromos&codigo=${icao}`], ['Piraquara (SISY)', 'https://aisweb.decea.mil.br/?i=aerodromos&codigo=SISY']]],
     ['Windy', 'Mapa animado de vento, rajadas, nuvens, chuva e trovoadas, com a camada dos aeroportos (METAR/TAF). Grátis sem conta.', [['Aeroportos (METAR/TAF)', `https://www.windy.com/?metars,${ll},10`], ['Rajadas', `https://www.windy.com/?gust,${ll},10`], ['Nuvens', `https://www.windy.com/?clouds,${ll},10`], ['Chuva e trovoadas', `https://www.windy.com/?rain,${ll},10`]]],
     ['meteoblue', 'Meteograma por hora, com base e topo das nuvens, e a página "Ar" para quem voa. Grátis com anúncios.', [['Semana no local', `https://www.meteoblue.com/pt/tempo/semana/${mb}`], ['Ar (voo e nuvens)', `https://www.meteoblue.com/pt/tempo/outdoorsports/air/${mb}`]]],
@@ -316,11 +335,12 @@ export async function carregarTempo(render, forcar) {
   const l = localAtual(); local = l;
   if (carregando) return;
   if (!forcar && ultima && Date.now() - ultima < 5 * 6e4 && dados.local === l.nome) return;
-  carregando = true; dados = { metar: {}, taf: {}, prev: null, erro: {}, local: l.nome }; render();
+  carregando = true; dados = { metar: {}, taf: {}, hist: {}, prev: null, erro: {}, local: l.nome }; render();
   const est = proximas(l);
   await Promise.all([
     buscarMetar(est.map((e) => e.icao)).then((m) => { dados.metar = m; }).catch((e) => { dados.erro.metar = e.message; }),
     buscarTaf(est.filter((e) => e.taf).slice(0, 2).map((e) => e.icao)).then((t) => { dados.taf = t; }).catch((e) => { dados.erro.taf = e.message; }),
+    buscarHistorico(est.slice(0, 2).map((e) => e.icao)).then((h) => { dados.hist = h; }).catch(() => {}),
     buscarPrevisao(l.lat, l.lon).then((p) => { dados.prev = p; }).catch((e) => { dados.erro.prev = e.message; }),
   ]);
   carregando = false; ultima = new Date(); render();
