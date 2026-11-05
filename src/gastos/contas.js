@@ -1,16 +1,17 @@
 // Contas dos gastos da turma e chave Pix de cada um. Usado pela página de gastos e pelo Início do Hangar da Turma.
 // A chave Pix fica em gastosMembros/{uid}.pix: cada um grava a sua, e todos do grupo leem para copiar na hora de pagar.
-import { doc, writeBatch, updateDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
+// Acerto em dois passos: quem deve avisa que pagou (gastos/{id}.informados[]) e só quem recebe confirma (quitados[]).
+import { doc, writeBatch, updateDoc, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const brl = (c) => ((c || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export function partes(g) {
   const ps = g.participantes || [], n = ps.length, base = n ? Math.floor((g.valor || 0) / n) : 0, sobra = n ? (g.valor || 0) - base * n : 0;
-  return ps.map((p, i) => ({ nome: p, valor: base + (i < sobra ? 1 : 0), pagador: !!g.pagoPor && p === g.pagoPor, quitado: !g.pagoPor || p === g.pagoPor || (g.quitados || []).includes(p) }));
+  return ps.map((p, i) => ({ nome: p, valor: base + (i < sobra ? 1 : 0), pagador: !!g.pagoPor && p === g.pagoPor, quitado: !g.pagoPor || p === g.pagoPor || (g.quitados || []).includes(p), informado: (g.informados || []).includes(p) }));
 }
 export function calcular(lista) {
-  const r = { total: 0, pendente: 0, porCat: {}, pessoa: {}, deve: {} };
+  const r = { total: 0, pendente: 0, porCat: {}, pessoa: {}, deve: {}, cnt: {}, inf: {} };
   const P = (n) => (r.pessoa[n] ||= { parte: 0, desembolso: 0, deve: 0, receber: 0 });
   for (const g of lista) {
     r.total += g.valor || 0; r.porCat[g.categoria] = (r.porCat[g.categoria] || 0) + (g.valor || 0);
@@ -21,7 +22,7 @@ export function calcular(lista) {
       if (p.pagador) continue;
       if (p.quitado) { P(p.nome).desembolso += p.valor; P(g.pagoPor).desembolso -= p.valor; continue; }
       r.pendente += p.valor; P(p.nome).deve += p.valor; P(g.pagoPor).receber += p.valor;
-      const k = p.nome + '→' + g.pagoPor; r.deve[k] = (r.deve[k] || 0) + p.valor;
+      const k = p.nome + '→' + g.pagoPor; r.deve[k] = (r.deve[k] || 0) + p.valor; r.cnt[k] = (r.cnt[k] || 0) + 1; if (p.informado) r.inf[k] = (r.inf[k] || 0) + 1;
     }
   }
   // Compensa quem deve um para o outro: sobra só a diferença de cada par.
@@ -31,7 +32,10 @@ export function calcular(lista) {
     const [a, b] = k.split('→'); const par = [a, b].sort().join('|');
     if (visto.has(par)) continue; visto.add(par);
     const liq = (r.deve[a + '→' + b] || 0) - (r.deve[b + '→' + a] || 0);
-    if (liq) r.acertos.push(liq > 0 ? { de: a, para: b, valor: liq } : { de: b, para: a, valor: -liq });
+    if (!liq) continue;
+    const [de, para] = liq > 0 ? [a, b] : [b, a], kk = de + '→' + para;
+    // "inf": o devedor já avisou que pagou todas as partes que compõem o acerto
+    r.acertos.push({ de, para, valor: Math.abs(liq), inf: (r.cnt[kk] || 0) > 0 && (r.inf[kk] || 0) >= (r.cnt[kk] || 0) });
   }
   r.acertos.sort((x, y) => y.valor - x.valor);
   return r;
@@ -44,6 +48,18 @@ export async function quitarPar(db, gastos, a, b, quem) {
     const devedor = g.pagoPor === b ? a : g.pagoPor === a ? b : null;
     if (!devedor || !(g.participantes || []).includes(devedor) || (g.quitados || []).includes(devedor)) continue;
     lote.update(doc(db, 'gastos', g.id), { quitados: arrayUnion(devedor), atualizadoPor: quem, atualizadoEm: serverTimestamp() }); n++;
+  }
+  if (n) await lote.commit();
+  return n;
+}
+
+// O devedor avisa que pagou (ou desfaz o aviso). Marca as partes pendentes nos dois sentidos, porque o acerto já é a diferença.
+export async function informarPar(db, gastos, de, para, quem, desfazer = false) {
+  const lote = writeBatch(db); let n = 0;
+  for (const g of gastos) {
+    const devedor = g.pagoPor === para ? de : g.pagoPor === de ? para : null;
+    if (!devedor || !(g.participantes || []).includes(devedor) || (g.quitados || []).includes(devedor)) continue;
+    if (desfazer === (g.informados || []).includes(devedor)) { lote.update(doc(db, 'gastos', g.id), { informados: desfazer ? arrayRemove(devedor) : arrayUnion(devedor), atualizadoPor: quem, atualizadoEm: serverTimestamp() }); n++; }
   }
   if (n) await lote.commit();
   return n;
@@ -70,9 +86,14 @@ export function alertaAcertos(r, eu, membros) {
   const devo = r.acertos.filter((a) => a.de === eu), recebo = r.acertos.filter((a) => a.para === eu);
   if (!devo.length && !recebo.length) return '<p class="sub">✓ Você não deve nada a ninguém, e ninguém te deve.</p>';
   const tot = (l) => brl(l.reduce((s, a) => s + a.valor, 0));
-  return `${devo.length ? `<div class="pix-tit">Você deve ${tot(devo)}</div>${devo.map((a) => { const pix = pixDe(membros, a.para); return `<div class="acerto"><span>Pagar <b>${brl(a.valor)}</b> a <b>${esc(a.para)}</b>${pix ? `<br><span class="sub">Pix: ${esc(pix)}</span>` : `<br><span class="sub">${esc(a.para)} ainda não cadastrou o Pix</span>`}</span>
-      <span class="linha-acao">${pix ? `<button class="pri" type="button" data-pix-copiar="${esc(pix)}">Copiar Pix</button>` : ''}<button type="button" data-quitar="${esc(a.de)}|${esc(a.para)}">✓ Já paguei</button></span></div>`; }).join('')}` : ''}
-    ${recebo.length ? `<div class="pix-tit">A receber ${tot(recebo)}</div>${recebo.map((a) => `<div class="acerto"><span><b>${esc(a.de)}</b> te deve <b>${brl(a.valor)}</b></span><button type="button" data-quitar="${esc(a.de)}|${esc(a.para)}">✓ Recebi</button></div>`).join('')}` : ''}`;
+  const par = (a) => `${esc(a.de)}|${esc(a.para)}`;
+  return `${devo.length ? `<div class="pix-tit">Você deve ${tot(devo)}</div>${devo.map((a) => { const pix = pixDe(membros, a.para); return a.inf
+      ? `<div class="acerto"><span>⏳ Você avisou que pagou <b>${brl(a.valor)}</b> a <b>${esc(a.para)}</b><br><span class="sub">fica em aberto até ${esc(a.para)} confirmar que recebeu</span></span><button type="button" data-desinformar="${par(a)}">Desfazer</button></div>`
+      : `<div class="acerto"><span>Pagar <b>${brl(a.valor)}</b> a <b>${esc(a.para)}</b>${pix ? `<br><span class="sub">Pix: ${esc(pix)}</span>` : `<br><span class="sub">${esc(a.para)} ainda não cadastrou o Pix</span>`}</span>
+      <span class="linha-acao">${pix ? `<button class="pri" type="button" data-pix-copiar="${esc(pix)}">Copiar Pix</button>` : ''}<button type="button" data-informar="${par(a)}">✓ Já paguei</button></span></div>`; }).join('')}` : ''}
+    ${recebo.length ? `<div class="pix-tit">A receber ${tot(recebo)}</div>${recebo.map((a) => a.inf
+      ? `<div class="acerto"><span>💰 <b>${esc(a.de)}</b> avisou que te pagou <b>${brl(a.valor)}</b><br><span class="sub">confira no banco e confirme</span></span><button class="pri" type="button" data-quitar="${par(a)}">✓ Recebi, confirmar</button></div>`
+      : `<div class="acerto"><span><b>${esc(a.de)}</b> te deve <b>${brl(a.valor)}</b></span><button type="button" data-quitar="${par(a)}">✓ Já recebi</button></div>`).join('')}` : ''}`;
 }
 
 // Liga os botões de caixaPix, alertaAcertos e de qualquer [data-pix-copiar] dentro de `raiz`.
@@ -84,9 +105,13 @@ export function ligarPix(raiz, ctx) {
   }));
   raiz.querySelectorAll('[data-quitar]').forEach((b) => b.addEventListener('click', async () => {
     const [de, para] = b.dataset.quitar.split('|'), eu = ctx.quem;
-    const txt = de === eu ? `Confirmar que você já pagou ${para}?` : para === eu ? `Confirmar que ${de} já te pagou?` : `Marcar como pago tudo o que está pendente entre ${de} e ${para}?`;
-    if (!confirm(txt)) return;
-    try { const n = await quitarPar(ctx.db, ctx.gastos(), de, para, eu); ctx.toast(n ? 'Marcado como pago' : 'Nada pendente entre os dois'); }
+    if (!confirm(para === eu ? `Confirmar que ${de} já te pagou? Isso quita tudo o que está pendente entre vocês dois.` : `Marcar como pago tudo o que está pendente entre ${de} e ${para}?`)) return;
+    try { const n = await quitarPar(ctx.db, ctx.gastos(), de, para, eu); ctx.toast(n ? 'Confirmado: acerto quitado' : 'Nada pendente entre os dois'); }
+    catch (e) { ctx.toast('Não salvou: ' + (e.code || e.message)); }
+  }));
+  raiz.querySelectorAll('[data-informar],[data-desinformar]').forEach((b) => b.addEventListener('click', async () => {
+    const desfazer = 'desinformar' in b.dataset, [de, para] = (b.dataset.informar || b.dataset.desinformar).split('|');
+    try { const n = await informarPar(ctx.db, ctx.gastos(), de, para, ctx.quem, desfazer); ctx.toast(desfazer ? 'Aviso desfeito' : n ? `${para} vai ver o aviso e confirmar quando receber` : 'Nada pendente entre os dois'); }
     catch (e) { ctx.toast('Não salvou: ' + (e.code || e.message)); }
   }));
   raiz.querySelectorAll('[data-pix-form]').forEach((f) => f.addEventListener('submit', async (e) => {

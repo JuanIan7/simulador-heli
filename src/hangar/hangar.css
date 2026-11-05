@@ -129,3 +129,15 @@ th{font-size:12px;color:var(--tinta3);text-transform:uppercase;letter-spacing:.0
 .pix-form{display:flex;gap:8px;flex-wrap:wrap}
 .pix-form input{flex:1 1 220px}
 .pix-tit{font-weight:700;margin-top:4px}
+.tp-est{padding:10px 0;border-top:1px solid var(--linha);display:flex;flex-direction:column;gap:6px}
+.tp-est:first-of-type{border-top:0;padding-top:0}
+.tp-grupo{padding:6px 0 2px}
+.tp-raw{font-size:12.5px;color:var(--tinta2);word-break:break-word}
+.tp-chips .chip{cursor:default}
+.tp-site{display:flex;flex-direction:column;gap:4px;padding:10px;border:1px solid var(--linha);border-radius:12px}
+.tp-tab td,.tp-tab th{white-space:nowrap;padding:5px 8px}
+.tp-tab tr.tp-al td:first-child{box-shadow:inset 4px 0 0 var(--alerta)}
+.tp-tab tr.tp-pe td:first-child{box-shadow:inset 4px 0 0 var(--perigo)}
+.tp-tab tr.tp-ok td:first-child{box-shadow:inset 4px 0 0 var(--ok)}
+.tp-tab tr.tp-pe{background:var(--perigo-claro)}
+.tp-tab tr.tp-al{background:var(--alerta-claro)}

@@ -13,6 +13,7 @@ import { FONIA, ALFABETO, NUMEROS, PALAVRAS_PADRAO, TRANSPONDER } from '../data/
 import { METAR } from '../data/quiz-teoria.js';
 import { DRIVE_PASTA, DRIVE } from './materiais.js';
 import { calcular, caixaPix, alertaAcertos, ligarPix, digitandoPix } from '../gastos/contas.js';
+import { telaTempo, ligarTempo, resumoInicio } from './tempo.js';
 
 const app = initializeApp(FIREBASE_CONFIG), auth = getAuth(app), db = getFirestore(app);
 auth.languageCode = 'pt';
@@ -27,7 +28,7 @@ const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTi
 function toast(t){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2400); }
 const pdf = (k, rot) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_blank" rel="noopener">📄 ${esc(rot)}</a>` : `<span class="sub">📄 ${esc(rot)}</span>`;
 
-const ABAS = [['inicio','Início'],['checklists','Checklists'],['estudo','Estudo'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['gastos','Gastos'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
+const ABAS = [['inicio','Início'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['gastos','Gastos'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
 let aba = (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
 let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], parar = [], trocandoPix = false;
 
@@ -233,12 +234,13 @@ inicio(){
   <div class="caixa"><div class="cab"><div class="rotulo">Seus acertos da turma</div><button class="mini" data-ir="gastos">Ver os gastos</button></div>
     ${alertaAcertos(calcular(gastos), membro.nome, membros)}
     ${membro.pix && !trocandoPix ? `<p class="sub">Sua chave Pix: <b>${esc(membro.pix)}</b> <button class="mini" data-pix-trocar>Trocar</button></p>` : ''}</div>
+  <div class="caixa"><div class="cab"><div class="rotulo">Tempo agora</div><button class="mini" data-ir="tempo">METAR, TAF e previsão</button></div><div id="tpInicio" class="sub">buscando o METAR…</div></div>
   ${ckCartao()}<div class="grade">
     <div class="caixa destaque"><div class="rotulo">Olá, ${esc(membro.nome)}</div><h3>Seu estudo: ${f} de ${IDS.length} itens</h3><div class="barra"><i style="width:${f/IDS.length*100}%"></i></div>
       <p class="sub">Comandos, aerodinâmica, limites e emergências do R22, tráfego e fonia; depois, o Esquilo. Marque cada item ao terminar.</p>
       <div class="linha-acao"><button class="pri" data-ir="estudo">Abrir o cronograma</button><button data-ir="revisao">Revisão R22</button></div></div>
     <div class="caixa"><div class="rotulo">Atalhos</div><div class="linha-acao">
-      <button class="pri" data-ir="diario">📒 Lançar voo</button><button data-ir="gastos">💸 Lançar gasto</button><button data-ir="treino">🎧 Fonia e METAR</button><button data-ir="materiais">📄 Materiais</button><a class="btn" href="${SIMULADOR}" target="_blank" rel="noopener">🚁 Simulador</a></div></div>
+      <button class="pri" data-ir="diario">📒 Lançar voo</button><button data-ir="tempo">🌤️ Tempo</button><button data-ir="gastos">💸 Lançar gasto</button><button data-ir="treino">🎧 Fonia e METAR</button><button data-ir="materiais">📄 Materiais</button><a class="btn" href="${SIMULADOR}" target="_blank" rel="noopener">🚁 Simulador</a></div></div>
   </div>
   <div class="grade">
     <div class="caixa"><div class="rotulo">A turma</div>
@@ -252,6 +254,7 @@ inicio(){
       <div class="titulo">Período</div><div class="sub">Formação prática de 03/11 a 31/12/2026.</div></div>
   </div>`;
 },
+tempo(){ return telaTempo(); },
 estudo(){
   const f = feitos(membro);
   return `<div class="cab"><h2>Cronograma de estudo</h2><span class="selo la">${f}/${IDS.length} feitos</span></div>
@@ -415,6 +418,9 @@ const LIGAR = {
   inicio(c){
     c.querySelectorAll('[data-ir]').forEach(b => b.addEventListener('click', (e) => { e.preventDefault(); irPara(b.dataset.ir); })); ckAbrir(c);
     ligarPix(c, { db, uid: user.uid, quem: membro.nome, gastos: () => gastos, toast, depois: (v, trocar) => { if (v) membro.pix = v; trocandoPix = !!trocar; render(); } });
+    resumoInicio($('#tpInicio'));
+  },
+  tempo(c){ ligarTempo(c, { decodificarMetar, toast, render: () => { if (aba === 'tempo') render(); } });
     $('#btLink').onclick = () => { const link = $('#lkTurma').value;
       if (navigator.share) navigator.share({ title: 'Hangar da Turma', text: 'Hangar da Turma do PPH: estudo, materiais, gastos e diário de voo. Entre com o seu Google:', url: link }).catch(() => {});
       else navigator.clipboard.writeText(link).then(() => toast('Link copiado'), () => toast(link)); };

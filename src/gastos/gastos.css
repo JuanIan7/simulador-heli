@@ -18,3 +18,14 @@
 .pix-form { display: flex; gap: 8px; flex-wrap: wrap; }
 .pix-form input { flex: 1 1 220px; min-width: 0; }
 .pix-tit { font-weight: 700; margin-top: 6px; }
+/* totais: valores grandes (R$ 5.815,90) não estouram o cartão */
+.totais { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.tot { padding: 12px 14px; min-width: 0; }
+.tot b { font-size: clamp(17px, 4.6vw, 24px); overflow-wrap: anywhere; line-height: 1.2; margin: 2px 0; }
+/* gráficos */
+.grafico svg { width: 100%; height: auto; display: block; font-family: inherit; }
+.semanas { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.semana { display: flex; flex-direction: column; border: 1px solid var(--cin2); border-radius: 10px; padding: 8px 10px; font-size: 13px; }
+.semana b { font-size: 17px; font-variant-numeric: tabular-nums; } .semana.dest { border-color: var(--lar); background: var(--lar-claro); }
+.cats { display: flex; flex-direction: column; gap: 8px; } .cat b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.parte.aviso { background: #eef3ff; border-color: #8fa8e8; color: #2a4aa0; }

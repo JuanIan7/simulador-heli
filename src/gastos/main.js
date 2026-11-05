@@ -10,7 +10,7 @@ import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
 import { entrarGoogle, navegadorRuim, avisoNavegador, ligarAviso } from '../entrar-google.js';
 import { getFirestore, doc, getDoc, setDoc, deleteDoc, updateDoc, collection, onSnapshot, serverTimestamp, writeBatch, arrayUnion } from 'firebase/firestore';
 import { FIREBASE_CONFIG, ADMINS } from '../firebase-config.js';
-import { brl, partes, calcular, pixDe, caixaPix, ligarPix, digitandoPix } from './contas.js';
+import { brl, partes, calcular, pixDe, caixaPix, ligarPix, digitandoPix, informarPar } from './contas.js';
 
 const app = initializeApp(FIREBASE_CONFIG), auth = getAuth(app), db = getFirestore(app);
 auth.languageCode = 'pt';
@@ -21,7 +21,7 @@ const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTi
 const dBR = (iso) => iso ? iso.split('-').reverse().join('/') : '';
 const centavos = (s) => { const t = String(s).trim().replace(/[R$\s]/g, ''); const n = Number(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t); return Number.isFinite(n) ? Math.round(n * 100) : NaN; };
 
-const CATEGORIAS = { transporte: 'Transporte (Uber, táxi)', passagem: 'Passagem', hospedagem: 'Hospedagem', alimentacao: 'Alimentação', curso: 'Escola e curso', material: 'Material', outros: 'Outros' };
+const CATEGORIAS = { transporte: 'Transporte (Uber, táxi)', carro: 'Carro (aluguel, combustível)', passagem: 'Passagem', hospedagem: 'Hospedagem', alimentacao: 'Alimentação (restaurante, lanche)', mercado: 'Mercado (supermercado)', lazer: 'Lazer e diversão', casa: 'Casa (contas, limpeza)', curso: 'Escola e curso', material: 'Material', outros: 'Outros' };
 const PESSOAS_INICIAIS = ['Juan', 'Loureiro', 'Paulo Henrique', 'Meira'];
 const NOME_GRUPO = 'Turma PPH · EACAR 2026';
 const CHAVE_CODIGO = 'gastos-codigo';
@@ -148,10 +148,15 @@ function telaPrincipal(trocandoPix = false) {
         <div class="tot"><span>Em aberto</span><b>${brl(r.pendente)}</b><span>na turma</span></div>
       </div>
     </section>
+    ${gastos.length ? graficos(r) : ''}
     <section class="cartao"><h3>Quem deve para quem</h3>
-      ${r.acertos.length ? r.acertos.map((a) => `<div class="acerto"><span><b class="${a.de === eu ? 'eu' : ''}">${esc(a.de)}</b> deve <b class="v">${brl(a.valor)}</b> a <b class="${a.para === eu ? 'eu' : ''}">${esc(a.para)}</b></span><span class="linha-acao">${pixDe(membros, a.para) ? `<button class="mini" data-pix-copiar="${esc(pixDe(membros, a.para))}">Copiar Pix de ${esc(a.para)}</button>` : ''}<button class="mini" data-quitar="${esc(a.de)}|${esc(a.para)}">✓ Pago</button></span></div>`).join('')
+      ${r.acertos.length ? r.acertos.map((a) => { const par = `${esc(a.de)}|${esc(a.para)}`, pix = pixDe(membros, a.para);
+        const acao = a.de === eu ? (a.inf ? `<span class="selo nao">⏳ você avisou que pagou</span><button class="mini" data-desinformar="${par}">Desfazer</button>` : `${pix ? `<button class="mini" data-pix-copiar="${esc(pix)}">Copiar Pix</button>` : ''}<button class="mini" data-informar="${par}">✓ Já paguei</button>`)
+          : a.para === eu ? (a.inf ? `<span class="selo nao">💰 avisou que pagou</span><button class="mini pri" data-quitar="${par}">✓ Recebi, confirmar</button>` : `<button class="mini" data-quitar="${par}">✓ Já recebi</button>`)
+          : `${a.inf ? '<span class="selo nao">⏳ aguardando confirmação</span>' : ''}${ehAdmin() ? `<button class="mini" data-quitar="${par}">✓ Pago</button>` : ''}`;
+        return `<div class="acerto"><span><b class="${a.de === eu ? 'eu' : ''}">${esc(a.de)}</b> deve <b class="v">${brl(a.valor)}</b> a <b class="${a.para === eu ? 'eu' : ''}">${esc(a.para)}</b></span><span class="linha-acao">${acao}</span></div>`; }).join('')
         : '<div class="vazio">Ninguém deve nada a ninguém. Tudo acertado.</div>'}
-      ${r.acertos.length ? `<div class="dica">Já compensa o que um deve ao outro. Pague pelo Pix (o botão copia a chave de quem recebe) e toque em "✓ Pago": quita todas as partes pendentes entre os dois. Para quitar só um gasto, toque no nome da pessoa no gasto.${membro.pix ? ` Sua chave Pix: <b>${esc(membro.pix)}</b> <button class="mini" data-pix-trocar>Trocar</button>` : ''}</div>` : ''}
+      ${r.acertos.length ? `<div class="dica">Já compensa o que um deve ao outro. Quem deve paga pelo Pix (o botão copia a chave) e toca em "✓ Já paguei"; o acerto só sai da lista quando quem recebe toca em "✓ Recebi". Para um gasto só, toque no seu nome dentro do gasto.${membro.pix ? ` Sua chave Pix: <b>${esc(membro.pix)}</b> <button class="mini" data-pix-trocar>Trocar</button>` : ''}</div>` : ''}
     </section>
     <section class="cartao"><div class="cab"><h2>Gastos</h2></div>
       <div class="chips"><button class="chip" aria-pressed="${filtro === 'todos'}" data-f="todos">Todos</button><button class="chip" aria-pressed="${filtro === 'pendentes'}" data-f="pendentes">Com pendência</button>${Object.entries(CATEGORIAS).filter(([k]) => r.porCat[k]).map(([k, t]) => `<button class="chip" aria-pressed="${filtro === k}" data-f="${k}">${esc(t.split(' (')[0])}</button>`).join('')}</div>
@@ -176,25 +181,67 @@ function telaPrincipal(trocandoPix = false) {
   el.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { filtro = b.dataset.f; telaPrincipal(); });
   el.querySelectorAll('[data-ed]').forEach((b) => b.onclick = () => telaGasto(gastos.find((g) => g.id === b.dataset.ed)));
   el.querySelectorAll('[data-parte]').forEach((b) => b.onclick = () => alternarQuitado(b.dataset.parte, b.dataset.nome));
+  el.querySelectorAll('[data-aviso]').forEach((b) => b.onclick = () => alternarInformado(b.dataset.aviso, b.dataset.nome));
   $('#btCsv')?.addEventListener('click', baixarCsv); $('#btCopiar')?.addEventListener('click', () => copiar(resumo(r), 'Resumo copiado'));
   $('#btLink').onclick = () => navigator.share ? navigator.share({ title: 'Gastos da turma', text: 'Controle de gastos do curso de PPH. Entre com o seu Google:', url: link }).catch(() => {}) : copiar(link, 'Link copiado');
   $('#fPessoa').onsubmit = async (e) => { e.preventDefault(); const n = $('#nPessoa').value.trim(); if (n.length < 2) return; try { await updateDoc(doc(db, 'gastosConvites', membro.codigo), { pessoas: arrayUnion(n) }); toast(n + ' acrescentado'); } catch (e2) { toast('Não salvou: ' + (e2.code || e2.message)); } };
+}
+
+// ---------- gráficos ----------
+const dDia = (iso) => iso.slice(8, 10) + '/' + iso.slice(5, 7);
+const addDias = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+const brlCurto = (c) => { const v = c / 100; return v >= 1000 ? 'R$ ' + (v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mil' : 'R$ ' + Math.round(v).toLocaleString('pt-BR'); };
+// Por dia (barras, com o total de cada semana embaixo) e por categoria (barras deitadas). Só SVG, sem biblioteca.
+function graficos(r) {
+  const porDia = {}; gastos.forEach((g) => { porDia[g.data] = (porDia[g.data] || 0) + (g.valor || 0); });
+  const dias = Object.keys(porDia).sort(); if (!dias.length) return '';
+  const fim = hoje() > dias[dias.length - 1] ? hoje() : dias[dias.length - 1];
+  const todos = []; for (let d = dias[0]; d <= fim && todos.length < 120; d = addDias(d, 1)) todos.push(d);
+  const max = Math.max(...Object.values(porDia)), topo = dias.reduce((a, b) => porDia[a] >= porDia[b] ? a : b);
+  // semanas de segunda a domingo
+  const semana = (iso) => { const d = new Date(iso + 'T12:00:00'); return addDias(iso, -((d.getDay() + 6) % 7)); };
+  const semanas = {}; todos.forEach((d) => { const k = semana(d); (semanas[k] ||= { de: k, ate: addDias(k, 6), total: 0, n: 0 }); if (porDia[d]) { semanas[k].total += porDia[d]; semanas[k].n++; } });
+  const sem = Object.values(semanas), semTopo = sem.reduce((a, b) => a.total >= b.total ? a : b);
+  const W = 640, H = 190, ml = 8, mr = 8, mt = 22, mb = 34, lw = (W - ml - mr) / todos.length, bw = Math.max(3, Math.min(26, lw * 0.64)), ph = H - mt - mb;
+  const y = (v) => mt + ph - (max ? v / max * ph : 0);
+  const barras = todos.map((d, i) => { const v = porDia[d] || 0, x = ml + i * lw + (lw - bw) / 2, h = v ? Math.max(3, ph - (y(v) - mt)) : 0;
+    return `<g><title>${dBR(d)}: ${brl(v)}</title><rect x="${x.toFixed(1)}" y="${(mt + ph - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="${Math.min(4, bw / 2)}" fill="${d === topo ? 'var(--lar-esc)' : 'var(--lar)'}" opacity="${v ? 1 : 0}"/>
+      ${d === topo ? `<text x="${(x + bw / 2).toFixed(1)}" y="${(mt + ph - h - 6).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="700" fill="var(--pre)">${esc(brlCurto(v))}</text>` : ''}
+      ${(todos.length <= 14 || i % 7 === 0 || d === todos[todos.length - 1]) ? `<text x="${(x + bw / 2).toFixed(1)}" y="${H - mb + 16}" text-anchor="middle" font-size="11" fill="var(--cin)">${dDia(d)}</text>` : ''}</g>`; }).join('');
+  const divisores = todos.map((d, i) => i && semana(d) === d ? `<line x1="${(ml + i * lw).toFixed(1)}" x2="${(ml + i * lw).toFixed(1)}" y1="${mt - 4}" y2="${mt + ph}" stroke="var(--cin2)" stroke-dasharray="3 3"/>` : '').join('');
+  const cats = Object.entries(r.porCat).sort((a, b) => b[1] - a[1]), maxCat = cats[0]?.[1] || 1;
+  return `<section class="cartao"><div class="cab"><h3>Gastos por dia</h3><span class="sub">${todos.length} dia(s) · maior: <b>${dBR(topo)}</b>, ${brl(porDia[topo])}</span></div>
+    <div class="grafico"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Gastos por dia">${divisores}<line x1="${ml}" x2="${W - mr}" y1="${mt + ph}" y2="${mt + ph}" stroke="var(--cin2)"/>${barras}</svg></div>
+    <div class="semanas">${sem.map((s) => `<div class="semana ${s === semTopo ? 'dest' : ''}"><span>Semana ${dDia(s.de)} a ${dDia(s.ate)}</span><b>${brl(s.total)}</b><span class="sub">${s.n ? s.n + ' dia(s) com gasto' : 'sem gasto'}${s === semTopo && sem.length > 1 ? ' · a mais cara' : ''}</span></div>`).join('')}</div>
+    <h3 style="margin-top:6px">Por categoria</h3>
+    <div class="cats">${cats.map(([k, v]) => `<div class="cat"><div class="cab"><span>${esc((CATEGORIAS[k] || 'Outros').split(' (')[0])}</span><b>${brl(v)} <span class="sub">${Math.round(v / r.total * 100)}%</span></b></div><div class="barra"><i style="width:${(v / maxCat * 100).toFixed(1)}%"></i></div></div>`).join('')}</div>
+    <p class="sub">Soma do que a turma gastou junto, sem descontar quem pagou. A média por pessoa está acima; cada gasto tem sua categoria, que dá para trocar em "✏️ Editar".</p></section>`;
 }
 
 function cartaoGasto(g) {
   const ps = partes(g);
   return `<div class="gasto"><div class="linha1"><span class="desc">${esc(g.descricao)}</span><span class="valor">${brl(g.valor)}</span></div>
     <div class="sub">${dBR(g.data)} · ${esc(CATEGORIAS[g.categoria] || 'Outros')} · ${g.pagoPor ? 'pago por <b>' + esc(g.pagoPor) + '</b>' : 'cada um pagou a sua parte'} · ${ps.length} pessoa(s)${ps.length ? ', ' + brl(ps[0].valor) + ' cada' : ''}${g.obs ? ' · ' + esc(g.obs) : ''}</div>
-    <div class="chips">${ps.map((p) => p.pagador ? `<span class="parte pagador">${esc(p.nome)} pagou</span>`
-      : g.pagoPor ? `<button class="parte ${p.quitado ? 'pago' : 'deve'}" data-parte="${g.id}" data-nome="${esc(p.nome)}" title="Toque para ${p.quitado ? 'voltar para pendente' : 'marcar como pago'}">${p.quitado ? '✓ ' : ''}${esc(p.nome)} ${brl(p.valor)}${p.quitado ? '' : ' · deve'}</button>`
-      : `<span class="parte pago">✓ ${esc(p.nome)} ${brl(p.valor)}</span>`).join('')}
+    <div class="chips">${ps.map((p) => { const eu = membro.nome, rot = `${esc(p.nome)} ${brl(p.valor)}`; if (p.pagador) return `<span class="parte pagador">${esc(p.nome)} pagou</span>`;
+      if (!g.pagoPor) return `<span class="parte pago">✓ ${rot}</span>`;
+      if (p.quitado) return g.pagoPor === eu || ehAdmin() ? `<button class="parte pago" data-parte="${g.id}" data-nome="${esc(p.nome)}" title="Toque para voltar para pendente">✓ ${rot}</button>` : `<span class="parte pago">✓ ${rot}</span>`;
+      if (g.pagoPor === eu || ehAdmin()) return `<button class="parte ${p.informado ? 'aviso' : 'deve'}" data-parte="${g.id}" data-nome="${esc(p.nome)}" title="Toque para confirmar que recebeu">${rot}${p.informado ? ' · avisou que pagou' : ' · deve'}</button>`;
+      if (p.nome === eu) return `<button class="parte ${p.informado ? 'aviso' : 'deve'}" data-aviso="${g.id}" data-nome="${esc(p.nome)}" title="${p.informado ? 'Toque para desfazer o aviso' : 'Toque para avisar que pagou'}">${rot}${p.informado ? ' · ⏳ avisei que paguei' : ' · devo'}</button>`;
+      return `<span class="parte ${p.informado ? 'aviso' : 'deve'}">${rot}${p.informado ? ' · avisou que pagou' : ' · deve'}</span>`; }).join('')}
       <button class="mini" data-ed="${g.id}">✏️ Editar</button></div></div>`;
+}
+
+async function alternarInformado(id, nome) {
+  const g = gastos.find((x) => x.id === id); if (!g) return;
+  const q = new Set(g.informados || []); const avisa = !q.has(nome); avisa ? q.add(nome) : q.delete(nome);
+  try { await updateDoc(doc(db, 'gastos', id), { informados: [...q], atualizadoPor: membro.nome, atualizadoEm: serverTimestamp() }); toast(avisa ? `${g.pagoPor} vai confirmar quando receber` : 'Aviso desfeito'); }
+  catch (e) { toast('Não salvou: ' + (e.code || e.message)); }
 }
 
 async function alternarQuitado(id, nome) {
   const g = gastos.find((x) => x.id === id); if (!g) return;
   const q = new Set(g.quitados || []); const pago = !q.has(nome); pago ? q.add(nome) : q.delete(nome);
-  try { await updateDoc(doc(db, 'gastos', id), { quitados: [...q], atualizadoPor: membro.nome, atualizadoEm: serverTimestamp() }); toast(pago ? `${nome}: pago` : `${nome}: voltou para pendente`); }
+  try { await updateDoc(doc(db, 'gastos', id), { quitados: [...q], atualizadoPor: membro.nome, atualizadoEm: serverTimestamp() }); toast(pago ? `${nome}: recebido, quitado` : `${nome}: voltou para pendente`); }
   catch (e) { toast('Não salvou: ' + (e.code || e.message)); }
 }
 
