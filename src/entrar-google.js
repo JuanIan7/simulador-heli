@@ -1,8 +1,8 @@
-// Login com Google sempre pela janela (popup), nunca por redirecionamento.
-// O redirecionamento passa por simulador-heli.firebaseapp.com e volta para o github.io: nos navegadores que
-// separam o armazenamento por site (Safari, Chrome novo, navegador de dentro do WhatsApp/Instagram) ele quebra
-// com "Unable to process request due to missing initial state". Onde a janela não abre, a saída é o navegador de verdade.
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+// Login com Google. No computador, pela janela (popup). No celular, pela própria aba (redirecionamento), mas só quando o
+// login passa pelo mesmo endereço do site (authDomain = juanian7.github.io, ver firebase-config.js): passando por
+// simulador-heli.firebaseapp.com, os navegadores que separam o armazenamento por site (Safari, Chrome do iPhone, navegador de
+// dentro do WhatsApp/Instagram) dão "Unable to process request due to missing initial state". Onde não dá, a saída é o navegador de verdade.
+import { GoogleAuthProvider, signInWithPopup, signInWithRedirect } from 'firebase/auth';
 
 const ua = navigator.userAgent;
 const android = /Android/i.test(ua), iphone = /iPhone|iPad|iPod/i.test(ua);
@@ -13,6 +13,8 @@ export const navegadorRuim = () => /FBAN|FBAV|Instagram|WhatsApp|Line\/|GSA\/|; 
 // devolve null quando entrou ou a pessoa fechou a janela; 'navegador' quando este navegador não deixa; ou a mensagem de erro
 export async function entrarGoogle(auth) {
   const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' });
+  // no celular, com o login no mesmo endereço do site, vai pela própria aba: a janela nova é que se perde no iPhone
+  if ((android || iphone) && auth.config.authDomain === location.hostname) { await signInWithRedirect(auth, p); return null; }
   try { await signInWithPopup(auth, p); return null; }
   catch (e) {
     if (['auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/user-cancelled'].includes(e.code)) return null;

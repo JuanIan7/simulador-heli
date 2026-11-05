@@ -14,6 +14,7 @@ import { METAR } from '../data/quiz-teoria.js';
 import { DRIVE_PASTA, DRIVE } from './materiais.js';
 import { calcular, caixaPix, alertaAcertos, ligarPix, digitandoPix } from '../gastos/contas.js';
 import { telaTempo, ligarTempo, resumoInicio } from './tempo.js';
+import { limpar, limparNome, linkSeguro, ligarMascaras } from '../entrada.js';
 
 const app = initializeApp(FIREBASE_CONFIG), auth = getAuth(app), db = getFirestore(app);
 auth.languageCode = 'pt';
@@ -169,19 +170,20 @@ async function telaEntrar(codigo, erro) {
   if (!convite) {
     $('#conteudo').innerHTML = `<div class="caixa"><h2>Entrar na turma</h2>
       <p class="sub">${codigo ? 'Este código não é de nenhuma turma. Confira o link.' : 'Abra o link que o Juan mandou no grupo, ou cole aqui o código.'}</p>
-      <form id="fCod" class="form"><label class="largo">Código ou link da turma<input id="cCod" required autocomplete="off"></label><div class="largo linha-acao"><button class="pri" type="submit">Continuar</button></div></form></div>`;
-    $('#fCod').onsubmit = (e) => { e.preventDefault(); const c = $('#cCod').value.trim().replace(/.*[?&]c=/, ''); try { localStorage.setItem(CHAVE_CODIGO, c); } catch {} telaEntrar(c); };
+      <form id="fCod" class="form"><label class="largo">Código ou link da turma<input id="cCod" required data-m="codigo" maxlength="300"></label><div class="largo linha-acao"><button class="pri" type="submit">Continuar</button></div></form></div>`;
+    ligarMascaras($('#conteudo'));
+    $('#fCod').onsubmit = (e) => { e.preventDefault(); const c = $('#cCod').value.trim().replace(/.*[?&]c=/, '').replace(/[&#].*$/, '').replace(/[^\w-]/g, '').slice(0, 64); if (!c) return; try { localStorage.setItem(CHAVE_CODIGO, c); } catch {} telaEntrar(c); };
     return;
   }
   $('#conteudo').innerHTML = `<div class="caixa"><h2>${esc(convite.grupo)}</h2><p class="sub">Quem é você na turma?</p>
     <form id="fEntrar" class="form"><label class="largo">Seu nome<select id="eNome">${(convite.pessoas || []).map((p) => `<option>${esc(p)}</option>`).join('')}<option value="">Outro nome…</option></select></label>
-      <label class="largo" id="eOutroL" hidden>Nome (como a turma te chama)<input id="eOutro" maxlength="24"></label>
+      <label class="largo" id="eOutroL" hidden>Nome (como a turma te chama)<input id="eOutro" data-m="nome" maxlength="24"></label>
       <div class="largo linha-acao"><button class="pri" type="submit">Entrar</button></div></form><p class="sub" style="color:var(--perigo)">${esc(erro || '')}</p></div>`;
   const sel = $('#eNome'), prim = (user.displayName || '').split(' ')[0].toLowerCase();
   const casa = [...sel.options].find((o) => o.value && prim && o.value.toLowerCase().startsWith(prim)); if (casa) sel.value = casa.value;
-  const outro = () => { $('#eOutroL').hidden = sel.value !== ''; }; sel.onchange = outro; outro();
+  const outro = () => { $('#eOutroL').hidden = sel.value !== ''; }; sel.onchange = outro; outro(); ligarMascaras($('#conteudo'));
   $('#fEntrar').onsubmit = async (e) => {
-    e.preventDefault(); const nome = (sel.value || $('#eOutro').value).trim();
+    e.preventDefault(); const nome = limparNome(sel.value || $('#eOutro').value, 24);
     if (nome.length < 2) return telaEntrar(codigo, 'Escreva o seu nome.');
     try {
       await setDoc(doc(db, 'gastosMembros', user.uid), { nome, email: user.email, codigo, entrouEm: serverTimestamp() });
@@ -214,7 +216,7 @@ function render() {
   $('#abas').innerHTML = ABAS.map(([k,t]) => `<button class="aba" role="tab" aria-selected="${k===aba}" data-aba="${k}">${t}</button>`).join('');
   const c = $('#conteudo'), y = window.scrollY;
   c.innerHTML = `<section data-painel="${aba}">${(TELAS[aba]||TELAS.inicio)()}</section>`;
-  (LIGAR[aba]||(()=>{}))(c);
+  ligarMascaras(c); (LIGAR[aba]||(()=>{}))(c);
   contagem(); window.scrollTo(0, y);
 }
 function contagem() {
@@ -315,7 +317,7 @@ treino(){
   return `<h2>Treino</h2>
   <div class="grade">
     <div class="caixa"><h3>Decodificador de METAR</h3><p class="sub">Cole um METAR (do REDEMET ou do AISWEB) para ler por partes. Exemplos de Bacacheri abaixo.</p>
-      <textarea id="mtIn" class="mono" aria-label="METAR">${esc(ex[0].codigo)}</textarea><div class="linha-acao"><button class="pri" id="mtBtn">Decodificar</button><a class="btn" href="https://aviationweather.gov/data/metar/?ids=SBBI,SBCT,SBJR,SBRJ,SBGL&hours=0" target="_blank" rel="noopener">METAR de agora (SBBI, SBCT, SBJR, SBRJ, SBGL)</a></div>
+      <textarea id="mtIn" class="mono" data-m="maiusculo" maxlength="400" aria-label="METAR">${esc(ex[0].codigo)}</textarea><div class="linha-acao"><button class="pri" id="mtBtn">Decodificar</button><a class="btn" href="https://aviationweather.gov/data/metar/?ids=SBBI,SBCT,SBJR,SBRJ,SBGL&hours=0" target="_blank" rel="noopener">METAR de agora (SBBI, SBCT, SBJR, SBRJ, SBGL)</a></div>
       <div id="mtOut"></div></div>
     <div class="caixa"><h3>GO ou NO-GO?</h3><p class="sub">${ex.length} METAR de estudo. Leia e decida se dá para o voo VFR de instrução.</p><div id="mqBox"></div></div>
   </div>
@@ -330,7 +332,7 @@ treino(){
 materiais(){
   const ess = [['r22poh','POH R22 (Robinson, fev/2024)'],['r22br','R22: Suplemento Brasileiro do POH'],['delanir','Delanir: apostila PPH/PCH (aluno)'],['resumao','Resumão Piloto Privado'],['ica1004','ICA 100-4: regras para helicópteros (DECEA)'],['ica10012','ICA 100-12: regras do ar (DECEA)'],['mca10016','MCA 100-16: fraseologia (DECEA, 2025)'],['codmet','Códigos meteorológicos (METAR, TAF)'],['planovoo','Plano de voo'],['rbac67','RBAC 67: certificado médico (CMA)'],['faa6','FAA Helicopter Flying Handbook, cap. 6: peso e balanceamento'],['faa7','FAA Helicopter Flying Handbook, cap. 7: desempenho'],['is141','IS 141-007: programas de instrução (ANAC)']];
   const eacar = [['eacarpre','Checklist pré-voo externo R22'],['eacaracio','Checklist de acionamento e corte R22'],['eacaremerg','Procedimentos de emergência R22'],['eacarman','Manual de Manobras R22 (Otavio Rosa e Rudi Barlem)'],['eacarpoh','POH R22: tradução para alunos (EACAR, 2026)'],['eacarfonia','Roteiro de fonia do circuito SISY']];
-  const extras = (s) => mats.filter((m) => m.secao === s).map((m) => `<span class="mat-turma"><a href="${esc(m.link)}" target="_blank" rel="noopener noreferrer">📎 ${esc(m.titulo)}</a>${m.autor === user.uid ? `<button class="mini fantasma" data-matdel="${esc(m.id)}" aria-label="Tirar ${esc(m.titulo)}">×</button>` : ''}<span class="sub">${esc(m.nome || '')}</span></span>`).join('');
+  const extras = (s) => mats.filter((m) => m.secao === s).map((m) => `<span class="mat-turma"><a href="${esc(linkSeguro(m.link) || '#')}" target="_blank" rel="noopener noreferrer">📎 ${esc(m.titulo)}</a>${m.autor === user.uid ? `<button class="mini fantasma" data-matdel="${esc(m.id)}" aria-label="Tirar ${esc(m.titulo)}">×</button>` : ''}<span class="sub">${esc(m.nome || '')}</span></span>`).join('');
   return `<h2>Materiais</h2><p class="intro">Os PDFs ficam numa pasta do Google Drive compartilhada com a turma. Se o Drive pedir acesso, toque em "Solicitar acesso" com a mesma conta Google que você usa aqui. O que alguém da turma acrescentar aparece direto na seção escolhida.</p>
   <div class="caixa destaque"><h3>Material da EACAR</h3><div class="links">${eacar.map(([k,t])=>pdf(k,t)).join('')}${extras('eacar')}</div>
     <p class="sub">Os três cartões também estão na aba <a href="#checklists" data-ir="checklists">Checklists</a>, para marcar item a item.</p></div>
@@ -340,9 +342,9 @@ materiais(){
     <p class="sub">Livro comprado pela turma: uso só entre nós.</p></div>
   ${mats.some((m) => m.secao === 'outros') ? `<div class="caixa"><h3>Outros</h3><div class="links">${extras('outros')}</div></div>` : ''}
   <div class="caixa"><h3>Acrescentar material</h3><p class="sub">Coloque o arquivo no seu Google Drive (ou em outro site), copie o link de compartilhamento e cole aqui. Ele aparece na hora para a turma. No Drive, deixe o arquivo como "Qualquer pessoa com o link".</p>
-    <form id="fMat" class="form"><label class="largo">Título<input id="mTit" required maxlength="120" placeholder="Ex.: Resumo de autorrotação do Meira"></label>
+    <form id="fMat" class="form"><label class="largo">Título<input id="mTit" required data-m="texto" maxlength="120" placeholder="Ex.: Resumo de autorrotação do Meira"></label>
       <label>Seção<select id="mSec"><option value="eacar">Material da EACAR</option><option value="essenciais">Essenciais do PPH</option><option value="sn">Safety Notices</option><option value="esquilo">Esquilo</option><option value="outros">Outros</option></select></label>
-      <label>Link<input id="mLink" required type="url" placeholder="https://drive.google.com/..."></label>
+      <label>Link<input id="mLink" required type="url" maxlength="1000" autocomplete="off" spellcheck="false" placeholder="https://drive.google.com/..."></label>
       <div class="largo linha-acao"><button class="pri" type="submit">Acrescentar</button><span class="sub" id="mMsg"></span></div></form></div>
   <div class="caixa"><h3>Pasta completa</h3><div class="links">${DRIVE_PASTA ? `<a class="pdf" href="https://drive.google.com/drive/folders/${DRIVE_PASTA}" target="_blank" rel="noopener">📁 Abrir a pasta no Google Drive</a>` : ''}<a href="${SIMULADOR}" target="_blank" rel="noopener">Simulador Heli (21 fases)</a></div></div>`;
 },
@@ -444,8 +446,9 @@ const LIGAR = {
     c.querySelectorAll('[data-ir]').forEach(b => b.addEventListener('click', (e) => { e.preventDefault(); irPara(b.dataset.ir); }));
     c.querySelectorAll('[data-matdel]').forEach(b => b.onclick = () => { if (confirm('Tirar este material da lista?')) deleteDoc(doc(db, 'materiais', b.dataset.matdel)).catch(() => toast('Não deu para tirar.')); });
     $('#fMat').onsubmit = async (e) => {
-      e.preventDefault(); const titulo = $('#mTit').value.trim(), link = $('#mLink').value.trim();
-      if (!/^https:\/\//.test(link)) return ($('#mMsg').textContent = 'O link precisa começar com https://');
+      e.preventDefault(); const titulo = limpar($('#mTit').value, 120), link = linkSeguro($('#mLink').value);
+      if (titulo.length < 2) { $('#mMsg').textContent = 'Escreva um título.'; return; }
+      if (!link) { $('#mMsg').textContent = 'O link precisa começar com https://'; return; }
       try { await addDoc(collection(db, 'materiais'), { titulo, link, secao: $('#mSec').value, autor: user.uid, nome: membro.nome, em: serverTimestamp() }); toast('Material acrescentado'); }
       catch (e2) { $('#mMsg').textContent = 'Não salvou (' + (e2.code || e2.message) + ').'; }
     };

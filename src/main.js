@@ -17,6 +17,7 @@ import { montarIdentificar } from './ui/identificar.js';
 import { montarFonia, montarMetar, montarSipaer, exParaQuiz } from './ui/teoria.js';
 import { estado } from './estado.js';
 import * as nuvem from './nuvem.js';
+import { ligarMascaras } from './entrada.js';
 
 const $ = (s) => document.querySelector(s);
 const telas = $('#telas'), jogo = $('#jogo');
@@ -81,8 +82,9 @@ function telaApelido() {
   const atual = nuvem.conta.perfil?.apelido || '';
   mostrarTela(`<div class="tela"><h2>${atual ? 'Trocar apelido' : 'Bem-vindo, piloto!'}</h2>
     <section class="cartao"><p>${atual ? 'É o nome que aparece no ranking.' : 'Escolha o apelido que vai aparecer no ranking. O seu e-mail não aparece para os outros jogadores.'}</p>
-    <input id="apelido" class="campo" maxlength="24" placeholder="Ex.: Cap Juan" value="${esc(atual || (nuvem.conta.user?.displayName || '').split(' ')[0])}"><div class="sub erro" id="apErro"></div></section>
+    <input id="apelido" class="campo" data-m="texto" maxlength="24" placeholder="Ex.: Cap Juan" value="${esc(atual || (nuvem.conta.user?.displayName || '').split(' ')[0])}"><div class="sub erro" id="apErro"></div></section>
     <div class="grade-botoes"><button class="btn btn-laranja grande" id="apSalvar">Salvar</button>${atual ? '<button class="btn btn-cinza" id="voltar">Voltar</button>' : ''}</div></div>`);
+  ligarMascaras(telas);
   $('#apSalvar').onclick = async () => { try { await nuvem.definirApelido($('#apelido').value); menu(); } catch (e) { $('#apErro').textContent = e.message; } };
   $('#voltar')?.addEventListener('click', menu);
 }

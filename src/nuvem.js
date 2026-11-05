@@ -5,6 +5,7 @@
 // Quando o desenvolvedor zera uma conta, grava `resetEm`; o aparelho que ainda não viu esse reset troca o progresso local pelo da nuvem.
 import { FIREBASE_CONFIG, ADMINS } from './firebase-config.js';
 import { estado } from './estado.js';
+import { limpar } from './entrada.js';
 
 const nativo = () => !!window.Capacitor?.isNativePlatform?.();
 export const disponivel = () => !!FIREBASE_CONFIG && !nativo();
@@ -89,7 +90,7 @@ function ouvirReset(uid) {
 
 export async function definirApelido(apelido) {
   const { db, F } = await carregar(); const u = conta.user; if (!u) return;
-  apelido = String(apelido || '').trim().slice(0, 24);
+  apelido = limpar(apelido, 24);
   if (apelido.length < 2) throw new Error('O apelido precisa ter pelo menos 2 letras.');
   conta.perfil = { apelido };
   await F.setDoc(F.doc(db, 'jogadores', u.uid), { apelido }, { merge: true });

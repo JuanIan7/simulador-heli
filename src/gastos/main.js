@@ -11,6 +11,7 @@ import { entrarGoogle, navegadorRuim, avisoNavegador, ligarAviso } from '../entr
 import { getFirestore, doc, getDoc, setDoc, deleteDoc, updateDoc, collection, onSnapshot, serverTimestamp, writeBatch, arrayUnion } from 'firebase/firestore';
 import { FIREBASE_CONFIG, ADMINS } from '../firebase-config.js';
 import { brl, partes, calcular, pixDe, caixaPix, ligarPix, digitandoPix, informarPar } from './contas.js';
+import { limpar, limparNome, formatarDinheiro, dataValida, hojeIso, celulaCsv, ligarMascaras } from '../entrada.js';
 
 const app = initializeApp(FIREBASE_CONFIG), auth = getAuth(app), db = getFirestore(app);
 auth.languageCode = 'pt';
@@ -85,9 +86,10 @@ async function telaEntrar(codigo, erro) {
   if (!convite) {
     el.innerHTML = `<section class="cartao"><h2>Entrar no grupo de gastos</h2>
       ${codigo ? '<p class="erro">Este código não é de nenhum grupo. Confira o link.</p>' : '<p class="sub">Abra o link do grupo que o Juan mandou, ou cole aqui o código.</p>'}
-      <form id="fCod" class="form"><label class="largo">Código do grupo<input id="cCod" required autocomplete="off"></label><div class="largo linha-acao"><button class="pri" type="submit">Continuar</button></div></form>
+      <form id="fCod" class="form"><label class="largo">Código do grupo<input id="cCod" required data-m="codigo" maxlength="300"></label><div class="largo linha-acao"><button class="pri" type="submit">Continuar</button></div></form>
       ${ehAdmin() ? '<div class="dica">Você é o administrador. Se o grupo ainda não existe, crie agora: o link de convite aparece na página depois.</div><div class="linha-acao"><button id="btCriar">Criar o grupo</button></div>' : ''}</section>`;
-    $('#fCod').onsubmit = (e) => { e.preventDefault(); const c = $('#cCod').value.trim().replace(/.*[?&]c=/, ''); try { localStorage.setItem(CHAVE_CODIGO, c); } catch {} telaEntrar(c); };
+    ligarMascaras(el);
+    $('#fCod').onsubmit = (e) => { e.preventDefault(); const c = $('#cCod').value.trim().replace(/.*[?&]c=/, '').replace(/[&#].*$/, '').replace(/[^\w-]/g, '').slice(0, 64); if (!c) return; try { localStorage.setItem(CHAVE_CODIGO, c); } catch {} telaEntrar(c); };
     $('#btCriar')?.addEventListener('click', criarGrupo);
     return;
   }
@@ -95,16 +97,17 @@ async function telaEntrar(codigo, erro) {
     <p class="sub">Quem é você no grupo? Esse nome aparece nos gastos e nos acertos.</p>
     <form id="fEntrar" class="form">
       <label class="largo">Seu nome<select id="eNome">${(convite.pessoas || []).map((p) => `<option>${esc(p)}</option>`).join('')}<option value="">Outro nome…</option></select></label>
-      <label class="largo" id="eOutroL" hidden>Nome (como a turma te chama)<input id="eOutro" maxlength="24"></label>
+      <label class="largo" id="eOutroL" hidden>Nome (como a turma te chama)<input id="eOutro" data-m="nome" maxlength="24"></label>
       <div class="largo linha-acao"><button class="pri" type="submit">Entrar no grupo</button></div>
     </form><p class="erro">${esc(erro || '')}</p></section>`;
   const sel = $('#eNome'); const prim = (user.displayName || '').split(' ')[0];
   const casa = [...sel.options].find((o) => o.value && prim && o.value.toLowerCase().startsWith(prim.toLowerCase()));
   if (casa) sel.value = casa.value;
   const outro = () => { $('#eOutroL').hidden = sel.value !== ''; }; sel.onchange = outro; outro();
+  ligarMascaras(el);
   $('#fEntrar').onsubmit = async (e) => {
     e.preventDefault();
-    const nome = (sel.value || $('#eOutro').value).trim();
+    const nome = limparNome(sel.value || $('#eOutro').value, 24);
     if (nome.length < 2) return telaEntrar(codigo, 'Escreva o seu nome.');
     try {
       await setDoc(doc(db, 'gastosMembros', user.uid), { nome, email: user.email, codigo, entrouEm: serverTimestamp() });
@@ -174,7 +177,7 @@ function telaPrincipal(trocandoPix = false) {
       <p class="sub">É o link do Hangar da Turma (estudo, materiais, gastos e diário num lugar só). Cada um entra com o próprio Google e escolhe o nome.</p>
       <div class="codigo">${esc(link)}</div>
       <div class="linha-acao"><button id="btLink">${navigator.share ? 'Compartilhar link' : 'Copiar link'}</button></div>
-      <form id="fPessoa" class="form"><label>Acrescentar pessoa<input id="nPessoa" maxlength="24" placeholder="Nome"></label><div class="linha-acao" style="align-items:end"><button type="submit">Acrescentar</button></div></form>
+      <form id="fPessoa" class="form"><label>Acrescentar pessoa<input id="nPessoa" data-m="nome" maxlength="24" placeholder="Nome"></label><div class="linha-acao" style="align-items:end"><button type="submit">Acrescentar</button></div></form>
     </section>`;
   ligarPix(el, { db, uid: user.uid, quem: eu, gastos: () => gastos, toast, depois: (v, trocar) => { if (v) membro.pix = v; telaPrincipal(!!trocar); } });
   $('#btNovo').onclick = () => telaGasto(null);
@@ -184,7 +187,8 @@ function telaPrincipal(trocandoPix = false) {
   el.querySelectorAll('[data-aviso]').forEach((b) => b.onclick = () => alternarInformado(b.dataset.aviso, b.dataset.nome));
   $('#btCsv')?.addEventListener('click', baixarCsv); $('#btCopiar')?.addEventListener('click', () => copiar(resumo(r), 'Resumo copiado'));
   $('#btLink').onclick = () => navigator.share ? navigator.share({ title: 'Gastos da turma', text: 'Controle de gastos do curso de PPH. Entre com o seu Google:', url: link }).catch(() => {}) : copiar(link, 'Link copiado');
-  $('#fPessoa').onsubmit = async (e) => { e.preventDefault(); const n = $('#nPessoa').value.trim(); if (n.length < 2) return; try { await updateDoc(doc(db, 'gastosConvites', membro.codigo), { pessoas: arrayUnion(n) }); toast(n + ' acrescentado'); } catch (e2) { toast('Não salvou: ' + (e2.code || e2.message)); } };
+  ligarMascaras(el);
+  $('#fPessoa').onsubmit = async (e) => { e.preventDefault(); const n = limparNome($('#nPessoa').value, 24); if (n.length < 2) { toast('Escreva um nome com pelo menos 2 letras.'); return; } try { await updateDoc(doc(db, 'gastosConvites', membro.codigo), { pessoas: arrayUnion(n) }); toast(n + ' acrescentado'); } catch (e2) { toast('Não salvou: ' + (e2.code || e2.message)); } };
 }
 
 // ---------- gráficos ----------
@@ -252,29 +256,32 @@ function telaGasto(g) {
   const part = new Set(g.participantes || []);
   el.innerHTML = `<section class="cartao"><div class="cab"><h2>${g.id ? 'Editar gasto' : 'Novo gasto'}</h2><button type="button" id="gVoltar">Voltar</button></div>
     <form id="fGasto" class="form">
-      <label class="largo">Com o que foi o gasto<input id="gDesc" required maxlength="80" value="${esc(g.descricao)}" placeholder="Ex.: Uber aeroporto → hotel"></label>
-      <label>Data<input id="gData" type="date" required value="${esc(g.data)}"></label>
-      <label>Valor total (R$)<input id="gValor" required inputmode="decimal" value="${g.valor != null ? esc(((g.valor || 0) / 100).toFixed(2).replace('.', ',')) : ''}" placeholder="0,00"></label>
+      <label class="largo">Com o que foi o gasto<input id="gDesc" required data-m="texto" maxlength="80" value="${esc(g.descricao)}" placeholder="Ex.: Uber aeroporto → hotel"></label>
+      <label>Data<input id="gData" type="date" required min="2020-01-01" max="${hojeIso(365)}" value="${esc(g.data)}"></label>
+      <label>Valor total (R$)<input id="gValor" required data-m="dinheiro" value="${g.valor != null ? esc(((g.valor || 0) / 100).toFixed(2).replace('.', ',')) : ''}" placeholder="0,00"></label>
       <label>Categoria<select id="gCat">${Object.entries(CATEGORIAS).map(([k, t]) => `<option value="${k}" ${k === g.categoria ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
       <label>Quem pagou<select id="gPagou">${pessoas.map((p) => `<option ${p === g.pagoPor ? 'selected' : ''}>${esc(p)}</option>`).join('')}<option value="" ${g.pagoPor === '' ? 'selected' : ''}>Cada um pagou a sua parte</option></select></label>
       <div class="largo"><h3 style="margin-bottom:6px">Dividido entre (partes iguais)</h3><div class="chips" id="gPart">${pessoas.map((p) => `<button type="button" class="chip" aria-pressed="${part.has(p)}" data-p="${esc(p)}">${esc(p)}</button>`).join('')}</div></div>
       <div class="largo dica" id="gCalc"></div>
-      <label class="largo">Observação<input id="gObs" maxlength="120" value="${esc(g.obs)}"></label>
+      <label class="largo">Observação<input id="gObs" data-m="texto" maxlength="120" value="${esc(g.obs)}"></label>
       <div class="largo linha-acao"><button class="pri" type="submit">Salvar gasto</button>${g.id ? '<button type="button" class="perigo" id="gApagar">Apagar</button>' : ''}</div>
     </form><p class="erro" id="gErro"></p></section>`;
   const escolhidos = () => [...el.querySelectorAll('#gPart [aria-pressed="true"]')].map((b) => b.dataset.p);
   const calc = () => { const v = centavos($('#gValor').value), n = escolhidos().length; $('#gCalc').textContent = Number.isFinite(v) && v > 0 && n ? `${n} pessoa(s): ${brl(Math.floor(v / n))} para cada.` : 'Escolha quem dividiu o gasto.'; };
   $('#gPart').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true'); calc(); } };
-  $('#gValor').oninput = calc; calc();
+  ligarMascaras(el);
+  $('#gValor').addEventListener('input', calc); calc();
   $('#gVoltar').onclick = telaPrincipal;
   $('#gApagar')?.addEventListener('click', async () => { if (!confirm('Apagar este gasto para todo mundo?')) return; await deleteDoc(doc(db, 'gastos', g.id)); toast('Gasto apagado'); telaPrincipal(); });
   $('#fGasto').onsubmit = async (e) => {
     e.preventDefault();
-    const participantes = escolhidos(), pagoPor = $('#gPagou').value, valor = centavos($('#gValor').value);
-    const d = { descricao: $('#gDesc').value.trim(), data: $('#gData').value, valor, categoria: $('#gCat').value, pagoPor, participantes,
-      quitados: (g.quitados || []).filter((p) => participantes.includes(p) && p !== pagoPor), obs: $('#gObs').value.trim(), atualizadoPor: membro.nome, atualizadoEm: serverTimestamp() };
+    const participantes = escolhidos().filter((p) => pessoas.includes(p)), pagoPor = pessoas.includes($('#gPagou').value) ? $('#gPagou').value : '', valor = centavos(formatarDinheiro($('#gValor').value));
+    const d = { descricao: limpar($('#gDesc').value, 80), data: $('#gData').value, valor, categoria: CATEGORIAS[$('#gCat').value] ? $('#gCat').value : 'outros', pagoPor, participantes,
+      quitados: (g.quitados || []).filter((p) => participantes.includes(p) && p !== pagoPor), obs: limpar($('#gObs').value, 120), atualizadoPor: membro.nome, atualizadoEm: serverTimestamp() };
     if (!d.descricao) { $('#gErro').textContent = 'Diga com o que foi o gasto.'; return; }
+    if (!dataValida(d.data, '2020-01-01', hojeIso(365))) { $('#gErro').textContent = 'Informe uma data válida.'; return; }
     if (!Number.isFinite(valor) || valor <= 0) { $('#gErro').textContent = 'Valor inválido. Use, por exemplo, 80,00.'; return; }
+    if (valor > 10000000) { $('#gErro').textContent = 'Valor alto demais (máximo R$ 100.000,00). Confira a vírgula.'; return; }
     if (!participantes.length) { $('#gErro').textContent = 'Escolha quem dividiu o gasto.'; return; }
     const id = g.id || (d.data + '-' + Math.random().toString(36).slice(2, 8));
     try { await setDoc(doc(db, 'gastos', id), g.id ? d : { ...d, criadoPor: membro.nome, criadoMs: Date.now(), criadoEm: serverTimestamp() }, { merge: true }); toast('Gasto salvo'); telaPrincipal(); }
@@ -289,7 +296,7 @@ function resumo(r) {
     `\n\nGastos:\n` + [...gastos].reverse().map((g) => `${dBR(g.data)} ${g.descricao}: ${brl(g.valor)} (${g.pagoPor ? 'pago por ' + g.pagoPor : 'cada um pagou o seu'})`).join('\n');
 }
 function baixarCsv() {
-  const q = (x) => '"' + String(x ?? '').replace(/"/g, '""') + '"';
+  const q = celulaCsv;
   const linhas = [['Data', 'Descrição', 'Categoria', 'Valor', 'Pago por', 'Dividido entre', 'Valor por pessoa', 'Pendentes', 'Observação'].map(q).join(';'),
     ...[...gastos].reverse().map((g) => { const ps = partes(g); return [dBR(g.data), g.descricao, CATEGORIAS[g.categoria], ((g.valor || 0) / 100).toFixed(2).replace('.', ','), g.pagoPor || 'Cada um o seu', (g.participantes || []).join(', '), ps.length ? (ps[0].valor / 100).toFixed(2).replace('.', ',') : '', ps.filter((p) => !p.quitado).map((p) => p.nome).join(', '), g.obs].map(q).join(';'); })];
   const b = new Blob(['﻿' + linhas.join('\r\n')], { type: 'text/csv;charset=utf-8' }), a = document.createElement('a');

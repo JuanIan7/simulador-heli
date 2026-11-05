@@ -20,6 +20,9 @@ css += "\n.quadro{width:100%;border:0;display:block;min-height:70vh;background:t
 
 revisao = bloco("revisao(){", "treino(){")
 treino = bloco("treino(){", "materiais(){")
+# caixa alta automática no METAR colado (máscara do src/entrada.js, que o hub pessoal não tem)
+treino = treino.replace('<textarea id="mtIn" class="mono" aria-label="METAR">', '<textarea id="mtIn" class="mono" data-m="maiusculo" maxlength="400" aria-label="METAR">')
+assert 'data-m="maiusculo"' in treino
 acessos = bloco("acessos(){", "};")
 # fora do material da turma: CANAC, cofre de senhas e atalhos pessoais
 acessos = re.sub(r'\s*<p class="sub">CANAC.*?</p>', "", acessos)
