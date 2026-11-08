@@ -12,6 +12,7 @@ import { FIREBASE_CONFIG, ADMINS } from '../firebase-config.js';
 import { FONIA, ALFABETO, NUMEROS, PALAVRAS_PADRAO, TRANSPONDER } from '../data/fonia.js';
 import { METAR } from '../data/quiz-teoria.js';
 import { DRIVE_PASTA, DRIVE } from './materiais.js';
+import { nomesOcupados, opcoesNomes, entrarComNome, erroNome } from '../gastos/nomes.js';
 import { calcular, caixaPix, alertaAcertos, ligarPix, digitandoPix } from '../gastos/contas.js';
 import { telaTempo, ligarTempo, resumoInicio } from './tempo.js';
 import { limpar, limparNome, linkSeguro, ligarMascaras } from '../entrada.js';
@@ -100,21 +101,22 @@ async function telaEntrar(codigo, erro) {
     $('#fCod').onsubmit = (e) => { e.preventDefault(); const c = $('#cCod').value.trim().replace(/.*[?&]c=/, '').replace(/[&#].*$/, '').replace(/[^\w-]/g, '').slice(0, 64); if (!c) return; try { localStorage.setItem(CHAVE_CODIGO, c); } catch {} telaEntrar(c); };
     return;
   }
+  const ocup = await nomesOcupados(db, codigo, convite.pessoas, user.uid);
   $('#conteudo').innerHTML = `<div class="caixa"><h2>${esc(convite.grupo)}</h2><p class="sub">Quem é você na turma?</p>
-    <form id="fEntrar" class="form"><label class="largo">Seu nome<select id="eNome">${(convite.pessoas || []).map((p) => `<option>${esc(p)}</option>`).join('')}<option value="">Outro nome…</option></select></label>
+    <form id="fEntrar" class="form"><label class="largo">Seu nome<select id="eNome">${opcoesNomes(convite.pessoas, ocup)}</select></label>
       <label class="largo" id="eOutroL" hidden>Nome (como a turma te chama)<input id="eOutro" data-m="nome" maxlength="24"></label>
       <div class="largo linha-acao"><button class="pri" type="submit">Entrar</button></div></form><p class="sub" style="color:var(--perigo)">${esc(erro || '')}</p></div>`;
-  const sel = $('#eNome'), prim = (user.displayName || '').split(' ')[0].toLowerCase();
-  const casa = [...sel.options].find((o) => o.value && prim && o.value.toLowerCase().startsWith(prim)); if (casa) sel.value = casa.value;
+  const sel = $('#eNome');
   const outro = () => { $('#eOutroL').hidden = sel.value !== ''; }; sel.onchange = outro; outro(); ligarMascaras($('#conteudo'));
   $('#fEntrar').onsubmit = async (e) => {
-    e.preventDefault(); const nome = limparNome(sel.value || $('#eOutro').value, 24);
+    e.preventDefault();
+    if (sel.value === '?' || !sel.value && !$('#eOutro').value.trim()) return telaEntrar(codigo, 'Escolha o seu nome na lista.');
+    const nome = limparNome(sel.value || $('#eOutro').value, 24);
     if (nome.length < 2) return telaEntrar(codigo, 'Escreva o seu nome.');
     try {
-      await setDoc(doc(db, 'gastosMembros', user.uid), { nome, email: user.email, codigo, entrouEm: serverTimestamp() });
-      if (!(convite.pessoas || []).includes(nome)) await updateDoc(doc(db, 'gastosConvites', codigo), { pessoas: arrayUnion(nome) });
+      await entrarComNome(db, user, codigo, nome, convite.pessoas);
       membro = { nome, email: user.email, codigo }; abrir();
-    } catch (e2) { telaEntrar(codigo, 'Não deu para entrar: ' + (e2.code || e2.message)); }
+    } catch (e2) { telaEntrar(codigo, erroNome(e2)); }
   };
 }
 

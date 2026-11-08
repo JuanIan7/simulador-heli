@@ -47,12 +47,25 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pessoas'])
         && request.resource.data.pessoas.size() <= 60);
     }
+    // Cada nome da turma tem um dono só: gastosNomes/{codigo}|{nome} = { uid }. Criar falha se o nome já tem dono.
+    match /gastosNomes/{id} {
+      allow get: if logado();
+      allow list: if admin();
+      allow create: if admin() || (logado() && request.resource.data.uid == request.auth.uid
+        && id == request.resource.data.codigo + '|' + request.resource.data.nome);
+      allow update: if admin();
+      allow delete: if admin() || (logado() && resource.data.uid == request.auth.uid);
+    }
     match /gastosMembros/{uid} {
       allow read: if membroGastos() || dono(uid) || admin();
+      // só entra com um nome reservado para a própria conta (o app grava os dois juntos)
       allow create: if dono(uid) && request.resource.data.nome is string
         && request.resource.data.nome.size() >= 2 && request.resource.data.nome.size() <= 24
-        && exists(/databases/$(db)/documents/gastosConvites/$(request.resource.data.codigo));
-      allow update: if dono(uid) && request.resource.data.codigo == resource.data.codigo;
+        && exists(/databases/$(db)/documents/gastosConvites/$(request.resource.data.codigo))
+        && getAfter(/databases/$(db)/documents/gastosNomes/$(request.resource.data.codigo + '|' + request.resource.data.nome)).data.uid == request.auth.uid;
+      // ninguém troca o próprio nome sozinho (viraria outra pessoa nos acertos); o administrador corrige
+      allow update: if admin() || (dono(uid) && request.resource.data.codigo == resource.data.codigo
+        && request.resource.data.nome == resource.data.nome);
       allow delete: if dono(uid) || admin();
     }
     // Materiais acrescentados pela turma: todos os membros leem e acrescentam; cada um tira o que pôs.

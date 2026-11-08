@@ -10,6 +10,7 @@ import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
 import { entrarGoogle, navegadorRuim, avisoNavegador, ligarAviso } from '../entrar-google.js';
 import { getFirestore, doc, getDoc, setDoc, deleteDoc, updateDoc, collection, onSnapshot, serverTimestamp, writeBatch, arrayUnion } from 'firebase/firestore';
 import { FIREBASE_CONFIG, ADMINS } from '../firebase-config.js';
+import { nomesOcupados, opcoesNomes, entrarComNome, erroNome } from './nomes.js';
 import { brl, partes, calcular, pixDe, caixaPix, ligarPix, digitandoPix, informarPar } from './contas.js';
 import { limpar, limparNome, formatarDinheiro, dataValida, hojeIso, celulaCsv, ligarMascaras } from '../entrada.js';
 
@@ -93,27 +94,26 @@ async function telaEntrar(codigo, erro) {
     $('#btCriar')?.addEventListener('click', criarGrupo);
     return;
   }
+  const ocup = await nomesOcupados(db, codigo, convite.pessoas, user.uid);
   el.innerHTML = `<section class="cartao"><h2>${esc(convite.grupo)}</h2>
     <p class="sub">Quem é você no grupo? Esse nome aparece nos gastos e nos acertos.</p>
     <form id="fEntrar" class="form">
-      <label class="largo">Seu nome<select id="eNome">${(convite.pessoas || []).map((p) => `<option>${esc(p)}</option>`).join('')}<option value="">Outro nome…</option></select></label>
+      <label class="largo">Seu nome<select id="eNome">${opcoesNomes(convite.pessoas, ocup)}</select></label>
       <label class="largo" id="eOutroL" hidden>Nome (como a turma te chama)<input id="eOutro" data-m="nome" maxlength="24"></label>
       <div class="largo linha-acao"><button class="pri" type="submit">Entrar no grupo</button></div>
     </form><p class="erro">${esc(erro || '')}</p></section>`;
-  const sel = $('#eNome'); const prim = (user.displayName || '').split(' ')[0];
-  const casa = [...sel.options].find((o) => o.value && prim && o.value.toLowerCase().startsWith(prim.toLowerCase()));
-  if (casa) sel.value = casa.value;
+  const sel = $('#eNome');
   const outro = () => { $('#eOutroL').hidden = sel.value !== ''; }; sel.onchange = outro; outro();
   ligarMascaras(el);
   $('#fEntrar').onsubmit = async (e) => {
     e.preventDefault();
+    if (sel.value === '?' || !sel.value && !$('#eOutro').value.trim()) return telaEntrar(codigo, 'Escolha o seu nome na lista.');
     const nome = limparNome(sel.value || $('#eOutro').value, 24);
     if (nome.length < 2) return telaEntrar(codigo, 'Escreva o seu nome.');
     try {
-      await setDoc(doc(db, 'gastosMembros', user.uid), { nome, email: user.email, codigo, entrouEm: serverTimestamp() });
-      if (!(convite.pessoas || []).includes(nome)) await updateDoc(doc(db, 'gastosConvites', codigo), { pessoas: arrayUnion(nome) });
+      await entrarComNome(db, user, codigo, nome, convite.pessoas);
       membro = { nome, email: user.email, codigo }; toast('Você entrou no grupo'); abrirGrupo();
-    } catch (e2) { telaEntrar(codigo, 'Não deu para entrar: ' + (e2.code || e2.message)); }
+    } catch (e2) { telaEntrar(codigo, erroNome(e2)); }
   };
 }
 
