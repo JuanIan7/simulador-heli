@@ -226,9 +226,11 @@ const LIGAR = {
     c.querySelectorAll('[data-ir]').forEach(b => b.addEventListener('click', (e) => { e.preventDefault(); irPara(b.dataset.ir); })); ckAbrir(c);
     ligarPix(c, { db, uid: user.uid, quem: membro.nome, gastos: () => gastos, toast, depois: (v, trocar) => { if (v) membro.pix = v; trocandoPix = !!trocar; render(); } });
     resumoInicio($('#tpInicio'));
+    LIGAR.linkTurma();
   },
-  tempo(c){ ligarTempo(c, { decodificarMetar, toast, render: () => { if (aba === 'tempo') render(); } });
-    $('#btLink').onclick = () => { const link = $('#lkTurma').value;
+  tempo(c){ ligarTempo(c, { decodificarMetar, toast, render: () => { if (aba === 'tempo') render(); } }); },
+  // botão do link da turma (fica no Início; vale para qualquer tela que o tenha)
+  linkTurma(){ const bt = $('#btLink'); if (!bt) return; bt.onclick = () => { const link = $('#lkTurma').value;
       if (navigator.share) navigator.share({ title: 'Hangar da Turma', text: 'Hangar da Turma do PPH: estudo, materiais, gastos e diário de voo. Entre com o seu Google:', url: link }).catch(() => {});
       else navigator.clipboard.writeText(link).then(() => toast('Link copiado'), () => toast(link)); };
   },

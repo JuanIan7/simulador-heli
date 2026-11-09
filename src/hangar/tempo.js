@@ -186,8 +186,10 @@ function interpretar(m, e, l) {
   return itens;
 }
 
-const txt = async (u) => { const r = await fetch(u); if (!r.ok) throw new Error(r.status); return r.text(); };
-const json = async (u) => { const r = await fetch(u); if (!r.ok) throw new Error(r.status); return r.json(); };
+// cada busca desiste em 15 s: uma fonte lenta não pode deixar a tela em "buscando…" para sempre
+const pegar = (u) => fetch(u, { signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined }).then((r) => { if (!r.ok) throw new Error(r.status); return r; });
+const txt = async (u) => (await pegar(u)).text();
+const json = async (u) => (await pegar(u)).json();
 export async function buscarMetar(icaos) {
   const t = await txt('https://metar.vatsim.net/metar.php?id=' + icaos.join(','));
   const por = {}; t.split('\n').map((l) => l.trim()).filter(Boolean).forEach((l) => { por[l.slice(0, 4)] = lerMetar(l); });
@@ -335,7 +337,9 @@ export async function carregarTempo(render, forcar) {
   const l = localAtual(); local = l;
   if (carregando) return;
   if (!forcar && ultima && Date.now() - ultima < 5 * 6e4 && dados.local === l.nome) return;
-  carregando = true; dados = { metar: {}, taf: {}, hist: {}, prev: null, erro: {}, local: l.nome }; render();
+  carregando = true; dados = { metar: {}, taf: {}, hist: {}, prev: null, erro: {}, local: l.nome };
+  try {
+  try { render(); } catch (e) { console.error(e); }
   const est = proximas(l);
   await Promise.all([
     buscarMetar(est.map((e) => e.icao)).then((m) => { dados.metar = m; }).catch((e) => { dados.erro.metar = e.message; }),
@@ -343,7 +347,9 @@ export async function carregarTempo(render, forcar) {
     buscarHistorico(est.slice(0, 2).map((e) => e.icao)).then((h) => { dados.hist = h; }).catch(() => {}),
     buscarPrevisao(l.lat, l.lon).then((p) => { dados.prev = p; }).catch((e) => { dados.erro.prev = e.message; }),
   ]);
-  carregando = false; ultima = new Date(); render();
+  ultima = new Date();
+  } finally { carregando = false; }
+  render();
 }
 export function ligarTempo(c, { toast, render }) {
   const ir = async (novo) => { local = novo; guardar(); ultima = null; await carregarTempo(render, true); };
