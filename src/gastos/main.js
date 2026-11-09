@@ -13,6 +13,7 @@ import { FIREBASE_CONFIG, ADMINS } from '../firebase-config.js';
 import { nomesOcupados, opcoesNomes, entrarComNome, erroNome } from './nomes.js';
 import { brl, partes, calcular, caixaPix, ligarPix, digitandoPix, hojeIso as hojeContas } from './contas.js';
 import { seletor, telaMeu, telaTurma, ehPessoal } from './telas.js';
+import { suportaVoz, ouvir, interpretar } from './voz.js';
 import { limpar, limparNome, formatarDinheiro, dataValida, hojeIso, celulaCsv, ligarMascaras } from '../entrada.js';
 
 const app = initializeApp(FIREBASE_CONFIG), auth = getAuth(app), db = getFirestore(app);
@@ -155,6 +156,7 @@ function telaPrincipal(trocandoPix = false) {
   el.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { filtro = b.dataset.f; telaPrincipal(); });
   $('#btNovo').onclick = () => telaGasto(null);
   $('#btNovoMeu')?.addEventListener('click', () => telaGasto(null, true));
+  $('#btFalar')?.addEventListener('click', () => telaGasto(null, true, true));
   el.querySelectorAll('[data-ed]').forEach((b) => b.onclick = () => telaGasto(gastos.find((g) => g.id === b.dataset.ed)));
   el.querySelectorAll('[data-parte]').forEach((b) => b.onclick = () => alternarQuitado(b.dataset.parte, b.dataset.nome));
   el.querySelectorAll('[data-aviso]').forEach((b) => b.onclick = () => alternarInformado(b.dataset.aviso, b.dataset.nome));
@@ -178,13 +180,14 @@ async function alternarQuitado(id, nome) {
   catch (e) { toast('Não salvou: ' + (e.code || e.message)); }
 }
 
-function telaGasto(g, soMeu = false) {
+function telaGasto(g, soMeu = false, falar = false) {
   editando = g ? g.id : 'novo';
   const pessoas = [...new Set([...(grupo.pessoas || []), ...(g?.participantes || [])])];
   soMeu = g ? ehPessoal(g) : soMeu;
   g = g || { data: hoje(), categoria: 'alimentacao', pagoPor: membro.nome, participantes: soMeu ? [membro.nome] : pessoas, quitados: [] };
   const part = new Set(g.participantes || []);
   el.innerHTML = `<section class="cartao"><div class="cab"><h2>${g.id ? 'Editar gasto' : 'Novo gasto'}</h2><button type="button" id="gVoltar">Voltar</button></div>
+    <div class="voz"><button type="button" id="gFalar">🎤 Falar o gasto</button><span class="sub" id="gOuvido">Fale assim: "almoço 42 e 50", "uber 38 reais", "mercado 120 ontem". Depois confira e salve.</span></div>
     <form id="fGasto" class="form">
       <label class="largo">Com o que foi o gasto<input id="gDesc" required data-m="texto" maxlength="80" value="${esc(g.descricao)}" placeholder="Ex.: Uber aeroporto → hotel"></label>
       <label>Data<input id="gData" type="date" required min="2020-01-01" max="${hojeIso(365)}" value="${esc(g.data)}"></label>
@@ -204,6 +207,33 @@ function telaGasto(g, soMeu = false) {
   $('#gPart').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true'); calc(); } };
   ligarMascaras(el);
   $('#gValor').addEventListener('input', calc); calc();
+  // ---- falar o gasto ----
+  let pararVoz = null;
+  const falarAgora = () => {
+    const bt = $('#gFalar'), msg = $('#gOuvido'); if (!bt || !msg) return;
+    if (pararVoz) { pararVoz(); return; }
+    if (!suportaVoz()) { msg.textContent = 'Este navegador não tem reconhecimento de voz. No celular, use o Chrome (Android) ou o Safari (iPhone).'; return; }
+    bt.classList.add('ouvindo'); bt.textContent = '⏹ Ouvindo… toque para parar'; msg.textContent = 'Pode falar.';
+    const fim = () => { pararVoz = null; bt.classList.remove('ouvindo'); bt.textContent = '🎤 Falar de novo'; };
+    pararVoz = ouvir({
+      onParcial: (t) => { msg.textContent = '“' + t + '”'; },
+      onErro: (e) => { fim(); msg.textContent = e; },
+      onFim: (t) => {
+        fim(); if (!t) { msg.textContent = 'Não ouvi nada. Toque no microfone e fale logo em seguida.'; return; }
+        const r = interpretar(t, CATEGORIAS);
+        if (r.descricao) $('#gDesc').value = r.descricao;
+        if (Number.isFinite(r.valor) && r.valor > 0) $('#gValor').value = (r.valor / 100).toFixed(2).replace('.', ',');
+        $('#gCat').value = r.categoria;
+        if (typeof r.data === 'number') $('#gData').value = hojeIso(r.data);
+        if (r.soMeu) { $('#gSoMeu').checked = true; modo(); }
+        calc();
+        msg.innerHTML = `Entendi: “${esc(t)}” → <b>${esc($('#gDesc').value || '?')}</b>, <b>${$('#gValor').value ? 'R$ ' + esc($('#gValor').value) : 'valor?'}</b>, ${esc(CATEGORIAS[r.categoria].split(' (')[0])}, ${dBR($('#gData').value)}${$('#gSoMeu').checked ? ', só meu' : ''}. ${r.confianca === 'alta' ? 'Confira e toque em <b>Salvar</b>.' : 'Complete o que faltou e salve.'}`;
+        ($('#gValor').value ? $('#gDesc') : $('#gValor')).focus();
+      },
+    });
+  };
+  $('#gFalar').onclick = falarAgora;
+  if (falar) falarAgora();
   $('#gVoltar').onclick = telaPrincipal;
   $('#gApagar')?.addEventListener('click', async () => { if (!confirm('Apagar este gasto para todo mundo?')) return; await deleteDoc(doc(db, 'gastos', g.id)); toast('Gasto apagado'); telaPrincipal(); });
   $('#fGasto').onsubmit = async (e) => {

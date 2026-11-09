@@ -231,7 +231,8 @@ function contagem() {
   $('#contagem').innerHTML = dia < 1 ? `<b>${1 - dia}</b><span>dia(s) para o curso</span>` : dia <= 59 ? `<b>${dia}º</b><span>dia de curso</span>` : '';
 }
 function irPara(k) { aba = k; try { history.replaceState(null, '', '#' + k); } catch {} render(); window.scrollTo(0, 0); }
-const quadro = (pag, titulo) => `<iframe class="quadro" src="${pag}?embed=1" title="${titulo}" loading="lazy"></iframe>`;
+// allow="microphone": a página de gastos deixa falar o gasto (reconhecimento de voz do navegador)
+const quadro = (pag, titulo) => `<iframe class="quadro" src="${pag}?embed=1" title="${titulo}" loading="lazy" allow="microphone"></iframe>`;
 
 const TELAS = {
 inicio(){

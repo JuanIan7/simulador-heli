@@ -83,7 +83,7 @@ export function telaMeu(ctx) {
   const devem = pes.filter((o) => o.saldo > 0), devo = pes.filter((o) => o.saldo < 0), emDia = pes.filter((o) => !o.saldo);
   // nos cartões vai o líquido (já compensando quem deve para quem), igual ao que cada um de fato paga
   const liqDevem = devem.reduce((s, o) => s + o.saldo, 0), liqDevo = -devo.reduce((s, o) => s + o.saldo, 0);
-  return `<section class="cartao"><div class="cab"><div><h2>Olá, ${esc(eu)}</h2><div class="sub">o que você gastou no curso até agora</div></div><div class="linha-acao"><button class="pri" id="btNovo">+ Novo gasto</button><button id="btNovoMeu">+ Só meu</button></div></div>
+  return `<section class="cartao"><div class="cab"><div><h2>Olá, ${esc(eu)}</h2><div class="sub">o que você gastou no curso até agora</div></div><div class="linha-acao"><button class="pri" id="btFalar">🎤 Falar gasto</button><button id="btNovo">+ Novo gasto</button><button id="btNovoMeu">+ Só meu</button></div></div>
     <div class="totais">
       <div class="tot dest"><span>Gastei</span><b>${brl(res.gastei)}</b><span>minha parte em tudo${res.soMeus ? ` · ${brl(res.soMeus)} só meus` : ''}</span></div>
       <div class="tot"><span>Saiu do meu bolso</span><b>${brl(res.bolso)}</b><span>${res.bolso > res.gastei ? 'adiantei ' + brl(res.bolso - res.gastei) + ' pela turma' : res.bolso < res.gastei ? 'a turma adiantou ' + brl(res.gastei - res.bolso) : 'tudo acertado'}</span></div>
