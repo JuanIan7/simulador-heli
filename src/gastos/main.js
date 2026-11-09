@@ -195,7 +195,8 @@ function telaGasto(g, soMeu = false, falar = false) {
       <label>Categoria<select id="gCat">${Object.entries(CATEGORIAS).map(([k, t]) => `<option value="${k}" ${k === g.categoria ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
       <label class="largo so-meu"><span class="chk"><input type="checkbox" id="gSoMeu" ${soMeu ? 'checked' : ''}> <b>Só meu</b> <span class="sub">(gasto pessoal: não divide com a turma e só você vê)</span></span></label>
       <label class="divide">Quem pagou<select id="gPagou">${pessoas.map((p) => `<option ${p === g.pagoPor ? 'selected' : ''}>${esc(p)}</option>`).join('')}<option value="" ${g.pagoPor === '' ? 'selected' : ''}>Cada um pagou a sua parte</option></select></label>
-      <div class="largo divide"><h3 style="margin-bottom:6px">Dividido entre (partes iguais)</h3><div class="chips" id="gPart">${pessoas.map((p) => `<button type="button" class="chip" aria-pressed="${part.has(p)}" data-p="${esc(p)}">${esc(p)}</button>`).join('')}</div></div>
+      <div class="largo divide"><div class="cab"><h3 style="margin:0">Dividido entre (partes iguais)</h3><span class="linha-acao"><button type="button" class="mini" data-todos="1">Todos</button><button type="button" class="mini" data-todos="0">Nenhum</button></span></div>
+        <p class="sub" style="margin:0 0 6px">Toque nos nomes de quem consumiu. Nem sempre todo mundo está junto: marque só quem estava.</p><div class="chips" id="gPart">${pessoas.map((p) => `<button type="button" class="chip" aria-pressed="${part.has(p)}" data-p="${esc(p)}">${esc(p)}</button>`).join('')}</div></div>
       <div class="largo dica divide" id="gCalc"></div>
       <label class="largo">Observação<input id="gObs" data-m="texto" maxlength="120" value="${esc(g.obs)}"></label>
       <div class="largo linha-acao"><button class="pri" type="submit">Salvar gasto</button>${g.id ? '<button type="button" class="perigo" id="gApagar">Apagar</button>' : ''}</div>
@@ -205,6 +206,8 @@ function telaGasto(g, soMeu = false, falar = false) {
   $('#gSoMeu').onchange = modo; modo();
   const calc = () => { const v = centavos($('#gValor').value), n = escolhidos().length; $('#gCalc').textContent = Number.isFinite(v) && v > 0 && n ? `${n} pessoa(s): ${brl(Math.floor(v / n))} para cada.` : 'Escolha quem dividiu o gasto.'; };
   $('#gPart').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true'); calc(); } };
+  const marcar = (lista) => { el.querySelectorAll('#gPart [data-p]').forEach((b) => b.setAttribute('aria-pressed', lista.includes(b.dataset.p))); calc(); };
+  el.querySelectorAll('[data-todos]').forEach((b) => b.onclick = () => marcar(b.dataset.todos === '1' ? pessoas : []));
   ligarMascaras(el);
   $('#gValor').addEventListener('input', calc); calc();
   // ---- falar o gasto ----
@@ -220,14 +223,15 @@ function telaGasto(g, soMeu = false, falar = false) {
       onErro: (e) => { fim(); msg.textContent = e; },
       onFim: (t) => {
         fim(); if (!t) { msg.textContent = 'Não ouvi nada. Toque no microfone e fale logo em seguida.'; return; }
-        const r = interpretar(t, CATEGORIAS);
+        const r = interpretar(t, CATEGORIAS, { pessoas, eu: membro.nome });
         if (r.descricao) $('#gDesc').value = r.descricao;
         if (Number.isFinite(r.valor) && r.valor > 0) $('#gValor').value = (r.valor / 100).toFixed(2).replace('.', ',');
         $('#gCat').value = r.categoria;
         if (typeof r.data === 'number') $('#gData').value = hojeIso(r.data);
         if (r.soMeu) { $('#gSoMeu').checked = true; modo(); }
+        else if (r.participantes) { $('#gSoMeu').checked = false; modo(); marcar(r.participantes); }
         calc();
-        msg.innerHTML = `Entendi: “${esc(t)}” → <b>${esc($('#gDesc').value || '?')}</b>, <b>${$('#gValor').value ? 'R$ ' + esc($('#gValor').value) : 'valor?'}</b>, ${esc(CATEGORIAS[r.categoria].split(' (')[0])}, ${dBR($('#gData').value)}${$('#gSoMeu').checked ? ', só meu' : ''}. ${r.confianca === 'alta' ? 'Confira e toque em <b>Salvar</b>.' : 'Complete o que faltou e salve.'}`;
+        msg.innerHTML = `Entendi: “${esc(t)}” → <b>${esc($('#gDesc').value || '?')}</b>, <b>${$('#gValor').value ? 'R$ ' + esc($('#gValor').value) : 'valor?'}</b>, ${esc(CATEGORIAS[r.categoria].split(' (')[0])}, ${dBR($('#gData').value)}${$('#gSoMeu').checked ? ', só meu' : r.participantes ? ', dividido entre ' + esc(r.participantes.join(', ')) : ''}. ${r.confianca === 'alta' ? 'Confira e toque em <b>Salvar</b>.' : 'Complete o que faltou e salve.'}`;
         ($('#gValor').value ? $('#gDesc') : $('#gValor')).focus();
       },
     });

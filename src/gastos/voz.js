@@ -46,9 +46,24 @@ const CATS = [
   ['curso', P('curso|aula|instrutor|hora de voo|simulador|taxa|anac|exame|prova|manual|apostila')],
   ['material', P('caderno|caneta|material|fone|headset|carregador|cabo|mochila|roupa|cal[çc]a|camisa|touca|luva|casaco|t[eê]nis')],
 ];
-export function interpretar(frase, CATEGORIAS) {
+const semAcento = (s) => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+// Quem dividiu, pela fala: "com o Meira e o Paulo" → [eu, Meira, Paulo Henrique]; "todos"/"a turma" → todo mundo.
+function quemDividiu(t, pessoas, eu) {
+  if (P('todos|todo mundo|a turma|turma toda|galera|geral').test(t)) return { lista: pessoas, t: t.replace(new RegExp(P('com (todos|todo mundo|a turma|turma toda|galera|geral)|todos|todo mundo|a turma|turma toda|galera|geral').source, 'gu'), ' ') };
+  const achados = [];
+  for (const p of pessoas) {
+    const nomes = [p, p.split(' ')[0]].filter((n) => n.length >= 3).map(semAcento);
+    const re = new RegExp('(?<![\\p{L}\\d])(?:' + nomes.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')(?![\\p{L}\\d])', 'giu');
+    if (re.test(semAcento(t))) { achados.push(p); t = t.split(' ').filter((w) => !nomes.includes(semAcento(w)) && !nomes.some((n) => n.split(' ').includes(semAcento(w)))).join(' '); }
+  }
+  if (!achados.length) return { lista: null, t };
+  if (eu && !achados.includes(eu) && pessoas.includes(eu)) achados.unshift(eu);
+  return { lista: pessoas.filter((p) => achados.includes(p)), t: t.replace(new RegExp(P('com|comigo|junto|juntos|e eu|eu').source, 'gu'), ' ') };
+}
+export function interpretar(frase, CATEGORIAS, { pessoas = [], eu = '' } = {}) {
   let t = ' ' + String(frase || '').toLowerCase().replace(/\s+/g, ' ').trim() + ' ';
-  const r = { descricao: '', valor: NaN, categoria: 'outros', data: 'hoje', soMeu: false, confianca: 'baixa' };
+  const r = { descricao: '', valor: NaN, categoria: 'outros', data: 'hoje', soMeu: false, participantes: null, confianca: 'baixa' };
+  if (pessoas.length) { const q = quemDividiu(t, pessoas, eu); r.participantes = q.lista; t = ' ' + q.t.trim() + ' '; }
   // "só meu" / "meu" / "pessoal"
   const SOMEU = P('s[oó] meu|s[oó] eu|pessoal|particular|meu gasto');
   if (SOMEU.test(t)) { r.soMeu = true; t = t.replace(new RegExp(SOMEU.source, 'gu'), ' '); }
