@@ -25,7 +25,7 @@ const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTi
 const dBR = (iso) => iso ? iso.split('-').reverse().join('/') : '';
 const centavos = (s) => { const t = String(s).trim().replace(/[R$\s]/g, ''); const n = Number(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t); return Number.isFinite(n) ? Math.round(n * 100) : NaN; };
 
-const CATEGORIAS = { transporte: 'Transporte (Uber, táxi)', carro: 'Carro (aluguel, combustível)', passagem: 'Passagem', hospedagem: 'Hospedagem', alimentacao: 'Alimentação (restaurante, lanche)', mercado: 'Mercado (supermercado)', lazer: 'Lazer e diversão', casa: 'Casa (contas, limpeza)', curso: 'Escola e curso', material: 'Material', outros: 'Outros' };
+const CATEGORIAS = { transporte: 'Transporte (Uber, táxi)', carro: 'Carro (aluguel, combustível)', passagem: 'Passagem', hospedagem: 'Hospedagem', alimentacao: 'Alimentação (restaurante, lanche)', mercado: 'Mercado (supermercado)', hortifruti: 'Hortifruti (feira, frutas, verduras)', lazer: 'Lazer e diversão', casa: 'Casa (contas, limpeza)', curso: 'Escola e curso', material: 'Material', outros: 'Outros' };
 const PESSOAS_INICIAIS = ['Juan', 'Loureiro', 'Paulo Henrique', 'Meira'];
 const NOME_GRUPO = 'Turma PPH · EACAR 2026';
 const CHAVE_CODIGO = 'gastos-codigo';
@@ -185,6 +185,7 @@ function tiposFrequentes(atual) {
   const n = {}; for (const g of gastos) n[g.categoria] = (n[g.categoria] || 0) + 1;
   const base = ['mercado', 'transporte', 'alimentacao', 'carro', 'hospedagem', 'lazer', 'casa', 'curso', 'material', 'passagem'];
   const ordem = base.sort((a, b) => (n[b] || 0) - (n[a] || 0) || base.indexOf(a) - base.indexOf(b)).slice(0, 6);
+  ordem.splice(ordem.indexOf('mercado') + 1, 0, 'hortifruti'); // Hortifruti sempre ao lado de Mercado
   if (atual && atual !== 'outros' && !ordem.includes(atual)) ordem.push(atual);
   return [...ordem, 'outros'].map((k) => [k, CATEGORIAS[k].split(' (')[0]]);
 }
