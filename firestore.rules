@@ -79,6 +79,15 @@ service cloud.firestore {
       allow update: if admin();
       allow delete: if admin() || (membroGastos() && resource.data.autor == request.auth.uid);
     }
+    // Lista de compras da turma: os membros leem, põem, marcam como comprado e tiram.
+    match /compras/{id} {
+      allow read, delete: if membroGastos() || admin();
+      allow create, update: if (membroGastos() || admin())
+        && request.resource.data.item is string && request.resource.data.item.size() >= 2 && request.resource.data.item.size() <= 80
+        && txt(request.resource.data, 'qtd', 30) && txt(request.resource.data, 'nome', 24) && txt(request.resource.data, 'feitoPor', 24)
+        && request.resource.data.cat in ['mercado', 'casa', 'higiene', 'roupa', 'curso', 'outros']
+        && request.resource.data.feito is bool;
+    }
     match /gastos/{id} {
       allow read, delete: if membroGastos() || admin();
       allow create, update: if (membroGastos() || admin())
