@@ -2,6 +2,7 @@
 // A chave Pix fica em gastosMembros/{uid}.pix: cada um grava a sua, e todos do grupo leem para copiar na hora de pagar.
 // Acerto em dois passos: quem deve avisa que pagou (gastos/{id}.informados[]) e só quem recebe confirma (quitados[]).
 import { doc, writeBatch, updateDoc, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
+export const hojeIso = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
 
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const brl = (c) => ((c || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -47,7 +48,8 @@ export async function quitarPar(db, gastos, a, b, quem) {
   for (const g of gastos) {
     const devedor = g.pagoPor === b ? a : g.pagoPor === a ? b : null;
     if (!devedor || !(g.participantes || []).includes(devedor) || (g.quitados || []).includes(devedor)) continue;
-    lote.update(doc(db, 'gastos', g.id), { quitados: arrayUnion(devedor), atualizadoPor: quem, atualizadoEm: serverTimestamp() }); n++;
+    // set+merge (e não update) porque o nome pode ter espaço ou acento, o que não cabe num caminho "quitadosEm.Nome"
+    lote.set(doc(db, 'gastos', g.id), { quitados: arrayUnion(devedor), quitadosEm: { [devedor]: hojeIso() }, atualizadoPor: quem, atualizadoEm: serverTimestamp() }, { merge: true }); n++;
   }
   if (n) await lote.commit();
   return n;
