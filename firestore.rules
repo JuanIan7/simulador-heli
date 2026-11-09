@@ -88,6 +88,15 @@ service cloud.firestore {
         && request.resource.data.cat in ['mercado', 'casa', 'higiene', 'roupa', 'curso', 'outros']
         && request.resource.data.feito is bool;
     }
+    // Anotações da turma (o que fazer, lugar para ir, tarefa): os membros leem, anotam, marcam como feito e apagam.
+    match /anotacoes/{id} {
+      allow read, delete: if membroGastos() || admin();
+      allow create, update: if (membroGastos() || admin())
+        && request.resource.data.texto is string && request.resource.data.texto.size() >= 2 && request.resource.data.texto.size() <= 300
+        && txt(request.resource.data, 'quando', 40) && txt(request.resource.data, 'nome', 24) && txt(request.resource.data, 'feitoPor', 24)
+        && request.resource.data.tipo in ['fazer', 'lugar', 'tarefa', 'ideia', 'outros']
+        && request.resource.data.feito is bool;
+    }
     match /gastos/{id} {
       allow read, delete: if membroGastos() || admin();
       allow create, update: if (membroGastos() || admin())
