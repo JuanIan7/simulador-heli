@@ -8,13 +8,17 @@ export const suportaVoz = () => !!(window.SpeechRecognition || window.webkitSpee
 export function ouvir({ onParcial, onFim, onErro }) {
   const R = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!R) return onErro('Este navegador não tem reconhecimento de voz. No celular, use o Chrome (Android) ou o Safari (iPhone).');
-  const r = new R(); r.lang = 'pt-BR'; r.interimResults = true; r.maxAlternatives = 1; r.continuous = false;
-  let texto = '', acabou = false;
-  r.onresult = (e) => { texto = Array.from(e.results).map((x) => x[0].transcript).join(' ').trim(); onParcial?.(texto); };
+  // continuous: a pessoa pode respirar no meio ("mercado… 699 e 46… pelo Loureiro") sem o microfone desligar.
+  // Desliga sozinho 2,5 s depois da última palavra entendida, ou em 25 s no máximo.
+  const r = new R(); r.lang = 'pt-BR'; r.interimResults = true; r.maxAlternatives = 1; r.continuous = true;
+  let texto = '', acabou = false, timer = 0;
+  const parar = () => { try { r.stop(); } catch {} };
+  const agendar = (ms) => { clearTimeout(timer); timer = setTimeout(parar, ms); };
+  r.onresult = (e) => { texto = Array.from(e.results).map((x) => x[0].transcript).join(' ').replace(/\s+/g, ' ').trim(); onParcial?.(texto); agendar(2500); };
   r.onerror = (e) => { acabou = true; onErro(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Sem permissão para o microfone. Libere o microfone para este site e tente de novo.' : e.error === 'no-speech' ? 'Não ouvi nada. Toque no microfone e fale logo em seguida.' : e.error === 'network' ? 'O reconhecimento de voz precisa de internet.' : 'Não deu para ouvir (' + e.error + ').'); };
-  r.onend = () => { if (!acabou) { acabou = true; onFim(texto); } };
-  try { r.start(); } catch { onErro('Não deu para ligar o microfone. Tente de novo.'); }
-  return () => { try { r.stop(); } catch {} };
+  r.onend = () => { clearTimeout(timer); if (!acabou) { acabou = true; onFim(texto); } };
+  try { r.start(); agendar(25000); } catch { onErro('Não deu para ligar o microfone. Tente de novo.'); }
+  return parar;
 }
 
 // ---------- interpretar a frase ----------
@@ -22,15 +26,45 @@ const UNID = { zero: 0, um: 1, uma: 1, dois: 2, duas: 2, três: 3, tres: 3, quat
 const DEZ = { vinte: 20, trinta: 30, quarenta: 40, cinquenta: 50, sessenta: 60, setenta: 70, oitenta: 80, noventa: 90 };
 const CEN = { cem: 100, cento: 100, duzentos: 200, trezentos: 300, quatrocentos: 400, quinhentos: 500, seiscentos: 600, setecentos: 700, oitocentos: 800, novecentos: 900 };
 const NUM_PAL = new Set([...Object.keys(UNID), ...Object.keys(DEZ), ...Object.keys(CEN), 'mil', 'e']);
-// "cento e vinte e três" → 123 (só inteiros; o reconhecedor costuma mandar dígitos, isto é o plano B)
+// "cento e vinte e três" → [123]; "seiscentos e noventa e nove e quarenta e seis" → [699, 46] (centena > dezena > unidade:
+// quando vem uma ordem igual ou maior que a anterior, começou outro número). O reconhecedor costuma mandar dígitos; isto é o plano B.
 function porExtenso(palavras) {
-  let total = 0, atual = 0;
+  const nums = []; let total = 0, atual = 0, ultimo = 0, tem = false; // ultimo: 4 mil, 3 centena, 2 dezena, 1 unidade
+  const fecha = () => { if (tem) nums.push(total + atual); total = 0; atual = 0; ultimo = 0; tem = false; };
   for (const p of palavras) {
     if (p === 'e') continue;
-    if (p === 'mil') { total += (atual || 1) * 1000; atual = 0; }
-    else if (p in CEN) atual += CEN[p]; else if (p in DEZ) atual += DEZ[p]; else if (p in UNID) atual += UNID[p];
+    const r = p === 'mil' ? 4 : p in CEN ? 3 : p in DEZ ? 2 : p in UNID ? 1 : 0; if (!r) continue;
+    if (r === 4) { if (total >= 1000) fecha(); total += (atual || 1) * 1000; atual = 0; ultimo = 4; tem = true; continue; }
+    if (ultimo && ultimo !== 4 && r >= ultimo) fecha();
+    atual += r === 3 ? CEN[p] : r === 2 ? DEZ[p] : UNID[p]; ultimo = r; tem = true;
   }
-  return total + atual;
+  fecha(); return nums;
+}
+const MOEDA = /^(reais?|real|conto|pila|pau|centavos?)$/;
+// troca os números por extenso por dígitos, no lugar: "mercado seiscentos e noventa e nove e quarenta e seis reais" → "mercado 699 e 46 reais"
+function digitar(t) {
+  const pal = t.split(' '), saida = [];
+  for (let i = 0; i < pal.length; i++) {
+    if (!NUM_PAL.has(pal[i]) || pal[i] === 'e') { saida.push(pal[i]); continue; }
+    let j = i; while (j < pal.length && NUM_PAL.has(pal[j])) j++; while (pal[j - 1] === 'e') j--;
+    const seq = pal.slice(i, j);
+    // "um"/"uma" sozinho é artigo ("uma pizza"), não número; só vira 1 se vier "reais"/"real" logo depois
+    if (seq.every((w) => w === 'um' || w === 'uma') && !MOEDA.test(pal[j] || '')) { saida.push(...seq); i = j - 1; continue; }
+    const nums = porExtenso(seq); saida.push(nums.length ? nums.join(' e ') : seq.join(' ')); i = j - 1;
+  }
+  return saida.join(' ');
+}
+// Quem pagou, pela fala: "pelo Loureiro", "pago pela Ana", "o Meira pagou", "quem pagou foi o Paulo", "eu paguei" → eu.
+function quemPagou(t, pessoas, eu) {
+  const esc = (n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  for (const p of pessoas) {
+    const nomes = [p, p.split(' ')[0]].filter((n) => n.length >= 3).map(semAcento).map(esc).join('|');
+    const re = new RegExp('(?:(?:pago|paga|comprado|comprada|foi)\\s+)?(?:pel[oa]|por)\\s+(?:[oa]\\s+)?(?:' + nomes + ')(?![\\p{L}\\d])|quem\\s+pagou\\s+foi\\s+(?:[oa]\\s+)?(?:' + nomes + ')(?![\\p{L}\\d])|(?:[oa]\\s+)?(?<![\\p{L}\\d])(?:' + nomes + ')\\s+pagou', 'iu');
+    const m = semAcento(t).match(re);
+    if (m) { const ini = m.index, fim = ini + m[0].length; return { pagoPor: p, t: t.slice(0, ini) + ' ' + t.slice(fim) }; }
+  }
+  if (eu && /(?<![\p{L}\d])(?:eu\s+)?paguei(?![\p{L}\d])/u.test(t)) return { pagoPor: eu, t: t.replace(/(?<![\p{L}\d])(?:eu\s+)?paguei(?![\p{L}\d])/gu, ' ') };
+  return { pagoPor: null, t };
 }
 // \b do JavaScript não enxerga acento nem ç ("almoço", "água"): esta fronteira usa letras Unicode
 const P = (w) => new RegExp('(?<![\\p{L}\\d])(?:' + w + ')(?![\\p{L}\\d])', 'u');
@@ -40,7 +74,7 @@ const CATS = [
   ['passagem', P('passagem|voo|a[eé]reo|aérea|gol|latam|azul')],
   ['hospedagem', P('aluguel|casa|hotel|hospedagem|pousada|airbnb|di[aá]ria')],
   ['mercado', P('mercado|supermercado|compras|feira|padaria|a[çc]ougue|hortifruti')],
-  ['alimentacao', P('almo[çc]o|jantar|janta|caf[eé]|lanche|pizza|comida|restaurante|hamb[uú]rguer|a[çc]a[ií]|sorvete|cerveja|bebida|[aá]gua|refri\w*|marmita|ifood|delivery|p[aã]o')],
+  ['alimentacao', P('almo[çc]o|jantar|janta|caf[eé]|lanches?|pizzas?|comida|restaurante|hamb[uú]rgue?r(?:es)?|a[çc]a[ií]|sorvetes?|cervejas?|bebidas?|[aá]gua|refri\w*|marmita|ifood|delivery|p[aã]o')],
   ['lazer', P('cinema|bar|balada|festa|passeio|ingresso|jogo|show|lazer')],
   ['casa', P('limpeza|detergente|papel higi[eê]nico|sab[aã]o|g[aá]s|luz|internet|conta de')],
   ['curso', P('curso|aula|instrutor|hora de voo|simulador|taxa|anac|exame|prova|manual|apostila')],
@@ -49,7 +83,8 @@ const CATS = [
 const semAcento = (s) => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 // Quem dividiu, pela fala: "com o Meira e o Paulo" → [eu, Meira, Paulo Henrique]; "todos"/"a turma" → todo mundo.
 function quemDividiu(t, pessoas, eu) {
-  if (P('todos|todo mundo|a turma|turma toda|galera|geral').test(t)) return { lista: pessoas, t: t.replace(new RegExp(P('com (todos|todo mundo|a turma|turma toda|galera|geral)|todos|todo mundo|a turma|turma toda|galera|geral').source, 'gu'), ' ') };
+  const TODOS = 'todos|todo mundo|a turma|turma toda|galera|geral|pela turma|pra turma|para a turma|turma';
+  if (P(TODOS).test(t)) return { lista: pessoas, t: t.replace(new RegExp(P('com (' + TODOS + ')|' + TODOS).source, 'gu'), ' ') };
   const achados = [];
   for (const p of pessoas) {
     const nomes = [p, p.split(' ')[0]].filter((n) => n.length >= 3).map(semAcento);
@@ -62,27 +97,33 @@ function quemDividiu(t, pessoas, eu) {
 }
 export function interpretar(frase, CATEGORIAS, { pessoas = [], eu = '' } = {}) {
   let t = ' ' + String(frase || '').toLowerCase().replace(/\s+/g, ' ').trim() + ' ';
-  const r = { descricao: '', valor: NaN, categoria: 'outros', data: 'hoje', soMeu: false, participantes: null, confianca: 'baixa' };
-  if (pessoas.length) { const q = quemDividiu(t, pessoas, eu); r.participantes = q.lista; t = ' ' + q.t.trim() + ' '; }
+  const r = { descricao: '', valor: NaN, categoria: 'outros', data: 'hoje', soMeu: false, pagoPor: null, participantes: null, confianca: 'baixa' };
+  t = ' ' + digitar(t.trim()).replace(/\bv[ií]rgula\b/g, 'e') + ' ';
+  if (pessoas.length) {
+    const qp = quemPagou(t, pessoas, eu); r.pagoPor = qp.pagoPor; t = ' ' + qp.t.replace(/\s+/g, ' ').trim() + ' ';
+    const q = quemDividiu(t, pessoas, eu); r.participantes = q.lista; t = ' ' + q.t.trim() + ' ';
+    if (r.participantes && r.pagoPor && !r.participantes.includes(r.pagoPor)) r.participantes = pessoas.filter((p) => r.participantes.includes(p) || p === r.pagoPor);
+  }
   // "só meu" / "meu" / "pessoal"
   const SOMEU = P('s[oó] meu|s[oó] eu|pessoal|particular|meu gasto');
   if (SOMEU.test(t)) { r.soMeu = true; t = t.replace(new RegExp(SOMEU.source, 'gu'), ' '); }
   // data
   if (P('anteontem').test(t)) r.data = -2; else if (P('ontem').test(t)) r.data = -1; else if (P('hoje').test(t)) r.data = 0;
   t = t.replace(new RegExp(P('hoje|ontem|anteontem|agora').source, 'gu'), ' ');
-  // valor: "42,50" · "R$ 42" · "42 reais e 50 centavos" · "42 e 50" · "cinquenta reais" · "12 conto"
+  // valor: "42,50" · "R$ 42" · "42 reais e 50 centavos" · "42 reais com 50" · "42 e 50" · "699 46" (dois números seguidos,
+  // o segundo com 2 dígitos = centavos) · "cinquenta reais" (já virou dígito) · "12 conto" · "30 centavos"
   let m;
+  const C = '(?:reais?|real|conto|pila|pau)';
   if ((m = t.match(/r?\$?\s*(\d{1,6})[,.](\d{2})(?!\d)/))) r.valor = +m[1] * 100 + +m[2];
-  else if ((m = t.match(/(\d{1,6})\s*(?:reais?|real|conto|pila|pau)\s*(?:e\s*(\d{1,2})\s*(?:centavos?)?)?/))) r.valor = +m[1] * 100 + (m[2] ? +m[2] : 0);
-  else if ((m = t.match(/(\d{1,6})\s+e\s+(\d{1,2})(?!\d)/))) r.valor = +m[1] * 100 + +m[2];
+  else if ((m = t.match(new RegExp('(\\d{1,6})\\s*' + C + '?\\s*(?:e|com)\\s+(\\d{1,2})(?!\\d)\\s*(?:centavos?)?')))) r.valor = +m[1] * 100 + +m[2];
+  else if ((m = t.match(new RegExp('(\\d{1,6})\\s+(\\d{2})(?!\\d)\\s*(?:' + C + '|centavos?)?')))) r.valor = +m[1] * 100 + +m[2];
+  else if ((m = t.match(new RegExp('(\\d{1,6})\\s*' + C)))) r.valor = +m[1] * 100;
   else if ((m = t.match(/r\$\s*(\d{1,6})(?!\d)/))) r.valor = +m[1] * 100;
   else if ((m = t.match(/(\d{1,6})\s*(?:centavos?)/))) r.valor = +m[1];
   else {
-    // só por extenso: pega a maior sequência de palavras de número antes de "reais"/"conto" ou no fim
-    const pal = t.trim().split(' '); let melhor = null;
-    for (let i = 0; i < pal.length; i++) { if (!NUM_PAL.has(pal[i]) || pal[i] === 'e') continue; let j = i; while (j < pal.length && NUM_PAL.has(pal[j])) j++; const seq = pal.slice(i, j); const v = porExtenso(seq); if (v > 0 && (!melhor || v > melhor.v)) melhor = { i, j, v }; i = j; }
-    if (melhor) { r.valor = melhor.v * 100; const cent = t.match(/\b(?:e\s+)?(\d{1,2}|[a-zç]+)\s+centavos?/); if (cent) r.valor += /\d/.test(cent[1]) ? +cent[1] : porExtenso([cent[1]]); m = { 0: pal.slice(melhor.i, melhor.j).join(' ') }; }
-    else if ((m = t.match(/(\d{1,6})(?!\d)/))) r.valor = +m[1] * 100; // um número solto é o valor
+    // números soltos: o valor é o maior deles ("2 lanches 30" → 30)
+    const todos = [...t.matchAll(/(?<![\d,.])(\d{1,6})(?![\d,.])/g)];
+    if (todos.length) { const mel = todos.reduce((a, b) => (+b[1] > +a[1] ? b : a)); r.valor = +mel[1] * 100; m = { 0: mel[0] }; }
   }
   if (m) t = t.replace(m[0], ' ');
   const SOBRA = new Set(['reais', 'real', 'conto', 'pila', 'pau', 'centavos', 'centavo', 'r$', 'gastei', 'paguei', 'gasto', 'comprei', 'foi', 'de', 'do', 'da', 'dos', 'das', 'no', 'na', 'nos', 'nas', 'com', 'em', 'um', 'uma', 'o', 'a', 'os', 'as', 'e', 'pra', 'pro', 'para', 'por', 'pelo', 'pela']);

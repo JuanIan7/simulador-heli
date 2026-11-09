@@ -180,6 +180,14 @@ async function alternarQuitado(id, nome) {
   catch (e) { toast('Não salvou: ' + (e.code || e.message)); }
 }
 
+// categorias na ordem em que a turma mais usa (contadas nos gastos), com "Outros" por último
+function tiposFrequentes(atual) {
+  const n = {}; for (const g of gastos) n[g.categoria] = (n[g.categoria] || 0) + 1;
+  const base = ['mercado', 'transporte', 'alimentacao', 'carro', 'hospedagem', 'lazer', 'casa', 'curso', 'material', 'passagem'];
+  const ordem = base.sort((a, b) => (n[b] || 0) - (n[a] || 0) || base.indexOf(a) - base.indexOf(b)).slice(0, 6);
+  if (atual && atual !== 'outros' && !ordem.includes(atual)) ordem.push(atual);
+  return [...ordem, 'outros'].map((k) => [k, CATEGORIAS[k].split(' (')[0]]);
+}
 function telaGasto(g, soMeu = false, falar = false) {
   editando = g ? g.id : 'novo';
   const pessoas = [...new Set([...(grupo.pessoas || []), ...(g?.participantes || [])])];
@@ -187,8 +195,10 @@ function telaGasto(g, soMeu = false, falar = false) {
   g = g || { data: hoje(), categoria: 'alimentacao', pagoPor: membro.nome, participantes: soMeu ? [membro.nome] : pessoas, quitados: [] };
   const part = new Set(g.participantes || []);
   el.innerHTML = `<section class="cartao"><div class="cab"><h2>${g.id ? 'Editar gasto' : 'Novo gasto'}</h2><button type="button" id="gVoltar">Voltar</button></div>
-    <div class="voz"><button type="button" id="gFalar">🎤 Falar o gasto</button><span class="sub" id="gOuvido">Fale assim: "almoço 42 e 50", "uber 38 reais", "mercado 120 ontem". Depois confira e salve.</span></div>
+    <div class="voz"><button type="button" id="gFalar">🎤 Falar o gasto</button><span class="sub" id="gOuvido">Fale tudo de uma vez, com o valor em reais e centavos: "mercado 699 e 46 pelo Loureiro", "almoço 42 e 50 com o Meira", "uber 38 reais só meu". Depois confira e salve.</span></div>
     <form id="fGasto" class="form">
+      <div class="largo"><div class="rotulo-mini">Toque no tipo (os mais usados pela turma primeiro) ou escolha Outros e escreva</div>
+        <div class="chips" id="gTipos">${tiposFrequentes(g.categoria).map(([k, t]) => `<button type="button" class="chip" aria-pressed="${k === g.categoria && !!g.id}" data-tipo="${k}">${esc(t)}</button>`).join('')}</div></div>
       <label class="largo">Com o que foi o gasto<input id="gDesc" required data-m="texto" maxlength="80" value="${esc(g.descricao)}" placeholder="Ex.: Uber aeroporto → hotel"></label>
       <label>Data<input id="gData" type="date" required min="2020-01-01" max="${hojeIso(365)}" value="${esc(g.data)}"></label>
       <label>Valor total (R$)<input id="gValor" required data-m="dinheiro" value="${g.valor != null ? esc(((g.valor || 0) / 100).toFixed(2).replace('.', ',')) : ''}" placeholder="0,00"></label>
@@ -210,6 +220,17 @@ function telaGasto(g, soMeu = false, falar = false) {
   el.querySelectorAll('[data-todos]').forEach((b) => b.onclick = () => marcar(b.dataset.todos === '1' ? pessoas : []));
   ligarMascaras(el);
   $('#gValor').addEventListener('input', calc); calc();
+  // tipos frequentes: um toque preenche a categoria e a descrição (se ainda estiver vazia); "Outros" abre o campo para escrever
+  const rotulos = new Set(tiposFrequentes().map(([, t]) => t));
+  $('#gTipos').onclick = (e) => {
+    const b = e.target.closest('[data-tipo]'); if (!b) return;
+    const k = b.dataset.tipo; el.querySelectorAll('#gTipos [data-tipo]').forEach((x) => x.setAttribute('aria-pressed', x === b));
+    $('#gCat').value = k; const d = $('#gDesc');
+    if (k === 'outros') { if (rotulos.has(d.value)) d.value = ''; d.focus(); return; }
+    if (!d.value || rotulos.has(d.value)) d.value = CATEGORIAS[k].split(' (')[0];
+    (!$('#gValor').value ? $('#gValor') : d).focus();
+  };
+  $('#gCat').onchange = () => { el.querySelectorAll('#gTipos [data-tipo]').forEach((x) => x.setAttribute('aria-pressed', x.dataset.tipo === $('#gCat').value)); };
   // ---- falar o gasto ----
   let pararVoz = null;
   const falarAgora = () => {
@@ -228,10 +249,12 @@ function telaGasto(g, soMeu = false, falar = false) {
         if (Number.isFinite(r.valor) && r.valor > 0) $('#gValor').value = (r.valor / 100).toFixed(2).replace('.', ',');
         $('#gCat').value = r.categoria;
         if (typeof r.data === 'number') $('#gData').value = hojeIso(r.data);
+        if (r.pagoPor && pessoas.includes(r.pagoPor)) $('#gPagou').value = r.pagoPor;
+        $('#gCat').onchange();
         if (r.soMeu) { $('#gSoMeu').checked = true; modo(); }
         else if (r.participantes) { $('#gSoMeu').checked = false; modo(); marcar(r.participantes); }
         calc();
-        msg.innerHTML = `Entendi: “${esc(t)}” → <b>${esc($('#gDesc').value || '?')}</b>, <b>${$('#gValor').value ? 'R$ ' + esc($('#gValor').value) : 'valor?'}</b>, ${esc(CATEGORIAS[r.categoria].split(' (')[0])}, ${dBR($('#gData').value)}${$('#gSoMeu').checked ? ', só meu' : r.participantes ? ', dividido entre ' + esc(r.participantes.join(', ')) : ''}. ${r.confianca === 'alta' ? 'Confira e toque em <b>Salvar</b>.' : 'Complete o que faltou e salve.'}`;
+        msg.innerHTML = `Entendi: “${esc(t)}” → <b>${esc($('#gDesc').value || '?')}</b>, <b>${$('#gValor').value ? 'R$ ' + esc($('#gValor').value) : 'valor?'}</b>, ${esc(CATEGORIAS[r.categoria].split(' (')[0])}, ${dBR($('#gData').value)}${$('#gSoMeu').checked ? ', só meu' : (r.pagoPor ? ', pagou ' + esc(r.pagoPor) : '') + (r.participantes ? ', dividido entre ' + esc(r.participantes.join(', ')) : '')}. ${r.confianca === 'alta' ? 'Confira e toque em <b>Salvar</b>.' : 'Complete o que faltou e salve.'}`;
         ($('#gValor').value ? $('#gDesc') : $('#gValor')).focus();
       },
     });

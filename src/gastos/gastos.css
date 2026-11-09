@@ -52,3 +52,6 @@
 .voz { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .voz button.ouvindo { background: var(--verm); color: #fff; animation: pulso 1.1s ease-in-out infinite; }
 @keyframes pulso { 50% { opacity: .65; } } @media (prefers-reduced-motion: reduce) { .voz button.ouvindo { animation: none; } }
+
+.rotulo-mini{font-size:12.5px;color:var(--tinta2,#666);margin:0 0 6px}
+#gTipos .chip[aria-pressed="true"]{font-weight:700}
