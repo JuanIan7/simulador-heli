@@ -17,6 +17,7 @@ import { calcular, caixaPix, alertaAcertos, ligarPix, digitandoPix } from '../ga
 import { telaCompras, ligarCompras, digitandoCompras } from './compras.js';
 import { telaAnotacoes, ligarAnotacoes, digitandoAnotacoes } from './anotacoes.js';
 import { telaProvas, ligarProvas, emProva, totalQuestoes } from './provas.js';
+import { telaContrato } from './contrato.js';
 import { telaTempo, ligarTempo, resumoInicio } from './tempo.js';
 import { limpar, limparNome, linkSeguro, ligarMascaras } from '../entrada.js';
 
@@ -33,7 +34,7 @@ const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTi
 function toast(t){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2400); }
 const pdf = (k, rot) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_blank" rel="noopener">📄 ${esc(rot)}</a>` : `<span class="sub">📄 ${esc(rot)}</span>`;
 
-const ABAS = [['inicio','Início'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['diario','Diário de voo'],['fichas','DB e Ficha'],['acessos','Acessos e rotas']];
+const ABAS = [['inicio','Início'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['contrato','Contrato'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['diario','Diário de voo'],['fichas','DB e Ficha'],['acessos','Acessos e rotas']];
 let aba = (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
 let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], compras = [], errCompras = '', anotacoes = [], errAnotacoes = '', notasProvas = [], meusDocs = [], meusVoos = [], meusDias = [], diaOutro = '', parar = [], trocandoPix = false;
 
@@ -293,7 +294,7 @@ function blocoDocs() {
 const cartaoGoa = () => `<div class="caixa goa-cartao">
   <div class="goa-topo"><span class="goa-ico">📋</span><div><div class="rotulo">Todo dia · exigência do GOA</div><h3>Acompanhamento diário do curso</h3>
     <p class="sub">Uma resposta para cada atividade (dois voos = duas respostas). Dia sem voo também: marque "Não" e informe o motivo.</p></div></div>
-  <div class="linha-acao"><a class="btn pri goa-bt" href="${FORM_GOA}" target="_blank" rel="noopener">Preencher o formulário de hoje</a></div>
+  <div class="linha-acao"><a class="btn pri goa-bt" href="${FORM_GOA}" target="_blank" rel="noopener">Preencher o formulário de hoje</a><button data-ir="contrato">📜 O que diz o contrato</button></div>
   ${blocoDocs()}
   <details class="goa-como"><summary>Como preencher (8 páginas)</summary><ol>
     <li><b>Identificação:</b> seu nome na lista, a data e se houve instrução. Se não houve, o formulário pula para "Dia sem atividade" (motivo, se a escola avisou e a nova data).</li>
@@ -341,6 +342,7 @@ inicio(){
 tempo(){ return telaTempo(); },
 compras(){ return telaCompras(compras, errCompras); },
 anotacoes(){ return telaAnotacoes(anotacoes, errAnotacoes); },
+contrato(){ return telaContrato(ARQ); },
 provas(){ return telaProvas(ctxProvas); },
 estudo(){
   const f = feitos(membro);
@@ -419,6 +421,8 @@ materiais(){
   const eacar = [['eacarpre','Checklist pré-voo externo R22'],['eacaracio','Checklist de acionamento e corte R22'],['eacaremerg','Procedimentos de emergência R22'],['eacarproc','Manual de Procedimentos Operacionais (manobras, para alunos)'],['eacarman','Manual de Manobras R22 (Otavio Rosa e Rudi Barlem)'],['eacarpoh','POH R22: tradução para alunos (EACAR, 2026)'],['eacarfonia','Roteiro de fonia do circuito SISY']];
   const extras = (s) => mats.filter((m) => m.secao === s).map((m) => `<span class="mat-turma"><a href="${esc(linkSeguro(m.link) || '#')}" target="_blank" rel="noopener noreferrer">📎 ${esc(m.titulo)}</a>${m.autor === user.uid ? `<button class="mini fantasma" data-matdel="${esc(m.id)}" aria-label="Tirar ${esc(m.titulo)}">×</button>` : ''}<span class="sub">${esc(m.nome || '')}</span></span>`).join('');
   return `<h2>Materiais</h2><p class="intro">Os PDFs ficam numa pasta do Google Drive compartilhada com a turma. Se o Drive pedir acesso, toque em "Solicitar acesso" com a mesma conta Google que você usa aqui. O que alguém da turma acrescentar aparece direto na seção escolhida.</p>
+  <div class="caixa destaque"><h3>Documentos do curso</h3><div class="links">${pdf('contrato','Contrato 089/2026 (CBMERJ x EACAR), assinado')}${pdf('edital','Edital 34 da SENASP e anexos: Termo de Referência, ETP e IMR')}</div>
+    <p class="sub">O resumo do que a escola deve fazer, o que é nosso e os prazos está na aba <a href="#contrato" data-ir="contrato">Contrato</a>.</p></div>
   <div class="caixa destaque"><h3>Material da EACAR</h3><div class="links">${eacar.map(([k,t])=>pdf(k,t)).join('')}${extras('eacar')}</div>
     <p class="sub">Os três cartões também estão na aba <a href="#checklists" data-ir="checklists">Checklists</a>, para marcar item a item.</p></div>
   <div class="caixa"><h3>Essenciais do PPH</h3><div class="links">${ess.map(([k,t])=>pdf(k,t)).join('')}${extras('essenciais')}</div></div>

@@ -19,4 +19,5 @@ export const DRIVE = {
   eacaremerg: '1AH5d69d8jNSjpS9VN_y8W5-0CCJtbbgB', eacarman: '1F9NRJxf99wo-Y_ucPUpH3YD2Oo2CwQFA',
   eacarpoh: '14mh45x5Z9dpaUVyDmIkFec5Hqk_D5t_5', eacarfonia: '1sHQ5p6cNZkbyZBKR2ZBM1LaXUjKGYhKG',
   eacarproc: '1r5MsUE7pIdgidA2FjJBCEGxAofz7CHBb',
+  contrato: '15raXJdxqUUoZW1_TFB4WudgYSnGp1uWx', edital: '1d_i_ROJSnXy6GegcepS4AJKkFcsABnNi',
 };
