@@ -33,9 +33,9 @@ const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTi
 function toast(t){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2400); }
 const pdf = (k, rot) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_blank" rel="noopener">📄 ${esc(rot)}</a>` : `<span class="sub">📄 ${esc(rot)}</span>`;
 
-const ABAS = [['inicio','Início'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
+const ABAS = [['inicio','Início'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['diario','DB e Ficha'],['acessos','Acessos e rotas']];
 let aba = (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
-let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], compras = [], errCompras = '', anotacoes = [], errAnotacoes = '', notasProvas = [], parar = [], trocandoPix = false;
+let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], compras = [], errCompras = '', anotacoes = [], errAnotacoes = '', notasProvas = [], meusDocs = [], meusVoos = [], parar = [], trocandoPix = false;
 
 // ---------- conteúdo ----------
 const CRONO = [
@@ -54,7 +54,7 @@ const CRONO = [
     { id: 'c9', t: 'Pré-voo do R22 (POH 4-1 a 4-6)', d: 'A volta na aeronave em 13 estações, antes da partida e o cheque de motor.', l: [['pdf','r22poh','POH R22'], ['yt','Robinson R22 preflight inspection','Vídeos: pré-voo']] },
   ]},
   { dia: 'curso', nome: 'Durante o curso', meta: 'depois de cada voo, 20 min', itens: [
-    { id: 'c11', t: 'Lançar cada voo no Diário de voo no mesmo dia', d: 'Horário de início e fim, pousos e o que foi treinado (aba Diário de voo).', l: [] },
+    { id: 'c11', t: 'Guardar o DB e a ficha de cada voo no mesmo dia', d: 'Foto ou PDF do Diário de Bordo e da Ficha de Avaliação (aba DB e Ficha), quando anexar no formulário do GOA.', l: [] },
     { id: 'c12', t: 'Anotar o que o instrutor corrigiu', d: 'Rever antes do próximo voo e trocar ideia com a turma.', l: [] },
     { id: 'c13', t: 'Perguntar à EACAR', d: 'Prefixo e S/N do R22 de instrução, áreas de treino, se o programa cobre os 5 temas da SFAR 73 e quanto duplo comando antes do solo.', l: [] },
   ]},
@@ -139,6 +139,9 @@ function abrir() {
     compras = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.em?.seconds || 9e9) - (a.em?.seconds || 9e9)); errCompras = '';
     if (aba === 'compras' && !digitandoCompras()) render();
   }, (e) => { errCompras = e.code === 'permission-denied' ? 'A lista de compras ainda está sendo ativada no banco. Tente daqui a pouco.' : 'Não deu para ler a lista (' + (e.code || e.message) + ').'; if (aba === 'compras') render(); }));
+  // documentos dos voos do próprio piloto (aba DB e Ficha): para avisar no Início o que falta enviar
+  parar.push(onSnapshot(collection(db, 'diario', user.uid, 'docs'), (s) => { meusDocs = s.docs.map((d) => ({ id: d.id, ...d.data() })); if (aba === 'inicio' && !digitandoPix()) render(); }, () => {}));
+  parar.push(onSnapshot(collection(db, 'diario', user.uid, 'voos'), (s) => { meusVoos = s.docs.map((d) => ({ id: d.id, ...d.data() })); if (aba === 'inicio' && !digitandoPix()) render(); }, () => {}));
   parar.push(onSnapshot(collection(db, 'provas'), (s) => {
     notasProvas = s.docs.map((d) => ({ uid: d.id, ...d.data() }));
     if (aba === 'provas' && !emProva()) render();
@@ -169,10 +172,29 @@ function irPara(k) { aba = k; try { history.replaceState(null, '', '#' + k); } c
 // allow="microphone": a página de gastos deixa falar o gasto (reconhecimento de voz do navegador)
 // Formulário diário do GOA (Acompanhamento PPH/2026, Contrato 089/2026): um por atividade, todo dia, inclusive sem voo.
 const FORM_GOA = 'https://forms.gle/vFepv8CD5RDd7Ret7';
+// Voos do Diário (registros de horas ou só documentos), na ordem, com o que falta: DB e/ou ficha
+function pendenciasDocs() {
+  const g = new Map();
+  for (const v of meusVoos) g.set(v.id, { id: v.id, data: v.data, ini: v.inicio || '' });
+  for (const d of meusDocs) if (!g.has(d.voo)) g.set(d.voo, { id: d.voo, data: d.data || d.voo.slice(0, 10), ini: d.voo.slice(11) });
+  const lista = [...g.values()].sort((a, b) => (a.data + a.ini).localeCompare(b.data + b.ini));
+  lista.forEach((x, i) => { x.aula = i + 1; x.falta = [['db', 'o DB'], ['ficha', 'a ficha']].filter(([t]) => !meusDocs.some((d) => d.voo === x.id && d.tipo === t)).map(([, n]) => n); });
+  return { total: lista.length, pend: lista.filter((x) => x.falta.length).reverse() };
+}
+function blocoDocs() {
+  const { total, pend } = pendenciasDocs(), dBR = (iso) => iso ? iso.split('-').reverse().join('/').slice(0, 5) : '';
+  const enviou = (iso) => meusDocs.some((d) => (d.data || d.voo.slice(0, 10)) === iso);
+  return `<div class="goa-docs ${pend.length ? 'pend' : 'ok'}">
+    ${pend.length ? `<b>⚠ Seus documentos de voo que faltam no Hangar:</b><ul>${pend.map((x) => `<li>Aula ${x.aula} · ${dBR(x.data)}: falta ${x.falta.join(' e ')}</li>`).join('')}</ul>`
+      : total ? `<b>✓ Seus documentos de voo estão em dia</b> <span class="sub">(${total} voo${total > 1 ? 's' : ''} com DB e ficha)</span>` : '<b>Nenhum documento de voo guardado ainda.</b>'}
+    ${enviou(hoje()) ? '' : '<div class="sub">Voou hoje? Ao anexar a ficha e o DB no formulário, guarde também no Hangar.</div>'}
+    <div class="linha-acao"><button class="${pend.length ? 'pri' : ''}" data-ir="diario">📷 ${pend.length ? 'Enviar o que falta' : 'Enviar DB e ficha'}</button></div></div>`;
+}
 const cartaoGoa = () => `<div class="caixa goa-cartao">
   <div class="goa-topo"><span class="goa-ico">📋</span><div><div class="rotulo">Todo dia · exigência do GOA</div><h3>Acompanhamento diário do curso</h3>
     <p class="sub">Uma resposta para cada atividade (dois voos = duas respostas). Dia sem voo também: marque "Não" e informe o motivo.</p></div></div>
-  <div class="linha-acao"><a class="btn pri goa-bt" href="${FORM_GOA}" target="_blank" rel="noopener">Preencher o formulário de hoje</a><button data-ir="diario">📷 Fotos do DB e da ficha</button></div>
+  <div class="linha-acao"><a class="btn pri goa-bt" href="${FORM_GOA}" target="_blank" rel="noopener">Preencher o formulário de hoje</a></div>
+  ${blocoDocs()}
   <details class="goa-como"><summary>Como preencher (8 páginas)</summary><ol>
     <li><b>Identificação:</b> seu nome na lista, a data e se houve instrução. Se não houve, o formulário pula para "Dia sem atividade" (motivo, se a escola avisou e a nova data).</li>
     <li><b>Atividade:</b> tipo (voo de instrução, ground school, simulador...), se estava no cronograma, horários efetivos de início e fim, a fase (Fase 1 – Adaptação, por enquanto) e a missão como está na ficha (ex.: INCT-02).</li>
@@ -181,7 +203,7 @@ const cartaoGoa = () => `<div class="caixa goa-cartao">
     <li><b>Documentação:</b> anexar a foto ou o PDF da <b>Ficha de Avaliação</b> e do <b>Diário de Bordo (DB)</b>.</li>
     <li><b>Execução do contrato:</b> aeronave, instrutor e material disponíveis, se a atividade foi integral e se houve ocorrência.</li>
     <li><b>Declaração</b> e enviar.</li></ol>
-    <p class="sub">Dica: guarde a foto ou o PDF do DB e da ficha no <b>Diário de voo</b> do Hangar (só a data e os arquivos, sem digitar nada). Fica tudo num lugar para ver e baixar na hora de anexar no formulário. Os horários do DB estão em UTC (Z): em Piraquara, hora local = Z − 3 h.</p></details>
+    <p class="sub">Dica: guarde a foto ou o PDF do DB e da ficha na aba <b>DB e Ficha</b> do Hangar (só a data e os arquivos, sem digitar nada). Fica tudo num lugar para ver e baixar na hora de anexar no formulário. Os horários do DB estão em UTC (Z): em Piraquara, hora local = Z − 3 h.</p></details>
 </div>`;
 const ctxProvas = { db, user: () => user, membro: () => membro, notas: () => notasProvas, arq: ARQ, toast, render: () => { if (aba === 'provas') render(); } };
 const quadro = (pag, titulo) => `<iframe class="quadro" src="${pag}?embed=1" title="${titulo}" loading="lazy" allow="microphone"></iframe>`;
@@ -202,7 +224,7 @@ inicio(){
       <p class="sub">Comandos, aerodinâmica, limites e emergências do R22, tráfego e fonia; depois, o Esquilo. Marque cada item ao terminar.</p>
       <div class="linha-acao"><button class="pri" data-ir="estudo">Abrir o cronograma</button><button data-ir="revisao">Revisão R22</button></div></div>
     <div class="caixa"><div class="rotulo">Atalhos</div><div class="linha-acao">
-      <button class="pri" data-ir="diario">📒 Lançar voo</button><button data-ir="tempo">🌤️ Tempo</button><button data-ir="gastos">💸 Lançar gasto</button><button data-ir="compras">🛒 Lista de compras${compras.filter((x) => !x.feito).length ? ` (${compras.filter((x) => !x.feito).length})` : ''}</button><button data-ir="provas">✍️ Provas (${totalQuestoes()} questões)</button><button data-ir="anotacoes">📝 Anotações${anotacoes.filter((x) => !x.feito).length ? ` (${anotacoes.filter((x) => !x.feito).length})` : ''}</button><button data-ir="treino">🎧 Fonia e METAR</button><button data-ir="materiais">📄 Materiais</button><a class="btn" href="${SIMULADOR}" target="_blank" rel="noopener">🚁 Simulador</a></div></div>
+      <button class="pri" data-ir="diario">📷 DB e Ficha do voo</button><button data-ir="tempo">🌤️ Tempo</button><button data-ir="gastos">💸 Lançar gasto</button><button data-ir="compras">🛒 Lista de compras${compras.filter((x) => !x.feito).length ? ` (${compras.filter((x) => !x.feito).length})` : ''}</button><button data-ir="provas">✍️ Provas (${totalQuestoes()} questões)</button><button data-ir="anotacoes">📝 Anotações${anotacoes.filter((x) => !x.feito).length ? ` (${anotacoes.filter((x) => !x.feito).length})` : ''}</button><button data-ir="treino">🎧 Fonia e METAR</button><button data-ir="materiais">📄 Materiais</button><a class="btn" href="${SIMULADOR}" target="_blank" rel="noopener">🚁 Simulador</a></div></div>
   </div>
   <div class="grade">
     <div class="caixa"><div class="rotulo">A turma</div>
@@ -232,7 +254,7 @@ estudo(){
 /*@TREINO@*/
 materiais(){
   const ess = [['r22poh','POH R22 (Robinson, fev/2024)'],['r22br','R22: Suplemento Brasileiro do POH'],['delanir','Delanir: apostila PPH/PCH (aluno)'],['resumao','Resumão Piloto Privado'],['ica1004','ICA 100-4: regras para helicópteros (DECEA)'],['ica10012','ICA 100-12: regras do ar (DECEA)'],['mca10016','MCA 100-16: fraseologia (DECEA, 2025)'],['codmet','Códigos meteorológicos (METAR, TAF)'],['planovoo','Plano de voo'],['rbac67','RBAC 67: certificado médico (CMA)'],['faa6','FAA Helicopter Flying Handbook, cap. 6: peso e balanceamento'],['faa7','FAA Helicopter Flying Handbook, cap. 7: desempenho'],['is141','IS 141-007: programas de instrução (ANAC)']];
-  const eacar = [['eacarpre','Checklist pré-voo externo R22'],['eacaracio','Checklist de acionamento e corte R22'],['eacaremerg','Procedimentos de emergência R22'],['eacarman','Manual de Manobras R22 (Otavio Rosa e Rudi Barlem)'],['eacarpoh','POH R22: tradução para alunos (EACAR, 2026)'],['eacarfonia','Roteiro de fonia do circuito SISY']];
+  const eacar = [['eacarpre','Checklist pré-voo externo R22'],['eacaracio','Checklist de acionamento e corte R22'],['eacaremerg','Procedimentos de emergência R22'],['eacarproc','Manual de Procedimentos Operacionais (manobras, para alunos)'],['eacarman','Manual de Manobras R22 (Otavio Rosa e Rudi Barlem)'],['eacarpoh','POH R22: tradução para alunos (EACAR, 2026)'],['eacarfonia','Roteiro de fonia do circuito SISY']];
   const extras = (s) => mats.filter((m) => m.secao === s).map((m) => `<span class="mat-turma"><a href="${esc(linkSeguro(m.link) || '#')}" target="_blank" rel="noopener noreferrer">📎 ${esc(m.titulo)}</a>${m.autor === user.uid ? `<button class="mini fantasma" data-matdel="${esc(m.id)}" aria-label="Tirar ${esc(m.titulo)}">×</button>` : ''}<span class="sub">${esc(m.nome || '')}</span></span>`).join('');
   return `<h2>Materiais</h2><p class="intro">Os PDFs ficam numa pasta do Google Drive compartilhada com a turma. Se o Drive pedir acesso, toque em "Solicitar acesso" com a mesma conta Google que você usa aqui. O que alguém da turma acrescentar aparece direto na seção escolhida.</p>
   <div class="caixa destaque"><h3>Material da EACAR</h3><div class="links">${eacar.map(([k,t])=>pdf(k,t)).join('')}${extras('eacar')}</div>
@@ -250,7 +272,7 @@ materiais(){
   <div class="caixa"><h3>Pasta completa</h3><div class="links">${DRIVE_PASTA ? `<a class="pdf" href="https://drive.google.com/drive/folders/${DRIVE_PASTA}" target="_blank" rel="noopener">📁 Abrir a pasta no Google Drive</a>` : ''}<a href="${SIMULADOR}" target="_blank" rel="noopener">Simulador Heli (21 fases)</a></div></div>`;
 },
 gastos(){ return quadro('gastos.html', 'Gastos da turma'); },
-diario(){ return `<p class="sub">Só você vê os seus voos.</p>` + quadro('diario.html', 'Diário de voo'); },
+diario(){ return `<p class="sub">Diário de Bordo (DB) e Ficha de Avaliação de Voo (FAV) de cada voo. Só você vê os seus.</p>` + quadro('diario.html', 'DB e Ficha de Voo'); },
 /*@ACESSOS@*/
 };
 

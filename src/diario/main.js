@@ -301,11 +301,13 @@ const miniaturas = {};
 function telaPrincipal() {
   editando = null;
   const gs = grupos(), completos = gs.filter((x) => docTipo(x.id, 'db') && docTipo(x.id, 'ficha')).length;
+  const pend = gs.filter((x) => !docTipo(x.id, 'db') || !docTipo(x.id, 'ficha'));
   el.innerHTML = `
-    <section class="cartao"><div class="cab"><div><h2>Documentos dos voos</h2><div class="sub">${esc(perfil.nome)} · Diário de Bordo e Ficha de Avaliação de cada voo, para ver e baixar quando precisar</div></div>
+    <section class="cartao"><div class="cab"><div><h2>DB e Ficha de cada voo</h2><div class="sub">${esc(perfil.nome)} · Diário de Bordo e Ficha de Avaliação de cada voo, para ver e baixar quando precisar</div></div>
       <div class="linha-acao"><button class="pri grande" id="btEnviar">📷 Enviar DB e ficha de um voo</button></div></div>
       ${gs.length ? `<div class="sub">${gs.length} voo(s) · ${completos} com os dois documentos${gs.length - completos ? ` · <b class="txt-alerta">${gs.length - completos} faltando documento</b>` : ''}</div>` : ''}
     </section>
+    ${pend.length ? `<section class="cartao pendencias"><h3>⚠ Falta enviar</h3><ul>${pend.map((x) => `<li><span>Aula ${x.aula} · ${dBR(x.data)}: falta ${Object.keys(TIPOS_DOC).filter((k) => !docTipo(x.id, k)).map((k) => k === 'db' ? 'o Diário de Bordo' : 'a Ficha de Avaliação').join(' e ')}</span><button class="mini pri" data-env="${esc(x.id)}">📷 Enviar</button></li>`).join('')}</ul><p class="sub">Aproveite quando anexar a ficha e o DB no formulário diário do GOA: guarde aqui também.</p></section>` : ''}
     ${gs.length ? gs.map(cartaoVoo).join('') : `<section class="cartao"><div class="vazio">Nenhum documento ainda. Depois do voo, tire a foto do Diário de Bordo e da Ficha de Avaliação (ou use o PDF escaneado) e toque em <b>Enviar DB e ficha</b>. Não precisa digitar nada.</div></section>`}
     <section class="cartao"><div class="linha-acao"><button id="btHoras">⏱️ Horas e conferência com a CIV (opcional)</button><button id="btPerfil">Meus dados</button></div></section>
     <div id="visor" class="visor" hidden></div>`;

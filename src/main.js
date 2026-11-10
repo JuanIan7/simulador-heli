@@ -52,7 +52,7 @@ function menu() {
         <button class="btn btn-laranja grande" id="btnSim">🚁 Simulador de voo <span class="sub-btn">voo livre · voo guiado · missões com objetivos</span></button>
         ${nuvem.disponivel() ? '<button class="btn btn-cinza grande" id="btnRank">🏆 Ranking dos pilotos</button>' : ''}
         <a class="btn btn-cinza grande" href="hangar.html">🛩 Hangar da Turma <span class="sub-btn">estudo, materiais, gastos e diário da turma de PPH</span></a>
-        <a class="btn btn-cinza grande" href="diario.html">📒 Diário de voo <span class="sub-btn">registre os seus voos de instrução e confira com a CIV da ANAC</span></a>
+        <a class="btn btn-cinza grande" href="diario.html">📷 DB e Ficha de Voo <span class="sub-btn">guarde a foto ou o PDF do Diário de Bordo e da Ficha de Avaliação de cada voo</span></a>
         <button class="btn btn-cinza grande" id="btnAjustes">⚙️ Ajustes e controles</button>
         <button class="btn btn-cinza grande" id="btnCreditos">ℹ️ Sobre e créditos</button>
       </div>
