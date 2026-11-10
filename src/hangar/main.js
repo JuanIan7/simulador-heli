@@ -270,7 +270,7 @@ function perguntaDia(iso, rotulo) {
   if (r?.voou || temDoc) return temDoc ? '' : `<div class="dia-res">Voou ${rotulo}: guarde o DB e a ficha (está na lista acima). <button class="mini fantasma" data-dia-mudar="${iso}">mudar</button></div>`;
   const aberto = diaOutro === iso;
   return `<div class="dia-perg"><b>Voou ${rotulo}?</b>
-    <div class="linha-acao"><button class="mini pri" data-dia="${iso}" data-voou="1">✈️ Sim</button>${Object.entries(MOTIVOS).map(([k, [t]]) => `<button class="mini" data-dia="${iso}" data-motivo="${k}">${k === 'outro' ? 'Não: outro motivo' : 'Não: ' + t}</button>`).join('')}</div>
+    <div class="linha-acao"><button class="mini pri" data-dia="${iso}" data-voou="1">🚁 Sim</button>${Object.entries(MOTIVOS).map(([k, [t]]) => `<button class="mini" data-dia="${iso}" data-motivo="${k}">${k === 'outro' ? 'Não: outro motivo' : 'Não: ' + t}</button>`).join('')}</div>
     ${aberto ? `<div class="linha-acao"><input id="diaOutroTxt" maxlength="60" placeholder="Qual? (ex.: aeronave em manutenção)"><button class="mini pri" data-dia-outro="${iso}">Salvar</button></div>` : ''}</div>`;
 }
 function perguntaOntem() {
