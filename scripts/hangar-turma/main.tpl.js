@@ -33,7 +33,7 @@ const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTi
 function toast(t){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2400); }
 const pdf = (k, rot) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_blank" rel="noopener">📄 ${esc(rot)}</a>` : `<span class="sub">📄 ${esc(rot)}</span>`;
 
-const ABAS = [['inicio','Início'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['diario','DB e Ficha'],['acessos','Acessos e rotas']];
+const ABAS = [['inicio','Início'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['diario','Diário de voo'],['fichas','DB e Ficha'],['acessos','Acessos e rotas']];
 let aba = (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
 let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], compras = [], errCompras = '', anotacoes = [], errAnotacoes = '', notasProvas = [], meusDocs = [], meusVoos = [], meusDias = [], diaOutro = '', parar = [], trocandoPix = false;
 
@@ -54,7 +54,7 @@ const CRONO = [
     { id: 'c9', t: 'Pré-voo do R22 (POH 4-1 a 4-6)', d: 'A volta na aeronave em 13 estações, antes da partida e o cheque de motor.', l: [['pdf','r22poh','POH R22'], ['yt','Robinson R22 preflight inspection','Vídeos: pré-voo']] },
   ]},
   { dia: 'curso', nome: 'Durante o curso', meta: 'depois de cada voo, 20 min', itens: [
-    { id: 'c11', t: 'Guardar o DB e a ficha de cada voo no mesmo dia', d: 'Foto ou PDF do Diário de Bordo e da Ficha de Avaliação (aba DB e Ficha), quando anexar no formulário do GOA.', l: [] },
+    { id: 'c11', t: 'Lançar cada voo no Diário de voo no mesmo dia', d: 'Horário de início e fim, pousos e o que foi treinado (aba Diário de voo).', l: [] },
     { id: 'c12', t: 'Anotar o que o instrutor corrigiu', d: 'Rever antes do próximo voo e trocar ideia com a turma.', l: [] },
     { id: 'c13', t: 'Perguntar à EACAR', d: 'Prefixo e S/N do R22 de instrução, áreas de treino, se o programa cobre os 5 temas da SFAR 73 e quanto duplo comando antes do solo.', l: [] },
   ]},
@@ -213,7 +213,7 @@ function blocoDocs() {
     ${pend.length ? `<b>⚠ Seus documentos de voo que faltam no Hangar:</b><ul>${pend.map((x) => `<li>${x.aula ? 'Aula ' + x.aula : 'Voo'} · ${dBR(x.data)}: falta ${x.falta.join(' e ')}</li>`).join('')}</ul>`
       : total ? `<b>✓ Seus documentos de voo estão em dia</b> <span class="sub">(${total} voo${total > 1 ? 's' : ''} com DB e ficha)</span>` : '<b>Nenhum documento de voo guardado ainda.</b>'}
     ${perguntaDia(hoje(), 'hoje')}${perguntaOntem()}
-    <div class="linha-acao"><button class="${pend.length ? 'pri' : ''}" data-ir="diario">📷 ${pend.length ? 'Enviar o que falta' : 'Enviar DB e ficha'}</button></div></div>`;
+    <div class="linha-acao"><button class="${pend.length ? 'pri' : ''}" data-ir="fichas">📷 ${pend.length ? 'Enviar o que falta' : 'Enviar DB e ficha'}</button></div></div>`;
 }
 const cartaoGoa = () => `<div class="caixa goa-cartao">
   <div class="goa-topo"><span class="goa-ico">📋</span><div><div class="rotulo">Todo dia · exigência do GOA</div><h3>Acompanhamento diário do curso</h3>
@@ -249,7 +249,7 @@ inicio(){
       <p class="sub">Comandos, aerodinâmica, limites e emergências do R22, tráfego e fonia; depois, o Esquilo. Marque cada item ao terminar.</p>
       <div class="linha-acao"><button class="pri" data-ir="estudo">Abrir o cronograma</button><button data-ir="revisao">Revisão R22</button></div></div>
     <div class="caixa"><div class="rotulo">Atalhos</div><div class="linha-acao">
-      <button class="pri" data-ir="diario">📷 DB e Ficha do voo</button><button data-ir="tempo">🌤️ Tempo</button><button data-ir="gastos">💸 Lançar gasto</button><button data-ir="compras">🛒 Lista de compras${compras.filter((x) => !x.feito).length ? ` (${compras.filter((x) => !x.feito).length})` : ''}</button><button data-ir="provas">✍️ Provas (${totalQuestoes()} questões)</button><button data-ir="anotacoes">📝 Anotações${anotacoes.filter((x) => !x.feito).length ? ` (${anotacoes.filter((x) => !x.feito).length})` : ''}</button><button data-ir="treino">🎧 Fonia e METAR</button><button data-ir="materiais">📄 Materiais</button><a class="btn" href="${SIMULADOR}" target="_blank" rel="noopener">🚁 Simulador</a></div></div>
+      <button class="pri" data-ir="diario">📒 Lançar voo</button><button data-ir="fichas">📷 DB e Ficha</button><button data-ir="tempo">🌤️ Tempo</button><button data-ir="gastos">💸 Lançar gasto</button><button data-ir="compras">🛒 Lista de compras${compras.filter((x) => !x.feito).length ? ` (${compras.filter((x) => !x.feito).length})` : ''}</button><button data-ir="provas">✍️ Provas (${totalQuestoes()} questões)</button><button data-ir="anotacoes">📝 Anotações${anotacoes.filter((x) => !x.feito).length ? ` (${anotacoes.filter((x) => !x.feito).length})` : ''}</button><button data-ir="treino">🎧 Fonia e METAR</button><button data-ir="materiais">📄 Materiais</button><a class="btn" href="${SIMULADOR}" target="_blank" rel="noopener">🚁 Simulador</a></div></div>
   </div>
   <div class="grade">
     <div class="caixa"><div class="rotulo">A turma</div>
@@ -297,7 +297,8 @@ materiais(){
   <div class="caixa"><h3>Pasta completa</h3><div class="links">${DRIVE_PASTA ? `<a class="pdf" href="https://drive.google.com/drive/folders/${DRIVE_PASTA}" target="_blank" rel="noopener">📁 Abrir a pasta no Google Drive</a>` : ''}<a href="${SIMULADOR}" target="_blank" rel="noopener">Simulador Heli (21 fases)</a></div></div>`;
 },
 gastos(){ return quadro('gastos.html', 'Gastos da turma'); },
-diario(){ return `<p class="sub">Diário de Bordo (DB) e Ficha de Avaliação de Voo (FAV) de cada voo. Só você vê os seus.</p>` + quadro('diario.html', 'DB e Ficha de Voo'); },
+diario(){ return `<p class="sub">Só você vê os seus voos.</p>` + quadro('diario.html', 'Diário de voo'); },
+fichas(){ return `<p class="sub">Diário de Bordo (DB) e Ficha de Avaliação de Voo (FAV) de cada voo. Só você vê os seus.</p>` + quadro('fichas.html', 'DB e Ficha de Voo'); },
 /*@ACESSOS@*/
 };
 

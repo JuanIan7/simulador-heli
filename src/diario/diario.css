@@ -49,26 +49,3 @@ td.n, th.n { text-align: right; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 .embed .topo, .embed .rodape { display: none; }
 .embed .wrap { padding-block: 4px 8px; padding-left: 0; padding-right: 0; }
-
-.dica.alerta { background: #fdecea; border-color: var(--verm); color: var(--verm); }
-.docs { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
-.doc-slot { border: 1.5px dashed var(--cin2); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; background: var(--bra); }
-.doc-slot.tem { border-style: solid; border-color: var(--ok); background: var(--ok-claro); }
-.doc-tit { font-weight: 700; }
-.doc-slot label.btn { cursor: pointer; }
-.doc-st { color: var(--verm); }
-button.grande { font-size: 16px; min-height: 48px; padding: 10px 18px; }
-.txt-alerta { color: var(--verm); }
-.voo-docs h3 { margin: 0; }
-.doc-prev { display: block; width: 100%; height: 150px; padding: 0; border: 1px solid var(--cin2); border-radius: 8px; overflow: hidden; background: var(--fundo); cursor: zoom-in; }
-.doc-prev img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
-.doc-pdf { display: grid; place-items: center; height: 100%; font-weight: 800; font-size: 28px; color: var(--verm); }
-.arq input[type=file] { padding: 8px; background: var(--bra); }
-.visor { position: fixed; inset: 0; z-index: 50; background: rgba(15, 12, 10, .92); display: flex; flex-direction: column; padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
-.visor-barra { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); color: #fff; }
-.visor img { flex: 1; min-height: 0; width: 100%; object-fit: contain; touch-action: pinch-zoom; }
-.visor[hidden] { display: none; }
-.cartao.pendencias { border: 2px solid var(--alerta); background: var(--alerta-claro); }
-.pendencias h3 { margin: 0; color: var(--alerta); }
-.pendencias ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.pendencias li { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-weight: 600; }
