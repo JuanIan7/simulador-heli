@@ -1,0 +1,58 @@
+[
+ {
+  "id": "reg",
+  "titulo": "Regulamentação (PPH)",
+  "curto": "Regulamentação",
+  "descricao": "Regras do ar e VFR com os mínimos e alturas próprios de helicóptero, direito de passagem, luzes e sinais, espaço aéreo, fraseologia e transponder, plano de voo e CMA.",
+  "n": 32,
+  "temas": 9
+ },
+ {
+  "id": "tvh",
+  "titulo": "Teoria de Voo de Helicópteros",
+  "curto": "Teoria de voo",
+  "descricao": "Forças e ângulos, torque, efeito solo e ETL, dissimetria e Coriolis, estol de pá, anel de vórtices, autorrotação e curva do homem morto, desempenho, peso e balanceamento e rolamento dinâmico.",
+  "n": 32,
+  "temas": 10
+ },
+ {
+  "id": "cth",
+  "titulo": "Conhecimentos Técnicos de Helicópteros",
+  "curto": "Conhec. técnicos",
+  "descricao": "Motor a pistão (ciclo, carburador e gelo, ignição, lubrificação e combustível), instrumentos, sistema elétrico e os sistemas do helicóptero: transmissão, embreagem e roda livre, rotores, comandos de voo, governador e correlador, ancorados no R22.",
+  "n": 32,
+  "temas": 9
+ },
+ {
+  "id": "met",
+  "titulo": "Meteorologia",
+  "curto": "Meteorologia",
+  "descricao": "Atmosfera padrão, altimetria e erros do altímetro, umidade, nevoeiro, nuvens, frentes, trovoadas, gelo, ventos e leitura de METAR e TAF.",
+  "n": 32,
+  "temas": 10
+ },
+ {
+  "id": "nav",
+  "titulo": "Navegação Aérea",
+  "curto": "Navegação",
+  "descricao": "Terra e coordenadas, direções (verdadeiro, magnético, bússola), cartas e escalas, conversões, velocidades, vento e deriva, cálculos de tempo e consumo, fusos horários, navegação por contato e estimada e noções de NDB/ADF.",
+  "n": 32,
+  "temas": 10
+ },
+ {
+  "id": "r22",
+  "titulo": "Robinson R22 Beta II (POH e segurança)",
+  "curto": "R22",
+  "descricao": "Limitações, procedimentos de emergência e normais, desempenho e Safety Notices do R22 Beta II, a aeronave da escola, segundo o POH traduzido pela EACAR.",
+  "n": 32,
+  "temas": 9
+ },
+ {
+  "id": "man",
+  "titulo": "Manobras e fonia (EACAR)",
+  "curto": "Manobras e fonia",
+  "descricao": "Técnica das manobras do R22 e padrões da EACAR: pré-voo e partida, comandos, pairado e táxi, decolagem, aproximações, terreno inclinado, autorrotação, estóis, rotor de cauda e fonia do circuito SISY.",
+  "n": 32,
+  "temas": 9
+ }
+]

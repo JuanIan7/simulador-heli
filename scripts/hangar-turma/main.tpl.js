@@ -16,6 +16,7 @@ import { nomesOcupados, opcoesNomes, entrarComNome, erroNome } from '../gastos/n
 import { calcular, caixaPix, alertaAcertos, ligarPix, digitandoPix } from '../gastos/contas.js';
 import { telaCompras, ligarCompras, digitandoCompras } from './compras.js';
 import { telaAnotacoes, ligarAnotacoes, digitandoAnotacoes } from './anotacoes.js';
+import { telaProvas, ligarProvas, emProva, totalQuestoes } from './provas.js';
 import { telaTempo, ligarTempo, resumoInicio } from './tempo.js';
 import { limpar, limparNome, linkSeguro, ligarMascaras } from '../entrada.js';
 
@@ -32,9 +33,9 @@ const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTi
 function toast(t){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2400); }
 const pdf = (k, rot) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_blank" rel="noopener">📄 ${esc(rot)}</a>` : `<span class="sub">📄 ${esc(rot)}</span>`;
 
-const ABAS = [['inicio','Início'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
+const ABAS = [['inicio','Início'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
 let aba = (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
-let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], compras = [], errCompras = '', anotacoes = [], errAnotacoes = '', parar = [], trocandoPix = false;
+let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], compras = [], errCompras = '', anotacoes = [], errAnotacoes = '', notasProvas = [], parar = [], trocandoPix = false;
 
 // ---------- conteúdo ----------
 const CRONO = [
@@ -138,6 +139,10 @@ function abrir() {
     compras = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.em?.seconds || 9e9) - (a.em?.seconds || 9e9)); errCompras = '';
     if (aba === 'compras' && !digitandoCompras()) render();
   }, (e) => { errCompras = e.code === 'permission-denied' ? 'A lista de compras ainda está sendo ativada no banco. Tente daqui a pouco.' : 'Não deu para ler a lista (' + (e.code || e.message) + ').'; if (aba === 'compras') render(); }));
+  parar.push(onSnapshot(collection(db, 'provas'), (s) => {
+    notasProvas = s.docs.map((d) => ({ uid: d.id, ...d.data() }));
+    if (aba === 'provas' && !emProva()) render();
+  }, () => {}));
   parar.push(onSnapshot(collection(db, 'anotacoes'), (s) => {
     anotacoes = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.em?.seconds || 9e9) - (a.em?.seconds || 9e9)); errAnotacoes = '';
     if (aba === 'anotacoes' && !digitandoAnotacoes()) render();
@@ -162,6 +167,7 @@ function contagem() {
 }
 function irPara(k) { aba = k; try { history.replaceState(null, '', '#' + k); } catch {} render(); window.scrollTo(0, 0); }
 // allow="microphone": a página de gastos deixa falar o gasto (reconhecimento de voz do navegador)
+const ctxProvas = { db, user: () => user, membro: () => membro, notas: () => notasProvas, arq: ARQ, toast, render: () => { if (aba === 'provas') render(); } };
 const quadro = (pag, titulo) => `<iframe class="quadro" src="${pag}?embed=1" title="${titulo}" loading="lazy" allow="microphone"></iframe>`;
 
 const TELAS = {
@@ -180,7 +186,7 @@ inicio(){
       <p class="sub">Comandos, aerodinâmica, limites e emergências do R22, tráfego e fonia; depois, o Esquilo. Marque cada item ao terminar.</p>
       <div class="linha-acao"><button class="pri" data-ir="estudo">Abrir o cronograma</button><button data-ir="revisao">Revisão R22</button></div></div>
     <div class="caixa"><div class="rotulo">Atalhos</div><div class="linha-acao">
-      <button class="pri" data-ir="diario">📒 Lançar voo</button><button data-ir="tempo">🌤️ Tempo</button><button data-ir="gastos">💸 Lançar gasto</button><button data-ir="compras">🛒 Lista de compras${compras.filter((x) => !x.feito).length ? ` (${compras.filter((x) => !x.feito).length})` : ''}</button><button data-ir="anotacoes">📝 Anotações${anotacoes.filter((x) => !x.feito).length ? ` (${anotacoes.filter((x) => !x.feito).length})` : ''}</button><button data-ir="treino">🎧 Fonia e METAR</button><button data-ir="materiais">📄 Materiais</button><a class="btn" href="${SIMULADOR}" target="_blank" rel="noopener">🚁 Simulador</a></div></div>
+      <button class="pri" data-ir="diario">📒 Lançar voo</button><button data-ir="tempo">🌤️ Tempo</button><button data-ir="gastos">💸 Lançar gasto</button><button data-ir="compras">🛒 Lista de compras${compras.filter((x) => !x.feito).length ? ` (${compras.filter((x) => !x.feito).length})` : ''}</button><button data-ir="provas">✍️ Provas (${totalQuestoes()} questões)</button><button data-ir="anotacoes">📝 Anotações${anotacoes.filter((x) => !x.feito).length ? ` (${anotacoes.filter((x) => !x.feito).length})` : ''}</button><button data-ir="treino">🎧 Fonia e METAR</button><button data-ir="materiais">📄 Materiais</button><a class="btn" href="${SIMULADOR}" target="_blank" rel="noopener">🚁 Simulador</a></div></div>
   </div>
   <div class="grade">
     <div class="caixa"><div class="rotulo">A turma</div>
@@ -197,6 +203,7 @@ inicio(){
 tempo(){ return telaTempo(); },
 compras(){ return telaCompras(compras, errCompras); },
 anotacoes(){ return telaAnotacoes(anotacoes, errAnotacoes); },
+provas(){ return telaProvas(ctxProvas); },
 estudo(){
   const f = feitos(membro);
   return `<div class="cab"><h2>Cronograma de estudo</h2><span class="selo la">${f}/${IDS.length} feitos</span></div>
@@ -242,6 +249,7 @@ const LIGAR = {
     LIGAR.linkTurma();
   },
   compras(c){ ligarCompras(c, { db, user: () => user, membro: () => membro, compras: () => compras, toast, render: () => { if (aba === 'compras') render(); } }); },
+  provas(c){ ligarProvas(c, ctxProvas); },
   anotacoes(c){ ligarAnotacoes(c, { db, user: () => user, membro: () => membro, anotacoes: () => anotacoes, toast, render: () => { if (aba === 'anotacoes') render(); } }); },
   tempo(c){ ligarTempo(c, { decodificarMetar, toast, render: () => { if (aba === 'tempo') render(); } }); },
   // botão do link da turma (fica no Início; vale para qualquer tela que o tenha)

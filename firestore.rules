@@ -97,6 +97,14 @@ service cloud.firestore {
         && request.resource.data.tipo in ['fazer', 'lugar', 'tarefa', 'ideia', 'outros']
         && request.resource.data.feito is bool;
     }
+    // Provas da turma: cada um grava só as próprias notas; todos os membros leem (ranking).
+    match /provas/{uid} {
+      allow read: if membroGastos() || admin();
+      allow create, update: if dono(uid) && (membroGastos() || admin())
+        && request.resource.data.nome is string && request.resource.data.nome.size() >= 2 && request.resource.data.nome.size() <= 24
+        && request.resource.data.notas is map && request.resource.data.notas.size() <= 30;
+      allow delete: if dono(uid) || admin();
+    }
     match /gastos/{id} {
       allow read, delete: if membroGastos() || admin();
       allow create, update: if (membroGastos() || admin())
