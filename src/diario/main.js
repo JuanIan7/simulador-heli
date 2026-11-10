@@ -29,14 +29,14 @@ const CIV = { nao: ['nao', 'Falta na CIV'], lancado: ['lan', 'Lançado na CIV'],
 const FASES = { gs: 'Ground School / familiarização', f1: 'Fase/Módulo 1 – Adaptação na aeronave', f2: 'Fase/Módulo 2 – Procedimentos anormais e de emergência', f3: 'Fase/Módulo 3 – Aquisição de experiência / piloto em comando', nav: 'Navegação', solo: 'Voo solo', not: 'Voo noturno', outra: 'Outra fase prevista no programa da escola' };
 const GRAUS = { '': '—', aprovado: 'Aprovado', reprovado: 'Reprovado' };
 
-let user = null, perfil = null, voos = [], docs = [], pararVoos = null, pararDocs = null, editando = null, filtro = 'todos';
+let user = null, perfil = null, voos = [], docs = [], dias = [], pararVoos = null, pararDocs = null, pararDias = null, editando = null, filtro = 'todos';
 const docsDo = (id) => docs.filter((d) => d.voo === id);
 const docTipo = (id, t) => docs.find((d) => d.voo === id && d.tipo === t);
 
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2600); }
 
 onAuthStateChanged(auth, async (u) => {
-  user = u; pararVoos?.(); pararVoos = null; pararDocs?.(); pararDocs = null; voos = []; docs = []; perfil = null;
+  user = u; pararVoos?.(); pararVoos = null; pararDocs?.(); pararDocs = null; pararDias?.(); pararDias = null; voos = []; docs = []; dias = []; perfil = null;
   topo();
   if (!u) return telaLogin();
   try { const s = await getDoc(doc(db, 'diario', u.uid)); perfil = s.exists() ? s.data() : null; }
@@ -50,6 +50,7 @@ onAuthStateChanged(auth, async (u) => {
     voos = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.data + (b.inicio || '')).localeCompare(a.data + (a.inicio || '')));
     if (!editando) telaPrincipal(); else if (editando === 'horas') telaHoras();
   }, (e) => { el.innerHTML = `<div class="cartao"><p class="erro">Erro ao ler os voos (${esc(e.code)}).</p></div>`; });
+  pararDias = onSnapshot(collection(db, 'diario', u.uid, 'dias'), (s) => { dias = s.docs.map((d) => ({ iso: d.id, ...d.data() })); if (!editando) telaPrincipal(); }, () => {});
   pararDocs = onSnapshot(collection(db, 'diario', u.uid, 'docs'), (s) => {
     docs = s.docs.map((d) => ({ id: d.id, ...d.data() }));
     if (!editando) telaPrincipal(); else if (editando === 'horas') telaHoras(); else if (editando !== 'novo' && editando !== 'enviar') desenharDocs();
@@ -301,18 +302,20 @@ const miniaturas = {};
 function telaPrincipal() {
   editando = null;
   const gs = grupos(), completos = gs.filter((x) => docTipo(x.id, 'db') && docTipo(x.id, 'ficha')).length;
-  const pend = gs.filter((x) => !docTipo(x.id, 'db') || !docTipo(x.id, 'ficha'));
+  // dias marcados "voou" no Início do Hangar e sem nenhum documento daquela data
+  const semNada = dias.filter((d) => d.voou && !gs.some((x) => x.data === d.iso)).map((d) => ({ id: `${d.iso}-v1`, data: d.iso, aula: null }));
+  const pend = [...gs.filter((x) => !docTipo(x.id, 'db') || !docTipo(x.id, 'ficha')), ...semNada].sort((a, b) => b.data.localeCompare(a.data));
   el.innerHTML = `
     <section class="cartao"><div class="cab"><div><h2>DB e Ficha de cada voo</h2><div class="sub">${esc(perfil.nome)} · Diário de Bordo e Ficha de Avaliação de cada voo, para ver e baixar quando precisar</div></div>
       <div class="linha-acao"><button class="pri grande" id="btEnviar">📷 Enviar DB e ficha de um voo</button></div></div>
       ${gs.length ? `<div class="sub">${gs.length} voo(s) · ${completos} com os dois documentos${gs.length - completos ? ` · <b class="txt-alerta">${gs.length - completos} faltando documento</b>` : ''}</div>` : ''}
     </section>
-    ${pend.length ? `<section class="cartao pendencias"><h3>⚠ Falta enviar</h3><ul>${pend.map((x) => `<li><span>Aula ${x.aula} · ${dBR(x.data)}: falta ${Object.keys(TIPOS_DOC).filter((k) => !docTipo(x.id, k)).map((k) => k === 'db' ? 'o Diário de Bordo' : 'a Ficha de Avaliação').join(' e ')}</span><button class="mini pri" data-env="${esc(x.id)}">📷 Enviar</button></li>`).join('')}</ul><p class="sub">Aproveite quando anexar a ficha e o DB no formulário diário do GOA: guarde aqui também.</p></section>` : ''}
+    ${pend.length ? `<section class="cartao pendencias"><h3>⚠ Falta enviar</h3><ul>${pend.map((x) => `<li><span>${x.aula ? 'Aula ' + x.aula : 'Voo'} · ${dBR(x.data)}: falta ${Object.keys(TIPOS_DOC).filter((k) => !docTipo(x.id, k)).map((k) => k === 'db' ? 'o Diário de Bordo' : 'a Ficha de Avaliação').join(' e ')}</span><button class="mini pri" data-env="${esc(x.id)}">📷 Enviar</button></li>`).join('')}</ul><p class="sub">Aproveite quando anexar a ficha e o DB no formulário diário do GOA: guarde aqui também.</p></section>` : ''}
     ${gs.length ? gs.map(cartaoVoo).join('') : `<section class="cartao"><div class="vazio">Nenhum documento ainda. Depois do voo, tire a foto do Diário de Bordo e da Ficha de Avaliação (ou use o PDF escaneado) e toque em <b>Enviar DB e ficha</b>. Não precisa digitar nada.</div></section>`}
     <section class="cartao"><div class="linha-acao"><button id="btHoras">⏱️ Horas e conferência com a CIV (opcional)</button><button id="btPerfil">Meus dados</button></div></section>
     <div id="visor" class="visor" hidden></div>`;
   $('#btEnviar').onclick = () => telaEnviar(); $('#btHoras').onclick = telaHoras; $('#btPerfil').onclick = () => telaPerfil(false);
-  el.querySelectorAll('[data-env]').forEach((b) => b.onclick = () => telaEnviar(gs.find((x) => x.id === b.dataset.env)));
+  el.querySelectorAll('[data-env]').forEach((b) => b.onclick = () => telaEnviar(gs.find((x) => x.id === b.dataset.env) || semNada.find((x) => x.id === b.dataset.env)));
   ligarDocsLista();
 }
 function cartaoVoo(g) {
@@ -363,7 +366,7 @@ async function baixarDoc(d) {
 function telaEnviar(g) {
   editando = 'enviar';
   const data = g?.data || hoje();
-  el.innerHTML = `<section class="cartao"><div class="cab"><h2>${g ? `Documentos de ${dBR(g.data)} · Aula ${g.aula}` : 'Enviar DB e ficha'}</h2><button type="button" id="eVoltar">Voltar</button></div>
+  el.innerHTML = `<section class="cartao"><div class="cab"><h2>${g ? `Documentos do voo de ${dBR(g.data)}${g.aula ? ' · Aula ' + g.aula : ''}` : 'Enviar DB e ficha'}</h2><button type="button" id="eVoltar">Voltar</button></div>
     <form id="fEnv" class="form">
       ${g ? '' : `<label>Data do voo<input id="eData" type="date" required min="2026-01-01" max="${hojeIso(1)}" value="${esc(data)}"></label>
       <label>Voo do dia<select id="eN"><option value="1">1º voo do dia</option><option value="2">2º voo do dia</option><option value="3">3º voo do dia</option></select></label>`}

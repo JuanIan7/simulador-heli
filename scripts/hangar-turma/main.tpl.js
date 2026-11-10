@@ -35,7 +35,7 @@ const pdf = (k, rot) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_
 
 const ABAS = [['inicio','Início'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['diario','DB e Ficha'],['acessos','Acessos e rotas']];
 let aba = (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
-let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], compras = [], errCompras = '', anotacoes = [], errAnotacoes = '', notasProvas = [], meusDocs = [], meusVoos = [], parar = [], trocandoPix = false;
+let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], compras = [], errCompras = '', anotacoes = [], errAnotacoes = '', notasProvas = [], meusDocs = [], meusVoos = [], meusDias = [], diaOutro = '', parar = [], trocandoPix = false;
 
 // ---------- conteúdo ----------
 const CRONO = [
@@ -141,6 +141,7 @@ function abrir() {
   }, (e) => { errCompras = e.code === 'permission-denied' ? 'A lista de compras ainda está sendo ativada no banco. Tente daqui a pouco.' : 'Não deu para ler a lista (' + (e.code || e.message) + ').'; if (aba === 'compras') render(); }));
   // documentos dos voos do próprio piloto (aba DB e Ficha): para avisar no Início o que falta enviar
   parar.push(onSnapshot(collection(db, 'diario', user.uid, 'docs'), (s) => { meusDocs = s.docs.map((d) => ({ id: d.id, ...d.data() })); if (aba === 'inicio' && !digitandoPix()) render(); }, () => {}));
+  parar.push(onSnapshot(collection(db, 'diario', user.uid, 'dias'), (s) => { meusDias = s.docs.map((d) => ({ iso: d.id, ...d.data() })); if (aba === 'inicio' && !digitandoPix() && !document.activeElement?.matches?.('#diaOutroTxt')) render(); }, () => {}));
   parar.push(onSnapshot(collection(db, 'diario', user.uid, 'voos'), (s) => { meusVoos = s.docs.map((d) => ({ id: d.id, ...d.data() })); if (aba === 'inicio' && !digitandoPix()) render(); }, () => {}));
   parar.push(onSnapshot(collection(db, 'provas'), (s) => {
     notasProvas = s.docs.map((d) => ({ uid: d.id, ...d.data() }));
@@ -179,15 +180,39 @@ function pendenciasDocs() {
   for (const d of meusDocs) if (!g.has(d.voo)) g.set(d.voo, { id: d.voo, data: d.data || d.voo.slice(0, 10), ini: d.voo.slice(11) });
   const lista = [...g.values()].sort((a, b) => (a.data + a.ini).localeCompare(b.data + b.ini));
   lista.forEach((x, i) => { x.aula = i + 1; x.falta = [['db', 'o DB'], ['ficha', 'a ficha']].filter(([t]) => !meusDocs.some((d) => d.voo === x.id && d.tipo === t)).map(([, n]) => n); });
-  return { total: lista.length, pend: lista.filter((x) => x.falta.length).reverse() };
+  // dia marcado "voou" e sem nenhum documento daquela data: esqueceu os dois
+  const semNada = meusDias.filter((d) => d.voou && !lista.some((x) => x.data === d.iso)).map((d) => ({ id: d.iso, data: d.iso, aula: null, falta: ['o DB', 'a ficha'] }));
+  return { total: lista.length, pend: [...lista.filter((x) => x.falta.length), ...semNada].sort((a, b) => b.data.localeCompare(a.data)) };
+}
+// "Voou hoje?" (só para o próprio piloto): diario/{uid}/dias/{AAAA-MM-DD} = { voou, motivo, outro }.
+// O motivo já diz o que marcar no "Registro de dia sem atividade" do formulário do GOA.
+const MOTIVOS = { chuva: ['🌧️ Mau tempo / chuva', 'Condições meteorológicas'], vento: ['💨 Vento', 'Condições meteorológicas'], fds: ['📅 Fim de semana / sem voo programado', 'Folga / intervalo previsto no cronograma'], outro: ['Outro', 'Outro motivo'] };
+const isoMenos = (n) => { const d = new Date(Date.parse(hoje() + 'T12:00:00')); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
+function perguntaDia(iso, rotulo) {
+  const r = meusDias.find((d) => d.iso === iso), temDoc = meusDocs.some((d) => (d.data || d.voo.slice(0, 10)) === iso);
+  if (r?.voou === false) { const m = MOTIVOS[r.motivo] || MOTIVOS.outro;
+    return `<div class="dia-res">Sem voo ${rotulo}: <b>${esc(r.motivo === 'outro' && r.outro ? r.outro : m[0])}</b> <span class="sub">· no formulário do GOA: "Não" › motivo "${esc(m[1])}"</span> <button class="mini fantasma" data-dia-mudar="${iso}">mudar</button></div>`; }
+  if (r?.voou || temDoc) return temDoc ? '' : `<div class="dia-res">Voou ${rotulo}: guarde o DB e a ficha (está na lista acima). <button class="mini fantasma" data-dia-mudar="${iso}">mudar</button></div>`;
+  const aberto = diaOutro === iso;
+  return `<div class="dia-perg"><b>Voou ${rotulo}?</b>
+    <div class="linha-acao"><button class="mini pri" data-dia="${iso}" data-voou="1">✈️ Sim</button>${Object.entries(MOTIVOS).map(([k, [t]]) => `<button class="mini" data-dia="${iso}" data-motivo="${k}">${k === 'outro' ? 'Não: outro motivo' : 'Não: ' + t}</button>`).join('')}</div>
+    ${aberto ? `<div class="linha-acao"><input id="diaOutroTxt" maxlength="60" placeholder="Qual? (ex.: aeronave em manutenção)"><button class="mini pri" data-dia-outro="${iso}">Salvar</button></div>` : ''}</div>`;
+}
+function perguntaOntem() {
+  const iso = isoMenos(1);
+  return meusDias.some((d) => d.iso === iso) || meusDocs.some((d) => (d.data || d.voo.slice(0, 10)) === iso) ? '' : perguntaDia(iso, `ontem (${iso.split('-').reverse().join('/').slice(0, 5)})`);
+}
+async function marcarDia(iso, dados) {
+  try { await setDoc(doc(db, 'diario', user.uid, 'dias', iso), { ...dados, em: serverTimestamp() }); diaOutro = ''; if (dados.voou) toast('Marcado: voou. Guarde o DB e a ficha na aba DB e Ficha.'); }
+  catch (e) { toast('Não salvou: ' + (e.code === 'permission-denied' ? 'o "voou hoje?" ainda está sendo ativado no banco.' : e.code || e.message)); }
 }
 function blocoDocs() {
   const { total, pend } = pendenciasDocs(), dBR = (iso) => iso ? iso.split('-').reverse().join('/').slice(0, 5) : '';
   const enviou = (iso) => meusDocs.some((d) => (d.data || d.voo.slice(0, 10)) === iso);
   return `<div class="goa-docs ${pend.length ? 'pend' : 'ok'}">
-    ${pend.length ? `<b>⚠ Seus documentos de voo que faltam no Hangar:</b><ul>${pend.map((x) => `<li>Aula ${x.aula} · ${dBR(x.data)}: falta ${x.falta.join(' e ')}</li>`).join('')}</ul>`
+    ${pend.length ? `<b>⚠ Seus documentos de voo que faltam no Hangar:</b><ul>${pend.map((x) => `<li>${x.aula ? 'Aula ' + x.aula : 'Voo'} · ${dBR(x.data)}: falta ${x.falta.join(' e ')}</li>`).join('')}</ul>`
       : total ? `<b>✓ Seus documentos de voo estão em dia</b> <span class="sub">(${total} voo${total > 1 ? 's' : ''} com DB e ficha)</span>` : '<b>Nenhum documento de voo guardado ainda.</b>'}
-    ${enviou(hoje()) ? '' : '<div class="sub">Voou hoje? Ao anexar a ficha e o DB no formulário, guarde também no Hangar.</div>'}
+    ${perguntaDia(hoje(), 'hoje')}${perguntaOntem()}
     <div class="linha-acao"><button class="${pend.length ? 'pri' : ''}" data-ir="diario">📷 ${pend.length ? 'Enviar o que falta' : 'Enviar DB e ficha'}</button></div></div>`;
 }
 const cartaoGoa = () => `<div class="caixa goa-cartao">
@@ -285,6 +310,14 @@ const LIGAR = {
     ligarPix(c, { db, uid: user.uid, quem: membro.nome, gastos: () => gastos, toast, depois: (v, trocar) => { if (v) membro.pix = v; trocandoPix = !!trocar; render(); } });
     resumoInicio($('#tpInicio'));
     LIGAR.linkTurma();
+    c.querySelectorAll('[data-dia]').forEach((b) => b.onclick = () => {
+      const iso = b.dataset.dia;
+      if (b.dataset.voou) return marcarDia(iso, { voou: true, motivo: '', outro: '' });
+      if (b.dataset.motivo === 'outro') { diaOutro = iso; render(); return $('#diaOutroTxt')?.focus(); }
+      marcarDia(iso, { voou: false, motivo: b.dataset.motivo, outro: '' });
+    });
+    c.querySelectorAll('[data-dia-outro]').forEach((b) => b.onclick = () => marcarDia(b.dataset.diaOutro, { voou: false, motivo: 'outro', outro: limpar($('#diaOutroTxt').value, 60) }));
+    c.querySelectorAll('[data-dia-mudar]').forEach((b) => b.onclick = async () => { try { await deleteDoc(doc(db, 'diario', user.uid, 'dias', b.dataset.diaMudar)); } catch (e) { toast('Não deu: ' + (e.code || e.message)); } });
   },
   compras(c){ ligarCompras(c, { db, user: () => user, membro: () => membro, compras: () => compras, toast, render: () => { if (aba === 'compras') render(); } }); },
   provas(c){ ligarProvas(c, ctxProvas); },

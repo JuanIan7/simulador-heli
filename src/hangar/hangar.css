@@ -182,6 +182,9 @@ th{font-size:12px;color:var(--tinta3);text-transform:uppercase;letter-spacing:.0
 .goa-docs.ok{background:var(--ok-claro)}
 .goa-docs.ok>b{color:var(--ok)}
 .goa-docs ul{margin:0;padding-left:20px}
+.dia-perg{display:flex;flex-direction:column;gap:6px;padding-top:8px;border-top:1px dashed var(--linha)}
+.dia-perg input{flex:1 1 200px;min-width:0}
+.dia-res{padding-top:6px;border-top:1px dashed var(--linha);font-size:14px}
 .goa-como summary{cursor:pointer;font-weight:700;color:var(--perigo)}
 .goa-como ol{margin:8px 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14.5px}
 .pv-alerta{background:var(--perigo-claro);color:var(--perigo);border:1.5px solid var(--perigo);border-radius:10px;padding:8px 12px;font-weight:700;font-size:14.5px}

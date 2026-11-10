@@ -38,6 +38,12 @@ service cloud.firestore {
           && txt(request.resource.data, 'instrutor', 80) && txt(request.resource.data, 'obs', 2000)
           && txt(request.resource.data, 'missao', 40) && txt(request.resource.data, 'parecer', 600);
       }
+      // "Voou hoje?": um registro por dia (voou ou o motivo de não ter voado). Só o dono.
+      match /dias/{dia} {
+        allow read, delete: if dono(uid);
+        allow create, update: if dono(uid) && dia.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && request.resource.data.voou is bool
+          && request.resource.data.motivo in ['', 'chuva', 'vento', 'fds', 'outro'] && txt(request.resource.data, 'outro', 60);
+      }
       // Documentos do voo (foto/PDF do Diário de Bordo e da Ficha de Avaliação), em partes de até 700 mil caracteres.
       match /docs/{d} {
         allow read, delete: if dono(uid);
