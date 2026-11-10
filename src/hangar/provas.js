@@ -15,7 +15,8 @@ const CHAVE = 'hangar-prova-andamento';
 const hojeIso = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
 
 const cache = {};            // id → prova carregada
-let tela = 'menu';           // menu | prova | fim
+let tela = 'menu';           // menu | prova | fim | estudo
+let estudo = null, estudoTema = 'todos'; // id da prova aberta no modo estudo (gabarito comentado)
 let verRanking = 'geral';    // geral | <id da prova>
 let atual = null;            // { id, titulo, ordem: [{q, alt: [índices embaralhados]}], i, resp: [índice escolhido], soErradas }
 let carregando = '';
@@ -47,7 +48,7 @@ function blocoRanking(notas, eu) {
   const opc = [['geral', 'Geral'], ...INDICE.map((p) => [p.id, p.curto])];
   return `<div class="caixa pv-rank"><div class="cab"><h3>🏆 Ranking da turma</h3></div>
     <div class="chips">${opc.map(([k, t]) => `<button class="chip" aria-pressed="${k === verRanking}" data-pv-rank="${k}">${esc(t)}</button>`).join('')}</div>
-    ${l.length ? `<ol class="pv-lista">${l.map((x) => `<li class="${x.uid === eu ? 'pv-eu' : ''}"><span class="pv-pos">${medalha(x.pos)}</span><span class="pv-nome">${esc(x.nome)}${x.uid === eu ? ' <span class="sub">(você)</span>' : ''}<span class="sub">${esc(x.extra)}</span></span><b class="pv-val ${x.valor >= APROVA ? 'ok' : ''}">${x.valor}%</b></li>`).join('')}</ol>`
+    ${l.length ? `<ol class="pv-lista">${l.map((x) => `<li class="${x.uid === eu ? 'pv-eu' : ''}"><span class="pv-pos">${medalha(x.pos)}</span><span class="pv-nome">${esc(x.nome)}${x.uid === eu ? ' <span class="sub">(você)</span>' : ''}<span class="sub">${esc(x.extra)}</span></span><b class="pv-val ${x.valor >= APROVA ? 'ok' : 'pe'}">${x.valor >= APROVA ? '' : '⚠ '}${x.valor}%</b></li>`).join('')}</ol>`
       : `<p class="sub">Ninguém fez ${verRanking === 'geral' ? 'nenhuma prova' : 'esta prova'} ainda. Seja o primeiro.</p>`}
     <p class="sub">${verRanking === 'geral' ? `Geral = média das melhores notas nas ${INDICE.length} matérias (a que não foi feita conta zero).` : 'Vale a melhor nota de cada um na prova completa.'} Aprovação da ANAC: ${APROVA}% em cada matéria.</p></div>`;
 }
@@ -57,14 +58,15 @@ function telaMenu(ctx) {
   const eu = ctx.user()?.uid, minhas = ctx.notas().find((n) => n.uid === eu)?.notas || {};
   const and = lerAndamento();
   return `<div class="cab"><h2>Provas</h2><span class="selo la">${INDICE.reduce((s, p) => s + p.n, 0)} questões</span></div>
-  <p class="intro">Uma prova por matéria, no estilo da prova teórica da ANAC. As questões vêm dos manuais da nossa pasta: a cada erro aparece a explicação, o trecho do manual com a página (abre o PDF) e um vídeo do assunto. A melhor nota de cada um entra no ranking.</p>
+  <p class="intro">Uma prova por matéria, no estilo da prova teórica da ANAC. As questões vêm dos manuais da nossa pasta: a cada erro aparece a explicação, o trecho do manual com a página (abre o PDF) e um vídeo do assunto. A melhor nota de cada um entra no ranking. Diferente da ANAC, aqui dá para <b>estudar com o gabarito</b>: todas as questões com a resposta certa comentada (não vale para o ranking).</p>
   ${and ? `<div class="caixa destaque"><div class="cab"><div><b>Prova em andamento: ${esc(and.titulo)}</b><div class="sub">Questão ${Math.min(and.i + 1, and.ordem.length)} de ${and.ordem.length}${and.soErradas ? ' · só as erradas' : ''}</div></div><span class="linha-acao"><button class="pri" data-pv-continuar>Continuar</button><button class="mini fantasma" data-pv-descartar>Descartar</button></span></div></div>` : ''}
   ${blocoRanking(ctx.notas(), eu)}
   <div class="grade pv-grade">${INDICE.map((p) => { const m = minhas[p.id]; return `<div class="caixa pv-card">
-    <div class="cab"><h3>${esc(p.titulo)}</h3>${m ? `<span class="selo ${m.melhor >= APROVA ? 'ok' : 'al'}">${m.melhor}%</span>` : ''}</div>
+    <div class="cab"><h3>${esc(p.titulo)}</h3>${m ? `<span class="selo ${m.melhor >= APROVA ? 'ok' : 'pe'}">${m.melhor >= APROVA ? '✓' : '⚠'} ${m.melhor}%</span>` : ''}</div>
     <p class="sub">${esc(p.descricao)}</p>
     <div class="sub">${p.n} questões · ${p.temas} assuntos${m ? ` · você fez ${m.tentativas || 1}x, última ${m.ultima ?? m.melhor}%` : ''}</div>
-    <div class="linha-acao"><button class="pri" data-pv-comecar="${p.id}"${carregando === p.id ? ' disabled' : ''}>${carregando === p.id ? 'Abrindo…' : m ? 'Fazer de novo' : 'Começar'}</button></div></div>`; }).join('')}</div>`;
+    ${m && m.melhor < APROVA ? `<div class="pv-alerta">⚠ Abaixo do mínimo da ANAC (${APROVA}%). Revise pelo gabarito comentado e faça de novo.</div>` : ''}
+    <div class="linha-acao"><button class="pri" data-pv-comecar="${p.id}"${carregando === p.id ? ' disabled' : ''}>${carregando === p.id ? 'Abrindo…' : m ? 'Fazer de novo' : 'Começar'}</button><button data-pv-estudar="${p.id}">📖 Estudar com gabarito</button></div></div>`; }).join('')}</div>`;
 }
 
 function blocoFonte(prova, q, ctx) {
@@ -87,7 +89,7 @@ function telaQuestao(ctx) {
   const feitas = atual.resp.filter((r) => r != null).length;
   const pct = Math.round((atual.i / atual.ordem.length) * 100);
   return `<div class="cab"><h2>${esc(atual.titulo)}</h2><button class="mini fantasma" data-pv-sair>Sair</button></div>
-  <div class="pv-prog"><span>Questão ${atual.i + 1} de ${atual.ordem.length}${atual.soErradas ? ' · só as erradas (não conta no ranking)' : ''}</span><span>✓ ${acertos} de ${feitas}</span></div>
+  <div class="pv-prog"><span>Questão ${atual.i + 1} de ${atual.ordem.length}${atual.soErradas ? ' · só as erradas (não conta no ranking)' : ''}</span><span class="${feitas >= 3 && acertos / feitas < APROVA / 100 ? 'pv-abaixo' : ''}">✓ ${acertos} de ${feitas}${feitas ? ` (${Math.round(acertos / feitas * 100)}%)` : ''}</span></div>
   <div class="barra"><i style="width:${pct}%"></i></div>
   <div class="caixa pv-q">
     <div class="pv-tema">${esc(prova.temas.find((t) => t.id === q.tema)?.nome || '')}</div>
@@ -108,6 +110,7 @@ function telaFim(ctx) {
   const acertos = total - erradas.length, pct = Math.round((acertos / total) * 100);
   const m = ctx.notas().find((n) => n.uid === ctx.user()?.uid)?.notas?.[atual.id];
   return `<div class="cab"><h2>${esc(atual.titulo)}</h2><button class="mini fantasma" data-pv-menu>Voltar às provas</button></div>
+  ${pct < APROVA ? `<div class="pv-alerta forte">⚠ Abaixo do nível mínimo: ${pct}% (a ANAC exige ${APROVA}%). Revise as erradas abaixo ou o gabarito comentado antes de tentar de novo.</div>` : ''}
   <div class="caixa pv-placar ${pct >= APROVA ? 'ok' : 'pe'}">
     <div class="pv-nota">${pct}%</div>
     <div><b>${acertos} de ${total} certas</b> · ${pct >= APROVA ? 'Aprovado pelo critério da ANAC (70%)' : `Faltou para os 70% da ANAC (precisava de ${Math.ceil(total * APROVA / 100)} certas)`}
@@ -117,10 +120,26 @@ function telaFim(ctx) {
     ${erradas.map((x) => `<details class="pv-rev"><summary>${esc(x.q.p)}</summary>
       <p><span class="selo pe">Você: ${esc(x.q.alt[atual.resp[x.j]] ?? '—')}</span></p><p><span class="selo ok">Certa: ${esc(x.q.alt[x.q.c])}</span></p><p>${esc(x.q.exp)}</p>${blocoFonte(prova, x.q, ctx)}</details>`).join('')}</div>`
     : '<div class="caixa"><p>Gabaritou. 🎉</p></div>'}
-  <div class="linha-acao"><button class="pri" data-pv-comecar="${atual.id}">Fazer a prova inteira de novo</button><button data-pv-menu>Outras provas</button></div>`;
+  <div class="linha-acao"><button class="pri" data-pv-comecar="${atual.id}">Fazer a prova inteira de novo</button><button data-pv-estudar="${atual.id}">📖 Estudar com gabarito</button><button data-pv-menu>Outras provas</button></div>`;
+}
+
+function telaEstudo(ctx) {
+  const prova = cache[estudo], m = ctx.notas().find((n) => n.uid === ctx.user()?.uid)?.notas?.[estudo];
+  const qs = prova.questoes.map((q, n) => ({ q, n })).filter((x) => estudoTema === 'todos' || x.q.tema === estudoTema);
+  return `<div class="cab"><h2>${esc(prova.titulo)}</h2><button class="mini fantasma" data-pv-menu>Voltar às provas</button></div>
+  <p class="intro">Gabarito comentado: todas as ${prova.questoes.length} questões com a resposta certa, a explicação, o trecho do manual e o vídeo. Estudar aqui não conta para o ranking; quando estiver pronto, faça a prova.</p>
+  ${m && m.melhor < APROVA ? `<div class="pv-alerta">⚠ Sua melhor nota nesta prova é ${m.melhor}%, abaixo do mínimo da ANAC (${APROVA}%).</div>` : ''}
+  <div class="caixa"><div class="chips">${[['todos', 'Todos os assuntos'], ...prova.temas.map((t) => [t.id, t.nome])].map(([k, t]) => `<button class="chip" aria-pressed="${k === estudoTema}" data-pv-tema="${esc(k)}">${esc(t)}</button>`).join('')}</div>
+    <div class="linha-acao"><button class="pri" data-pv-comecar="${prova.id}">Fazer a prova (${prova.questoes.length} questões)</button></div></div>
+  ${qs.map(({ q, n }) => `<div class="caixa pv-q">
+    <div class="pv-tema">${n + 1}. ${esc(prova.temas.find((t) => t.id === q.tema)?.nome || '')}</div>
+    <p class="pv-enun">${esc(q.p)}</p>
+    <div class="pv-alts">${q.alt.map((a, k) => `<div class="pv-alt ${k === q.c ? 'certa' : 'apagada'}"><b>${k === q.c ? '✓' : LETRA[k]}</b><span>${esc(a)}</span></div>`).join('')}</div>
+    <div class="pv-res ok"><p>${esc(q.exp)}</p>${blocoFonte(prova, q, ctx)}</div></div>`).join('')}`;
 }
 
 export function telaProvas(ctx) {
+  if (tela === 'estudo' && estudo && cache[estudo]) return telaEstudo(ctx);
   if (tela === 'prova' && atual && cache[atual.id]) return telaQuestao(ctx);
   if (tela === 'fim' && atual && cache[atual.id]) return telaFim(ctx);
   return telaMenu(ctx);
@@ -150,7 +169,15 @@ async function gravarNota(ctx) {
   } catch (e) { ctx.toast('A nota não foi salva no ranking: ' + (e.code === 'permission-denied' ? 'o ranking ainda está sendo ativado no banco.' : e.code || e.message)); }
 }
 
+async function abrirEstudo(id, ctx) {
+  try { carregando = id; ctx.render(); await carregar(id); estudo = id; estudoTema = 'todos'; tela = 'estudo'; }
+  catch (e) { ctx.toast('Não deu para abrir: ' + (e.message || e)); }
+  carregando = ''; ctx.render(); window.scrollTo(0, 0);
+}
+
 export function ligarProvas(c, ctx) {
+  c.querySelectorAll('[data-pv-estudar]').forEach((b) => b.onclick = () => { if (tela === 'fim') { atual = null; salvarAndamento(); } abrirEstudo(b.dataset.pvEstudar, ctx); });
+  c.querySelectorAll('[data-pv-tema]').forEach((b) => b.onclick = () => { estudoTema = b.dataset.pvTema; ctx.render(); });
   c.querySelectorAll('[data-pv-rank]').forEach((b) => b.onclick = () => { verRanking = b.dataset.pvRank; ctx.render(); });
   c.querySelectorAll('[data-pv-comecar]').forEach((b) => b.onclick = () => comecar(b.dataset.pvComecar, ctx));
   c.querySelector('[data-pv-continuar]')?.addEventListener('click', async () => {

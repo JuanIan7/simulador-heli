@@ -35,7 +35,20 @@ service cloud.firestore {
         allow read, delete: if dono(uid);
         allow create, update: if dono(uid) && dataIso(request.resource.data.data)
           && txt(request.resource.data, 'matricula', 8) && txt(request.resource.data, 'origem', 4) && txt(request.resource.data, 'destino', 4)
-          && txt(request.resource.data, 'instrutor', 80) && txt(request.resource.data, 'obs', 2000);
+          && txt(request.resource.data, 'instrutor', 80) && txt(request.resource.data, 'obs', 2000)
+          && txt(request.resource.data, 'missao', 40) && txt(request.resource.data, 'parecer', 600);
+      }
+      // Documentos do voo (foto/PDF do Diário de Bordo e da Ficha de Avaliação), em partes de até 700 mil caracteres.
+      match /docs/{d} {
+        allow read, delete: if dono(uid);
+        allow create, update: if dono(uid) && request.resource.data.tipo in ['db', 'ficha']
+          && request.resource.data.voo is string && request.resource.data.voo.size() <= 80
+          && txt(request.resource.data, 'nome', 120) && txt(request.resource.data, 'mime', 40)
+          && request.resource.data.partes is int && request.resource.data.partes >= 1 && request.resource.data.partes <= 16;
+        match /partes/{n} {
+          allow read, delete: if dono(uid);
+          allow create, update: if dono(uid) && request.resource.data.b64 is string && request.resource.data.b64.size() <= 700000;
+        }
       }
     }
     // Gastos da turma: quem tem o código do grupo entra (gastosMembros) e, a partir daí, lê e lança os gastos de todos.

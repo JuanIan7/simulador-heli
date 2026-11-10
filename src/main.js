@@ -56,7 +56,7 @@ function menu() {
         <button class="btn btn-cinza grande" id="btnAjustes">⚙️ Ajustes e controles</button>
         <button class="btn btn-cinza grande" id="btnCreditos">ℹ️ Sobre e créditos</button>
       </div>
-      <footer class="rodape">Desenvolvido por Juan Araujo &amp; Filho · CBMERJ 1856</footer>
+      <footer class="rodape"><img src="icons/aguia-juanian7.png" alt="Logo JuanIan7" style="width:28px;height:28px;vertical-align:middle;margin-right:6px">Desenvolvido por <a href="https://github.com/JuanIan7" target="_blank" rel="noopener">JuanIan7</a> · © 2026 Juan Carlos Silva de Araujo. Todos os direitos reservados.</footer>
     </div>`, true);
   $('#btnAeronave').onclick = telaAeronaves; $('#btnFases').onclick = telaFases; $('#btnSim').onclick = telaSimulador;
   $('#btnAjustes').onclick = telaAjustes; $('#btnCreditos').onclick = telaCreditos;
@@ -277,7 +277,7 @@ function telaCreditos() {
     <li>Vegetação do "Nature Kit", Kenney (kenney.nl), CC0.</li>
     <li>Fotos da fase 1: R22 N2584F por Acroterion (CC BY-SA 4.0) e cockpit de R22 por NJR ZA (CC BY-SA 3.0), Wikimedia Commons.</li>
     <li>Three.js (MIT). Lista completa em CREDITOS.md no repositório.</li></ul></section>
-    <section class="cartao centro"><img src="icons/icon-192.png" class="logo" alt=""><p><b>Desenvolvido por Juan Araujo &amp; Filho</b><br>CBMERJ · 1856</p></section>
+    <section class="cartao centro"><img src="icons/aguia-juanian7.png" class="logo" alt="Logo JuanIan7"><p><b>Desenvolvido por <a href="https://github.com/JuanIan7" target="_blank" rel="noopener">JuanIan7</a></b><br>© 2026 Juan Carlos Silva de Araujo. Todos os direitos reservados.</p></section>
     <button class="btn btn-cinza" id="voltar">Voltar</button></div>`);
   $('#voltar').onclick = menu;
 }

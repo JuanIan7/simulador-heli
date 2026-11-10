@@ -10,7 +10,8 @@
     "preview": "vite preview --host --port 4173"
   },
   "keywords": [],
-  "author": "",
+  "author": "JuanIan7 (https://github.com/JuanIan7)",
+  "copyright": "© 2026 Juan Carlos Silva de Araujo. Todos os direitos reservados.",
   "license": "ISC",
   "type": "module",
   "private": "true",

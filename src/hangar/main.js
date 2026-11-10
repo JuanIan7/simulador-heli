@@ -242,6 +242,22 @@ function contagem() {
 }
 function irPara(k) { aba = k; try { history.replaceState(null, '', '#' + k); } catch {} render(); window.scrollTo(0, 0); }
 // allow="microphone": a página de gastos deixa falar o gasto (reconhecimento de voz do navegador)
+// Formulário diário do GOA (Acompanhamento PPH/2026, Contrato 089/2026): um por atividade, todo dia, inclusive sem voo.
+const FORM_GOA = 'https://forms.gle/vFepv8CD5RDd7Ret7';
+const cartaoGoa = () => `<div class="caixa goa-cartao">
+  <div class="goa-topo"><span class="goa-ico">📋</span><div><div class="rotulo">Todo dia · exigência do GOA</div><h3>Acompanhamento diário do curso</h3>
+    <p class="sub">Uma resposta para cada atividade (dois voos = duas respostas). Dia sem voo também: marque "Não" e informe o motivo.</p></div></div>
+  <div class="linha-acao"><a class="btn pri goa-bt" href="${FORM_GOA}" target="_blank" rel="noopener">Preencher o formulário de hoje</a><button data-ir="diario">📒 Respostas prontas no Diário de voo</button></div>
+  <details class="goa-como"><summary>Como preencher (8 páginas)</summary><ol>
+    <li><b>Identificação:</b> seu nome na lista, a data e se houve instrução. Se não houve, o formulário pula para "Dia sem atividade" (motivo, se a escola avisou e a nova data).</li>
+    <li><b>Atividade:</b> tipo (voo de instrução, ground school, simulador...), se estava no cronograma, horários efetivos de início e fim, a fase (Fase 1 – Adaptação, por enquanto) e a missão como está na ficha (ex.: INCT-02).</li>
+    <li><b>Dados do voo:</b> modelo e matrícula (R22, PR-HMI), instrutor e CANAC, saída e destino (SISY), horas de decolagem e pouso, tempo de voo lançado na ficha, natureza (duplo comando), decolagens, pousos e rota.</li>
+    <li><b>Instrução:</b> briefing, debriefing, se o instrutor passou os pontos a melhorar, o grau da ficha, se precisa repetir e o parecer.</li>
+    <li><b>Documentação:</b> anexar a foto ou o PDF da <b>Ficha de Avaliação</b> e do <b>Diário de Bordo (DB)</b>.</li>
+    <li><b>Execução do contrato:</b> aeronave, instrutor e material disponíveis, se a atividade foi integral e se houve ocorrência.</li>
+    <li><b>Declaração</b> e enviar.</li></ol>
+    <p class="sub">Atalho: lance o voo no <b>Diário de voo</b> com a foto do DB e da ficha. Lá cada voo mostra as respostas na ordem do formulário, com botão de copiar, e os arquivos para baixar e anexar. Os horários do DB estão em UTC (Z): em Piraquara, hora local = Z − 3 h.</p></details>
+</div>`;
 const ctxProvas = { db, user: () => user, membro: () => membro, notas: () => notasProvas, arq: ARQ, toast, render: () => { if (aba === 'provas') render(); } };
 const quadro = (pag, titulo) => `<iframe class="quadro" src="${pag}?embed=1" title="${titulo}" loading="lazy" allow="microphone"></iframe>`;
 
@@ -251,7 +267,7 @@ inicio(){
   const turma = membros.slice().sort((a,b) => (a.nome||'').localeCompare(b.nome||''));
   const faltam = (grupo?.pessoas || []).filter((p) => !membros.some((m) => m.nome === p));
   const pix = caixaPix(membro, trocandoPix);
-  return `${pix ? `<div class="caixa destaque">${pix}</div>` : ''}
+  return `${cartaoGoa()}${pix ? `<div class="caixa destaque">${pix}</div>` : ''}
   <div class="caixa"><div class="cab"><div class="rotulo">Seus acertos da turma</div><button class="mini" data-ir="gastos">Ver os gastos</button></div>
     ${alertaAcertos(calcular(gastos), membro.nome, membros)}
     ${membro.pix && !trocandoPix ? `<p class="sub">Sua chave Pix: <b>${esc(membro.pix)}</b> <button class="mini" data-pix-trocar>Trocar</button></p>` : ''}</div>

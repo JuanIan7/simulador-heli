@@ -49,3 +49,19 @@ td.n, th.n { text-align: right; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 .embed .topo, .embed .rodape { display: none; }
 .embed .wrap { padding-block: 4px 8px; padding-left: 0; padding-right: 0; }
+
+.dica.alerta { background: #fdecea; border-color: var(--verm); color: var(--verm); }
+.docs { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
+.doc-slot { border: 1.5px dashed var(--cin2); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; background: var(--bra); }
+.doc-slot.tem { border-style: solid; border-color: var(--ok); background: var(--ok-claro); }
+.doc-tit { font-weight: 700; }
+.doc-slot label.btn { cursor: pointer; }
+.doc-st { color: var(--verm); }
+.cartao.goa { border-color: var(--lar); box-shadow: inset 4px 0 0 var(--lar); }
+.goa-lista { display: flex; flex-direction: column; }
+.goa-sec { font-weight: 800; font-size: 13px; letter-spacing: .05em; text-transform: uppercase; color: var(--lar-esc); margin: 12px 0 4px; }
+.goa-lin { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--cin2); font-size: 14px; }
+.goa-k { color: var(--cin); }
+.goa-v { font-weight: 600; overflow-wrap: anywhere; }
+.goa-v.vazio { color: var(--alerta); font-weight: 400; }
+@media (max-width: 560px) { .goa-lin { grid-template-columns: minmax(0, 1fr) auto; } .goa-k { grid-column: 1 / -1; font-size: 12.5px; } }

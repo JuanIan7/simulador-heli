@@ -4,4 +4,6 @@
     <string name="title_activity_main">Simulador Heli</string>
     <string name="package_name">br.com.juanaraujo.simuladorheli</string>
     <string name="custom_url_scheme">br.com.juanaraujo.simuladorheli</string>
+    <string name="desenvolvido_por">Desenvolvido por JuanIan7 (https://github.com/JuanIan7)</string>
+    <string name="copyright">© 2026 Juan Carlos Silva de Araujo. Todos os direitos reservados.</string>
 </resources>

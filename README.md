@@ -15,4 +15,6 @@ Jogo de estudo para o curso de Piloto Privado de Helicóptero: R22, R44, R66 e o
 - `src/ui/` instrumentos, quiz, fonia, METAR, SIPAER, identificação de peças.
 - `android/` projeto Capacitor; o APK é gerado pelo GitHub Actions.
 
-Desenvolvido por Juan Araujo & Filho.
+Desenvolvido por [JuanIan7](https://github.com/JuanIan7).
+
+© 2026 Juan Carlos Silva de Araujo. Todos os direitos reservados.
