@@ -23,7 +23,7 @@ const hm = (min) => paraHHMM(min || 0);
 const dec = (min) => ((min || 0) / 60).toFixed(1).replace('.', ',');
 
 const FUNCOES = { instrucao: 'Piloto em instrução (duplo comando)', solo: 'Solo (aluno em comando)', pic: 'Piloto em comando', instrutor: 'Instrutor' };
-const EXERCICIOS = ['Pré-voo', 'Partida e cheques', 'Táxi pairado', 'Pairado', 'Giro 360° no pairado', 'Deslocamento lateral e à ré', 'Decolagem normal', 'Tráfego padrão', 'Aproximação normal', 'Pouso', 'Decolagem de máxima performance', 'Aproximação íngreme', 'Pouso corrido', 'Autorrotação', 'Autorrotação pairada', 'Pane de governador', 'Área restrita', 'Pouso em rampa', 'Navegação', 'Voo noturno', 'Emergências simuladas'];
+const EXERCICIOS = ['Pré-voo', 'Partida e cheques', 'Efeito dos comandos', 'Voo reto nivelado', 'Curvas', 'Subida e descida', 'Táxi pairado', 'Pairado', 'Giro 360° no pairado', 'Deslocamento lateral e à ré', 'Decolagem normal', 'Tráfego padrão', 'Aproximação normal', 'Pouso', 'Decolagem de máxima performance', 'Aproximação íngreme', 'Pouso corrido', 'Autorrotação', 'Autorrotação pairada', 'Pane de governador', 'Área restrita', 'Pouso em rampa', 'Navegação', 'Voo noturno', 'Emergências simuladas'];
 const CIV = { nao: ['nao', 'Falta na CIV'], lancado: ['lan', 'Lançado na CIV'], conferido: ['ok', 'Conferido'] };
 // Fases como aparecem no formulário diário do GOA (Acompanhamento PPH/2026)
 const FASES = { gs: 'Ground School / familiarização', f1: 'Fase/Módulo 1 – Adaptação na aeronave', f2: 'Fase/Módulo 2 – Procedimentos anormais e de emergência', f3: 'Fase/Módulo 3 – Aquisição de experiência / piloto em comando', nav: 'Navegação', solo: 'Voo solo', not: 'Voo noturno', outra: 'Outra fase prevista no programa da escola' };
