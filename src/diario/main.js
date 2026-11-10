@@ -28,8 +28,6 @@ const CIV = { nao: ['nao', 'Falta na CIV'], lancado: ['lan', 'Lançado na CIV'],
 // Fases como aparecem no formulário diário do GOA (Acompanhamento PPH/2026)
 const FASES = { gs: 'Ground School / familiarização', f1: 'Fase/Módulo 1 – Adaptação na aeronave', f2: 'Fase/Módulo 2 – Procedimentos anormais e de emergência', f3: 'Fase/Módulo 3 – Aquisição de experiência / piloto em comando', nav: 'Navegação', solo: 'Voo solo', not: 'Voo noturno', outra: 'Outra fase prevista no programa da escola' };
 const GRAUS = { '': '—', aprovado: 'Aprovado', reprovado: 'Reprovado' };
-const NATUREZA = { instrucao: 'Duplo comando', solo: 'Solo', pic: 'Piloto em comando', instrutor: 'Outra' };
-const FORM_GOA = 'https://forms.gle/vFepv8CD5RDd7Ret7';
 
 let user = null, perfil = null, voos = [], docs = [], pararVoos = null, pararDocs = null, editando = null, filtro = 'todos';
 const docsDo = (id) => docs.filter((d) => d.voo === id);
@@ -43,15 +41,18 @@ onAuthStateChanged(auth, async (u) => {
   if (!u) return telaLogin();
   try { const s = await getDoc(doc(db, 'diario', u.uid)); perfil = s.exists() ? s.data() : null; }
   catch (e) { el.innerHTML = `<div class="cartao"><p class="erro">Não foi possível abrir o seu diário (${esc(e.code || e.message)}). Recarregue a página.</p></div>`; return; }
-  if (!perfil) return telaPerfil(true);
+  if (!perfil) {
+    perfil = { nome: u.displayName || u.email, escola: 'EACAR – Escola de Aviação Civil Asas Rotativas', curso: 'PPH – curso prático', modelo: 'R22 Beta II', origem: 'SISY', local: 'piraquara', meta: 40, email: u.email };
+    try { await setDoc(doc(db, 'diario', u.uid), { ...perfil, atualizadoEm: serverTimestamp() }, { merge: true }); } catch {}
+  }
   topo();
   pararVoos = onSnapshot(collection(db, 'diario', u.uid, 'voos'), (s) => {
     voos = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.data + (b.inicio || '')).localeCompare(a.data + (a.inicio || '')));
-    if (!editando) telaPrincipal();
+    if (!editando) telaPrincipal(); else if (editando === 'horas') telaHoras();
   }, (e) => { el.innerHTML = `<div class="cartao"><p class="erro">Erro ao ler os voos (${esc(e.code)}).</p></div>`; });
   pararDocs = onSnapshot(collection(db, 'diario', u.uid, 'docs'), (s) => {
     docs = s.docs.map((d) => ({ id: d.id, ...d.data() }));
-    if (!editando) telaPrincipal(); else if (editando !== 'novo') desenharDocs();
+    if (!editando) telaPrincipal(); else if (editando === 'horas') telaHoras(); else if (editando !== 'novo' && editando !== 'enviar') desenharDocs();
   }, () => {});
 });
 
@@ -112,14 +113,15 @@ function somar(lista) {
   return t;
 }
 
-function telaPrincipal() {
-  editando = null;
+function telaHoras() {
+  editando = 'horas';
   const t = somar(voos), meta = (perfil.meta || 0) * 60, pend = voos.filter((v) => (v.civ || 'nao') !== 'conferido').length;
   const semDoc = voos.filter((v) => Object.keys(TIPOS_DOC).some((k) => !docTipo(v.id, k))).length;
   const lista = filtro === 'pendentes' ? voos.filter((v) => (v.civ || 'nao') !== 'conferido') : voos;
   el.innerHTML = `
     <section class="cartao"><div class="cab"><div><h2>${esc(perfil.nome)}</h2><div class="sub">${perfil.canac ? 'CANAC ' + esc(perfil.canac) + ' · ' : ''}${esc(perfil.curso || '')} · ${esc(perfil.escola || '')}</div></div>
-      <div class="linha-acao"><button class="pri" id="btNovo">+ Novo voo</button><button id="btPerfil">Meus dados</button></div></div>
+      <div class="linha-acao"><button id="btDocs">← Documentos</button><button class="pri" id="btNovo">+ Lançar horas de um voo</button><button id="btPerfil">Meus dados</button></div></div>
+      <p class="sub">Opcional: só para quem quiser somar as horas e conferir com a CIV Digital. Os documentos dos voos ficam na tela principal.</p>
       <div class="totais">
         <div class="tot dest"><span>Total</span><b>${hm(t.total)}</b><span>${dec(t.total)} h · ${t.n} voo(s)</span></div>
         <div class="tot"><span>Diurno</span><b>${hm(t.diurno)}</b></div>
@@ -142,8 +144,8 @@ function telaPrincipal() {
     </section>
     <section class="cartao"><h3>Como conferir com a CIV Digital</h3>
       <p class="sub">O registro oficial das horas é a <b>CIV Digital</b> da ANAC (acesso pelo SACI com login e senha, ou pelo app ANAC). Desde 01/12/2022 os voos são registrados só nela. Diurno + noturno = tempo total do voo. Voo noturno é o feito entre o fim do crepúsculo civil da tarde e o início do da manhã; este diário calcula a sugestão pelo crepúsculo de ${esc(LOCAIS[perfil.local]?.nome || LOCAIS.piraquara.nome)}. Confira com o instrutor como a escola marca o início e o fim do tempo de voo.</p></section>`;
-  $('#btNovo').onclick = () => telaVoo(null); $('#btPerfil').onclick = () => telaPerfil(false);
-  el.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { filtro = b.dataset.f; telaPrincipal(); });
+  $('#btNovo').onclick = () => telaVoo(null); $('#btPerfil').onclick = () => telaPerfil(false); $('#btDocs').onclick = telaPrincipal;
+  el.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { filtro = b.dataset.f; telaHoras(); });
   el.querySelectorAll('[data-ed]').forEach((b) => b.onclick = () => telaVoo(voos.find((v) => v.id === b.dataset.ed)));
   $('#btCsv')?.addEventListener('click', baixarCsv); $('#btCopiar')?.addEventListener('click', copiarResumo);
 }
@@ -188,8 +190,8 @@ function telaVoo(v) {
       <div class="largo"><h3 style="margin-bottom:4px">Documentos do voo</h3><p class="sub" style="margin:0 0 8px">Foto (tirada na hora ou da galeria) ou PDF do Diário de Bordo e da Ficha de Avaliação. Fica só no seu diário; o formulário do GOA pede os dois.</p><div id="vDocs" class="docs"></div></div>
       <div class="largo linha-acao"><button class="pri" type="submit">Salvar voo</button>${v.id ? '<button type="button" class="perigo" id="vApagar">Apagar</button>' : ''}</div>
     </form><p class="erro" id="vErro"></p></section>
-    ${v.id ? painelGoa(v) : `<section class="cartao"><h3>Formulário diário do GOA</h3><p class="sub">Depois de salvar o voo, aparecem aqui as respostas prontas para copiar no formulário.</p></section>`}`;
-  desenharDocs(); ligarGoa();
+`;
+  desenharDocs();
   ligarMascaras(el);
   const recalcular = () => {
     const d = $('#vData').value, i = $('#vInicio').value, f = $('#vFim').value, local = LOCAIS[perfil.local] || LOCAIS.piraquara;
@@ -285,70 +287,101 @@ function nomeArquivo(d) {
   return `${d.tipo === 'db' ? 'DB' : 'Ficha'} ${v.data || ''} ${v.matricula || ''}`.trim() + '.' + ext;
 }
 
-// ---------- respostas para o formulário diário do GOA ----------
-function respostasGoa(v) {
-  const tot = (v.diurno || 0) + (v.noturno || 0), pous = (v.pousosD || 0) + (v.pousosN || 0);
-  const confirme = ' (confirme)';
-  return [
-    ['1. Identificação', null],
-    ['Militar', `Escolha o seu nome na lista (${perfil.nome})`],
-    ['Data da atividade', dBR(v.data)],
-    ['Houve atividade de instrução nesta data?', 'Sim'],
-    ['2. Atividade', null],
-    ['Tipo de atividade', 'Voo de instrução'],
-    ['A atividade estava prevista no cronograma ou QTS?', 'Sim' + confirme],
-    ['Horário efetivo de início', v.inicio || ''],
-    ['Horário efetivo de término', v.fim || ''],
-    ['O militar permaneceu integralmente na atividade programada?', 'Sim'],
-    ['Houve atraso ou alteração relevante?', 'Não' + confirme],
-    ['Fase atual da formação', FASES[v.fase] || ''],
-    ['Número ou identificação da missão, aula ou ficha', [v.missao, `Aula ${voos.filter((x) => (x.data + (x.inicio || '')) <= (v.data + (v.inicio || ''))).length}`].filter(Boolean).join(' – ')],
-    ['Objetivo principal / manobras', (v.exercicios || []).join(', ')],
-    ['Esta atividade envolveu voo em aeronave?', 'Sim'],
-    ['3. Dados do voo', null],
-    ['Modelo da aeronave', v.modelo || ''],
-    ['Matrícula / prefixo', v.matricula || ''],
-    ['Nome do instrutor', v.instrutor || ''],
-    ['CANAC do instrutor', v.canacInstrutor || ''],
-    ['Aeródromo / local de saída', v.origem || ''],
-    ['Aeródromo / local de destino ou retorno', v.destino || ''],
-    ['Hora de decolagem', v.dec || ''],
-    ['Hora de pouso', v.pouso || ''],
-    ['Tempo de voo lançado na ficha', hm(tot) + ` (${dec(tot)} h)`],
-    ['Natureza / marca de experiência', NATUREZA[v.funcao] || 'Duplo comando'],
-    ['Quantidade de decolagens', v.decolagens != null ? String(v.decolagens) : ''],
-    ['Quantidade de pousos completos', String(pous)],
-    ['Rota do voo', v.origem === v.destino ? `${v.origem} – ${v.destino} (voo local)` : `${v.origem} – ${v.destino}`],
-    ['4. Instrução e desempenho', null],
-    ['Briefing antes da instrução?', 'Sim' + confirme],
-    ['Debriefing após a instrução?', 'Sim' + confirme],
-    ['O instrutor informou o desempenho e os pontos a melhorar?', 'Sim' + confirme],
-    ['Resultado / conceito da missão', GRAUS[v.grau || ''] === '—' ? '' : GRAUS[v.grau]],
-    ['Indicada necessidade de repetir a missão?', v.grau === 'reprovado' ? 'Sim' : v.grau === 'aprovado' ? 'Não' : 'Não informado'],
-    ['Principais pontos trabalhados e observações', [v.parecer, v.obs].filter(Boolean).join(' | ')],
-    ['5. Documentação', null],
-    ['Upload da ficha de voo do aluno', docTipo(v.id, 'ficha') ? 'Baixe aqui em "Documentos do voo" e anexe' : '⚠ Falta enviar a ficha neste voo'],
-    ['Upload do DB do voo do aluno', docTipo(v.id, 'db') ? 'Baixe aqui em "Documentos do voo" e anexe' : '⚠ Falta enviar o DB neste voo'],
-    ['6. Execução contratual', null],
-    ['Aeronave disponível e em condições?', 'Sim' + confirme],
-    ['Instrutor disponível?', 'Sim' + confirme],
-    ['Material didático e equipamentos disponíveis?', 'Sim' + confirme],
-    ['A atividade ocorreu integralmente conforme programada?', 'Sim' + confirme],
-    ['Alguma ocorrência a comunicar ao CBMERJ?', 'Não' + confirme],
-    ['7. Declaração', 'Marque a confirmação do registro e envie'],
-  ];
+// ---------- tela principal: os documentos de cada voo (DB e ficha) ----------
+// Cada voo é um grupo de documentos (o campo "voo" dos docs). Pode ter ou não um registro de horas em voos/.
+function grupos() {
+  const g = new Map();
+  for (const v of voos) g.set(v.id, { id: v.id, data: v.data, inicio: v.inicio || '', voo: v });
+  for (const d of docs) if (!g.has(d.voo)) g.set(d.voo, { id: d.voo, data: d.data || d.voo.slice(0, 10), inicio: d.voo.slice(11) });
+  const lista = [...g.values()].sort((a, b) => (a.data + a.inicio).localeCompare(b.data + b.inicio));
+  lista.forEach((x, i) => { x.aula = i + 1; });
+  return lista.reverse();
 }
-function painelGoa(v) {
-  return `<section class="cartao goa"><div class="cab"><h3>📋 Formulário diário do GOA</h3><a class="btn pri" href="${FORM_GOA}" target="_blank" rel="noopener">Abrir o formulário</a></div>
-    <p class="sub">Uma resposta por voo (dois voos no dia = duas respostas). Abaixo, as respostas deste voo na ordem do formulário: toque em <b>Copiar</b> e cole no campo. O que está marcado "(confirme)" é o padrão; mude se o dia foi diferente.</p>
-    <div class="goa-lista">${respostasGoa(v).map(([k, val], i) => val === null ? `<div class="goa-sec">${esc(k)}</div>`
-      : `<div class="goa-lin"><span class="goa-k">${esc(k)}</span><span class="goa-v ${val ? '' : 'vazio'}">${esc(val || '— preencha no voo')}</span>${val && !/^Escolha|^Baixe|^⚠|^Marque/.test(val) ? `<button type="button" class="mini" data-goa="${i}">Copiar</button>` : '<span></span>'}</div>`).join('')}</div>
-    <div class="linha-acao"><button type="button" id="goaTudo">Copiar tudo (texto)</button></div></section>`;
+const miniaturas = {};
+function telaPrincipal() {
+  editando = null;
+  const gs = grupos(), completos = gs.filter((x) => docTipo(x.id, 'db') && docTipo(x.id, 'ficha')).length;
+  el.innerHTML = `
+    <section class="cartao"><div class="cab"><div><h2>Documentos dos voos</h2><div class="sub">${esc(perfil.nome)} · Diário de Bordo e Ficha de Avaliação de cada voo, para ver e baixar quando precisar</div></div>
+      <div class="linha-acao"><button class="pri grande" id="btEnviar">📷 Enviar DB e ficha de um voo</button></div></div>
+      ${gs.length ? `<div class="sub">${gs.length} voo(s) · ${completos} com os dois documentos${gs.length - completos ? ` · <b class="txt-alerta">${gs.length - completos} faltando documento</b>` : ''}</div>` : ''}
+    </section>
+    ${gs.length ? gs.map(cartaoVoo).join('') : `<section class="cartao"><div class="vazio">Nenhum documento ainda. Depois do voo, tire a foto do Diário de Bordo e da Ficha de Avaliação (ou use o PDF escaneado) e toque em <b>Enviar DB e ficha</b>. Não precisa digitar nada.</div></section>`}
+    <section class="cartao"><div class="linha-acao"><button id="btHoras">⏱️ Horas e conferência com a CIV (opcional)</button><button id="btPerfil">Meus dados</button></div></section>
+    <div id="visor" class="visor" hidden></div>`;
+  $('#btEnviar').onclick = () => telaEnviar(); $('#btHoras').onclick = telaHoras; $('#btPerfil').onclick = () => telaPerfil(false);
+  el.querySelectorAll('[data-env]').forEach((b) => b.onclick = () => telaEnviar(gs.find((x) => x.id === b.dataset.env)));
+  ligarDocsLista();
 }
-function ligarGoa() {
-  const v = vooAberto; if (!v?.id) return;
-  const lista = respostasGoa(v), limpo = (t) => String(t).replace(/ \(confirme\)$/, '');
-  const copiar = (t, msg) => navigator.clipboard.writeText(t).then(() => toast(msg), () => toast('Não deu para copiar'));
-  el.querySelectorAll('[data-goa]').forEach((b) => b.onclick = () => copiar(limpo(lista[+b.dataset.goa][1]), 'Copiado'));
-  $('#goaTudo')?.addEventListener('click', () => copiar(lista.map(([k, val]) => val === null ? `\n${k}` : `${k}: ${limpo(val)}`).join('\n').trim(), 'Respostas copiadas'));
+function cartaoVoo(g) {
+  const v = g.voo;
+  const info = v ? [v.matricula, v.missao, v.instrutor ? 'Instrutor ' + v.instrutor : '', hm((v.diurno || 0) + (v.noturno || 0)) + ' h'].filter(Boolean).join(' · ') : '';
+  return `<section class="cartao voo-docs"><div class="cab"><div><h3>${dBR(g.data)} · Aula ${g.aula}</h3>${info ? `<div class="sub">${esc(info)}</div>` : ''}</div>
+      <button class="mini" data-env="${esc(g.id)}">${docTipo(g.id, 'db') && docTipo(g.id, 'ficha') ? 'Trocar arquivo' : '+ Enviar o que falta'}</button></div>
+    <div class="docs">${Object.entries(TIPOS_DOC).map(([k, nome]) => { const d = docTipo(g.id, k); return d
+      ? `<div class="doc-slot tem"><div class="doc-tit">${esc(nome)}</div>
+          <button type="button" class="doc-prev" data-ver="${d.id}" aria-label="Ver ${esc(nome)}">${(d.mime || '').startsWith('image/') ? `<img alt="" data-mini="${d.id}">` : '<span class="doc-pdf">PDF</span>'}</button>
+          <div class="linha-acao"><button type="button" class="mini pri" data-ver="${d.id}">Ver</button><button type="button" class="mini" data-baixar="${d.id}">Baixar</button></div>
+          <div class="sub">${tamanhoBR(d.tamanho || 0)}</div></div>`
+      : `<div class="doc-slot"><div class="doc-tit">${esc(nome)}</div><div class="sub txt-alerta">Falta enviar</div>
+          <label class="btn mini pri">📷 Foto ou PDF<input type="file" accept="image/*,application/pdf" data-rapido="${esc(g.id)}|${k}" hidden></label><div class="sub doc-st"></div></div>`; }).join('')}</div></section>`;
+}
+function ligarDocsLista() {
+  const achar = (x) => docs.find((d) => d.id === x);
+  el.querySelectorAll('[data-mini]').forEach(async (img) => { const d = achar(img.dataset.mini); try { img.src = miniaturas[d.id] || (miniaturas[d.id] = await urlDoc(db, user.uid, d)); } catch {} });
+  el.querySelectorAll('[data-ver]').forEach((b) => b.onclick = () => verDoc(achar(b.dataset.ver)));
+  el.querySelectorAll('[data-baixar]').forEach((b) => b.onclick = () => baixarDoc(achar(b.dataset.baixar)));
+  el.querySelectorAll('[data-rapido]').forEach((inp) => inp.onchange = async () => {
+    const arq = inp.files?.[0]; if (!arq) return; const [vooId, tipo] = inp.dataset.rapido.split('|'), st = inp.closest('.doc-slot').querySelector('.doc-st');
+    st.textContent = 'Enviando…';
+    try { await enviarDoc(db, user.uid, vooId, tipo, arq, docs, dataDoGrupo(vooId)); toast(TIPOS_DOC[tipo] + ' salvo'); }
+    catch (e) { st.textContent = 'Não enviou: ' + (e.code || e.message); }
+  });
+}
+const dataDoGrupo = (id) => voos.find((v) => v.id === id)?.data || docs.find((d) => d.voo === id)?.data || id.slice(0, 10);
+async function verDoc(d) {
+  if (!d) return;
+  try {
+    const u = await urlDoc(db, user.uid, d);
+    if ((d.mime || '').startsWith('image/')) {
+      const vis = $('#visor'); vis.hidden = false;
+      vis.innerHTML = `<div class="visor-barra"><b>${esc(TIPOS_DOC[d.tipo] || '')}</b><span class="linha-acao"><button class="mini" id="visBaixar">Baixar</button><button class="mini pri" id="visFechar">Fechar ✕</button></span></div><img src="${u}" alt="${esc(TIPOS_DOC[d.tipo] || 'Documento')}">`;
+      $('#visFechar').onclick = () => { vis.hidden = true; vis.innerHTML = ''; };
+      $('#visBaixar').onclick = () => baixarDoc(d);
+    } else { const w = window.open(u, '_blank'); if (!w) location.href = u; }
+  } catch (e) { toast('Não abriu: ' + (e.code || e.message)); }
+}
+async function baixarDoc(d) {
+  if (!d) return;
+  try { const a = document.createElement('a'); a.href = await urlDoc(db, user.uid, d); a.download = nomeArquivo(d); document.body.appendChild(a); a.click(); a.remove(); }
+  catch (e) { toast('Não baixou: ' + (e.code || e.message)); }
+}
+
+// Enviar os documentos de um voo: só a data e os arquivos.
+function telaEnviar(g) {
+  editando = 'enviar';
+  const data = g?.data || hoje();
+  el.innerHTML = `<section class="cartao"><div class="cab"><h2>${g ? `Documentos de ${dBR(g.data)} · Aula ${g.aula}` : 'Enviar DB e ficha'}</h2><button type="button" id="eVoltar">Voltar</button></div>
+    <form id="fEnv" class="form">
+      ${g ? '' : `<label>Data do voo<input id="eData" type="date" required min="2026-01-01" max="${hojeIso(1)}" value="${esc(data)}"></label>
+      <label>Voo do dia<select id="eN"><option value="1">1º voo do dia</option><option value="2">2º voo do dia</option><option value="3">3º voo do dia</option></select></label>`}
+      ${Object.entries(TIPOS_DOC).map(([k, nome]) => `<label class="largo arq">${esc(nome)}${g && docTipo(g.id, k) ? ' <span class="sub">(já enviado; escolha outro só para trocar)</span>' : ''}<input type="file" accept="image/*,application/pdf" id="e_${k}"></label>`).join('')}
+      <p class="largo sub">Pode ser a foto tirada na hora (o celular abre a câmera) ou o PDF escaneado. A foto é reduzida para ficar leve e legível.</p>
+      <div class="largo linha-acao"><button class="pri" type="submit">Enviar</button></div>
+    </form><p class="erro" id="eErro"></p></section>`;
+  $('#eVoltar').onclick = telaPrincipal;
+  $('#fEnv').onsubmit = async (e) => {
+    e.preventDefault();
+    const arqs = Object.keys(TIPOS_DOC).map((k) => [k, $('#e_' + k).files?.[0]]).filter(([, f]) => f);
+    if (!arqs.length) { $('#eErro').textContent = 'Escolha a foto ou o PDF de pelo menos um dos documentos.'; return; }
+    let id = g?.id, dia = g?.data;
+    if (!g) {
+      dia = $('#eData').value; if (!dataValida(dia, '2026-01-01', hojeIso(1))) { $('#eErro').textContent = 'Informe a data do voo.'; return; }
+      const doDia = grupos().filter((x) => x.data === dia).sort((a, b) => a.aula - b.aula), n = +$('#eN').value;
+      id = doDia[n - 1]?.id || `${dia}-v${n}`;
+    }
+    const bt = el.querySelector('#fEnv button[type=submit]'); bt.disabled = true; bt.textContent = 'Enviando…'; $('#eErro').textContent = '';
+    try { for (const [k, f] of arqs) await enviarDoc(db, user.uid, id, k, f, docs, dia); toast('Documentos salvos'); telaPrincipal(); }
+    catch (e2) { bt.disabled = false; bt.textContent = 'Enviar'; $('#eErro').textContent = 'Não enviou: ' + (e2.code === 'permission-denied' ? 'sem permissão no banco.' : e2.message || e2.code); }
+  };
 }

@@ -1,6 +1,6 @@
 // Documentos de cada voo (foto ou PDF do Diário de Bordo e da Ficha de Avaliação), guardados no Firestore do próprio piloto.
 // O Storage do Firebase exige plano pago; aqui o arquivo vira texto (base64) e é dividido em partes de até 700 mil caracteres:
-//   diario/{uid}/docs/{id}            = { voo, tipo, nome, mime, tamanho, partes, em }
+//   diario/{uid}/docs/{id}            = { voo, data, tipo, nome, mime, tamanho, partes, em }  (voo = id do registro em voos/ ou 'AAAA-MM-DD-vN')
 //   diario/{uid}/docs/{id}/partes/{n} = { b64 }
 // Fotos são reduzidas (lado maior 1800 px, JPEG) antes de enviar: ficam legíveis e leves. Só o dono lê e grava (firestore.rules).
 import { doc, getDoc, writeBatch, collection, getDocs, serverTimestamp } from 'firebase/firestore';
@@ -24,7 +24,7 @@ async function reduzirFoto(arquivo) {
 }
 
 // Envia (ou troca) o documento de um tipo para um voo. Apaga a versão anterior do mesmo tipo.
-export async function enviarDoc(db, uid, vooId, tipo, arquivo, existentes = []) {
+export async function enviarDoc(db, uid, vooId, tipo, arquivo, existentes = [], data = '') {
   const ehPdf = arquivo.type === 'application/pdf' || /\.pdf$/i.test(arquivo.name);
   if (!ehPdf && !/^image\//.test(arquivo.type)) throw new Error('Envie uma foto ou um PDF.');
   if (arquivo.size > LIMITE) throw new Error('Arquivo maior que 8 MB. Tire a foto de novo ou reduza o PDF.');
@@ -38,7 +38,7 @@ export async function enviarDoc(db, uid, vooId, tipo, arquivo, existentes = []) 
     await lote.commit();
   }
   const lote = writeBatch(db);
-  lote.set(doc(db, 'diario', uid, 'docs', id), { voo: vooId, tipo, nome: String(f.nome || tipo).slice(0, 120), mime: f.mime, tamanho: f.blob.size, partes: n, em: serverTimestamp() });
+  lote.set(doc(db, 'diario', uid, 'docs', id), { voo: vooId, data: /^\d{4}-\d{2}-\d{2}$/.test(data) ? data : vooId.slice(0, 10), tipo, nome: String(f.nome || tipo).slice(0, 120), mime: f.mime, tamanho: f.blob.size, partes: n, em: serverTimestamp() });
   await lote.commit();
   for (const d of existentes.filter((x) => x.voo === vooId && x.tipo === tipo)) await apagarDoc(db, uid, d);
   return id;
