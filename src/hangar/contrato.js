@@ -59,12 +59,46 @@ const PRAZOS = [
   ['12 meses', 'de vigência a partir da publicação no PNCP. Se o curso não acabar, prorroga automaticamente até concluir.', 'c', 1, 'Cláusula 2'],
 ];
 
+// Dias sem voo (pergunta da turma em 10/11/2026: mau tempo e aeronave parada; não há mínimo de horas por dia)
+const SEMVOO = [
+  ['info', 'Mínimo de horas por dia?', 'Não existe. O TR só fixa o máximo: 8 h de atividades por dia. O que a escola tem que cumprir é o prazo total do curso (90 dias úteis no PPH prático), com instrutores e aeronaves suficientes para isso.', [['e', 27, 'TR 5.5.2'], ['e', 52, 'ETP 4.1.6'], ['e', 53, 'ETP 4.1.15'], ['e', 26, 'TR 5.1.3']]],
+  ['nao', 'Mau tempo', 'Não gera cobrança. O voo depende "dos fatores meteorológicos" e o prazo pode ser estendido por motivo de força maior, desde que a escola justifique. Dá para cobrar a reposição (a escola pode voar sáb., dom. e feriados) e, se o cronograma for prorrogado, a justificativa por escrito. Simulador (até 5 h) só se o CBMERJ autorizar por escrito.', [['e', 53, 'ETP 4.1.10'], ['e', 27, 'TR 5.5.3'], ['e', 56, 'ETP 4.5.5.5'], ['e', 85, 'Anexo 2.1.3 e)']]],
+  ['sim', 'Aeronave parada', 'Aqui dá para cobrar. A escola declarou ter aeronave "em perfeita disponibilidade operacional" e se obrigou a substituir em tempo hábil qualquer aeronave que parar para manutenção, inclusive preventiva ou calendárica, ou alugar outra, sem prejudicar o prazo nem a continuidade da instrução. Uma pane num dia é normal; a cobrança é pela troca rápida e pela reposição das horas de quem ficou sem voar.', [['e', 54, 'ETP 4.3.5–4.3.6.1']]],
+  ['sim', 'Se a falta se repetir', 'No IMR, "equipamento sem condições perfeitas de uso" tira 10 pontos por ocorrência, e não executar o serviço no prazo tira 20. A escola pode se justificar com fator imprevisível e fora do controle dela, mas manutenção preventiva já devia estar prevista no cronograma.', [['e', 78, 'IMR, Módulos 1 e 2'], ['e', 79, 'IMR 4.4']]],
+];
+const MODELO_RELATO = `Ao Fiscal do Contrato 089/2026 (CBMERJ x EACAR)
+
+Relato de ocorrência - Curso PPH
+
+Data(s): __/__/2026
+Aeronave: PR-___ (indisponível por ______________)
+Alunos sem voo programado/realizado: ______________
+O que a escola informou: ______________
+Substituição ou reposição oferecida: ______________
+
+Referência: ETP 4.3.5 e 4.3.6 (substituição em tempo hábil de aeronave em manutenção, sem prejuízo do prazo e da continuidade da instrução) e IMR (Módulo 1, item 5).
+
+Peço registro da ocorrência e orientação quanto à reposição das horas.`;
+
 export function telaContrato(arq) {
   const lk = (f, pag) => (f && arq[f === 'c' ? 'contrato' : 'edital'] ? `${arq[f === 'c' ? 'contrato' : 'edital']}#page=${pag}` : '');
   const fonte = (f, pag, ref) => { const u = lk(f, pag); return `<span class="ct-ref">${u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(ref)} · ${f === 'c' ? 'contrato' : 'edital'} p. ${pag}</a>` : esc(ref)}</span>`; };
   const lista = (l) => `<ul class="ct-lista">${l.map(([t, f, p, ref]) => `<li><span>${esc(t)}</span>${fonte(f, p, ref)}</li>`).join('')}</ul>`;
   return `<div class="cab"><h2>Contrato do curso</h2><span class="selo la">nº 089/2026</span></div>
   <p class="intro">Resumo do que importa para a turma no contrato entre o CBMERJ e a EACAR e no Termo de Referência da SENASP a que ele está vinculado. Cada ponto mostra a cláusula e a página para conferir no original.</p>
+  <div class="caixa ct-semvoo"><h3>Dias sem voo: o que dá para cobrar</h3>
+    <div class="ct-sv">${SEMVOO.map(([t, tit, txt, refs]) => `<div class="ct-sv-item"><span class="ct-tag ${t}">${t === 'sim' ? 'Dá para cobrar' : t === 'nao' ? 'Não gera cobrança' : 'Resposta'}</span><b>${esc(tit)}</b><span>${esc(txt)}</span><span class="ct-refs">${refs.map(([f, p, r]) => fonte(f, p, r)).join(' · ')}</span></div>`).join('')}</div>
+    <h3>Como cobrar</h3>
+    <ol class="ct-passos">
+      <li>Marque no Hangar e no formulário do GOA cada dia sem voo e o motivo. Aeronave parada: "Não" › "Outro motivo", escrevendo qual aeronave e por quê.</li>
+      <li>Peça à coordenação da escola, de preferência por escrito (e-mail ou mensagem), a previsão de substituição da aeronave e o plano para repor as horas de quem não voou.</li>
+      <li>Se não houver troca em tempo hábil, ou se o atraso ameaçar o prazo do curso, mande o relato por e-mail ao fiscal do contrato no CBMERJ. O IMR aceita comunicação por e-mail de qualquer servidor que viu a ocorrência. Quem aplica desconto ou multa é o fiscal; o aluno relata.</li>
+    </ol>
+    <details class="ct-mod"><summary>📝 Modelo de relato ao fiscal (copiar e completar)</summary>
+      <textarea readonly rows="17" onclick="this.select()">${esc(MODELO_RELATO)}</textarea>
+      <button class="mini" type="button" onclick="const t=this.previousElementSibling;t.select();(navigator.clipboard?navigator.clipboard.writeText(t.value):Promise.reject()).then(()=>{this.textContent='Copiado ✓'}).catch(()=>{try{document.execCommand('copy');this.textContent='Copiado ✓'}catch(e){}})">Copiar texto</button>
+    </details>
+  </div>
   <div class="grade">
     <div class="caixa destaque"><div class="rotulo">O contrato</div>
       <div class="ct-fatos">
