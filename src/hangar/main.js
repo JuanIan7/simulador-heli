@@ -289,10 +289,52 @@ const FIP = {
  ],
  "rodape": "Resumo do Programa de Instrução da EACAR (PI PPH001). O que vale é a FIP oficial e o seu instrutor. Preparo e bizus são nossos (Hangar CCOA, by Claude), não são da escola."
 };
-const NOVIDADES = {"itens": [
- {"id":"fip-2026-11-12","data":"2026-11-12","titulo":"FIP do PPH: o curso inteiro, fase por fase","desc":"As 29 missões, 35 h, com tempo e pousos previstos. Começou o preparo de cada missão: objetivo, o que é avaliado, tolerâncias e bizu.","aba":"fip"},
- {"id":"sn-pt-2026-11-12","data":"2026-11-12","titulo":"As 10 Safety Notices da Robinson em português","desc":"Tradução nossa, com o original em inglês ao lado de cada uma.","aba":"revisao"}
-]};
+const NOVIDADES = {
+ "itens": [
+  {
+   "id": "eacarsn-2026-11-12",
+   "data": "2026-11-12",
+   "titulo": "Safety Notices da Robinson em português, pela EACAR",
+   "desc": "19 avisos traduzidos e ilustrados, com fotos da frota da escola. Substitui a nossa tradução como referência.",
+   "aba": "revisao"
+  },
+  {
+   "id": "eacarpoh27-2026-11-12",
+   "data": "2026-11-12",
+   "titulo": "POH do R22 Beta II 2026/2027, tradução da EACAR",
+   "desc": "Versão nova da tradução do Manual de Operação do Piloto, 86 páginas.",
+   "aba": "materiais"
+  },
+  {
+   "id": "eacarmanobras-2026-11-12",
+   "data": "2026-11-12",
+   "titulo": "Manual de Manobras da EACAR, edição revisada",
+   "desc": "Padronização da instrução prática de voo no R22: 6 capítulos, 41 tópicos, 126 páginas.",
+   "aba": "materiais"
+  },
+  {
+   "id": "eacarpeso-2026-11-12",
+   "data": "2026-11-12",
+   "titulo": "Peso e balanceamento do PR-HNE, passo a passo",
+   "desc": "Guia do aluno com os dados de pesagem desta matrícula já preenchidos: peso vazio 887,60 lb, braço 103,69 in.",
+   "aba": "materiais"
+  },
+  {
+   "id": "fip-2026-11-12",
+   "data": "2026-11-12",
+   "titulo": "FIP do PPH: o curso inteiro, fase por fase",
+   "desc": "As 29 missões, 35 h, com tempo e pousos previstos. Começou o preparo de cada missão: objetivo, o que é avaliado, tolerâncias e bizu.",
+   "aba": "fip"
+  },
+  {
+   "id": "sn-pt-2026-11-12",
+   "data": "2026-11-12",
+   "titulo": "As 10 Safety Notices da Robinson em português",
+   "desc": "Tradução nossa, com o original em inglês ao lado de cada uma.",
+   "aba": "revisao"
+  }
+ ]
+};
 // ---------- novidades ----------
 // Material novo chegando: pisca no Início de quem ainda não viu. O "já vi" é por aparelho (localStorage).
 const novVistas = () => { try { return new Set(JSON.parse(localStorage.getItem('nov-vistas') || '[]')); } catch { return new Set(); } };
@@ -667,7 +709,8 @@ revisao(){
       <p class="sub">Gelo no carburador é provável entre −4 e 30 °C com OAT − orvalho &lt; 15 °C: Rio e Curitiba se encaixam bem.</p></div>
   </div>
   <div class="caixa"><div class="cab"><h3>Safety Notices que mais pesam</h3><span class="selo la">${Object.keys(TRAD).length} em português</span></div>
-    <p class="sub">A Robinson só publica em inglês. Estas são <b>traduções nossas</b> (Hangar CCOA · by Claude), para estudar no celular. Toque para abrir em português; o original em inglês está no fim de cada uma. <b>Não são documento oficial: em caso de dúvida vale o original.</b></p>
+    <div class="reflexo" style="border-left-color:var(--ok);background:var(--ok-claro)">A EACAR entregou em 12/11 a <b>tradução oficial dela</b>, com 19 avisos ilustrados e fotos da frota da escola. <b>É essa que vale.</b><div class="links" style="margin-top:6px">${pdf('eacarsn','Safety Notices da EACAR, em português')}</div></div>
+    <p class="sub">Abaixo ficam as <b>nossas</b> traduções (Hangar CCOA · by Claude), feitas antes de a da escola chegar. Servem como leitura rápida aqui dentro, sem abrir PDF, e trazem o original em inglês no fim de cada uma. Em qualquer divergência, vale a da EACAR e depois o original da Robinson.</p>
     ${SN.map(([k,c,t]) => traducaoSN(k,c,t)).join('')}
     <p class="sub">Use a SFAR 73 dos EUA como padrão de segurança: gestão de energia, mast bumping, baixa RPM (estol de pá), baixo G e decaimento de RPM.</p></div>`;
 },
