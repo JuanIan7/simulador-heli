@@ -56,6 +56,14 @@ textarea{min-height:70px;resize:vertical}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 /* ditado: o campo e o microfone lado a lado; o microfone pulsa vermelho enquanto ouve */
 .campo-voz{display:flex;gap:8px;align-items:flex-start}
+/* aviso de material novo: pisca até tocarem em "Vi, obrigado" */
+.novo-aviso{border:2px solid var(--perigo);animation:novo-borda 1.4s ease-in-out infinite}
+@keyframes novo-borda{50%{border-color:var(--alerta);background:var(--alerta-claro)}}
+.novo-sino{display:inline-block;animation:novo-sino 1.1s ease-in-out infinite;transform-origin:50% 10%}
+@keyframes novo-sino{0%,60%,100%{transform:rotate(0)}70%{transform:rotate(16deg)}85%{transform:rotate(-16deg)}}
+.novo-selo{animation:novo-pisca 1s steps(1,end) infinite}
+@keyframes novo-pisca{50%{opacity:.2}}
+.novo-ponto{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--perigo);margin-left:5px;vertical-align:2px;animation:novo-pisca 1s steps(1,end) infinite}
 .campo-voz>:first-child{flex:1;min-width:0}
 .voz{flex:none;width:40px;height:40px;min-height:40px;padding:0;border-radius:50%;border:1.5px solid var(--linha);background:var(--painel);font-size:17px;line-height:1;display:grid;place-items:center}
 .voz[aria-pressed="true"]{background:var(--perigo);border-color:var(--perigo);color:#fff;animation:voz-pulsa 1.1s ease-in-out infinite}

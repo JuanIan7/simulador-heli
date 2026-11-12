@@ -36,9 +36,12 @@ function codigosDoExercicio(s){
 }
 const hmin = (m) => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
 const FIP = /*@FIP@*/;
+const NOVIDADES = /*@NOVIDADES@*/;
+/*@NOVUI@*/
 const yt = (q) => 'https://www.youtube.com/results?search_query=' + encodeURIComponent(q);
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const dBR = (iso) => iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : '';
 const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
 function toast(t){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2400); }
 const pdf = (k, rot) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_blank" rel="noopener">📄 ${esc(rot)}</a>` : `<span class="sub">📄 ${esc(rot)}</span>`;
@@ -169,7 +172,8 @@ function abrir() {
 
 // ---------- telas ----------
 function render() {
-  $('#abas').innerHTML = ABAS.map(([k,t]) => `<button class="aba" role="tab" aria-selected="${k===aba}" data-aba="${k}">${t}</button>`).join('');
+  const nNovas = novNovas().length;
+  $('#abas').innerHTML = ABAS.map(([k,t]) => `<button class="aba" role="tab" aria-selected="${k===aba}" data-aba="${k}">${t}${k === 'inicio' && nNovas ? '<span class="novo-ponto" aria-label="material novo"></span>' : ''}</button>`).join('');
   const c = $('#conteudo'), y = window.scrollY;
   c.innerHTML = `<section data-painel="${aba}">${(TELAS[aba]||TELAS.inicio)()}</section>`;
   ligarMascaras(c); (LIGAR[aba]||(()=>{}))(c);
@@ -235,11 +239,12 @@ const quadro = (pag, titulo) => `<iframe class="quadro" src="${pag}?embed=1" tit
 
 const TELAS = {
 inicio(){
+  const avisoNovo = cartaoNovidades();
   const f = feitos(membro), link = `${location.origin}${location.pathname}?c=${membro.codigo}`;
   const turma = membros.slice().sort((a,b) => (a.nome||'').localeCompare(b.nome||''));
   const faltam = (grupo?.pessoas || []).filter((p) => !membros.some((m) => m.nome === p));
   const pix = caixaPix(membro, trocandoPix);
-  return `${cartaoGoa()}${pix ? `<div class="caixa destaque">${pix}</div>` : ''}
+  return `${avisoNovo}${cartaoGoa()}${pix ? `<div class="caixa destaque">${pix}</div>` : ''}
   <div class="caixa"><div class="cab"><div class="rotulo">Seus acertos da turma</div><button class="mini" data-ir="gastos">Ver os gastos</button></div>
     ${alertaAcertos(calcular(gastos), membro.nome, membros)}
     ${membro.pix && !trocandoPix ? `<p class="sub">Sua chave Pix: <b>${esc(membro.pix)}</b> <button class="mini" data-pix-trocar>Trocar</button></p>` : ''}</div>
@@ -325,6 +330,9 @@ fip(){
     <p class="sub">${prox ? `Sua próxima missão: <b>${esc(prox.cod)}</b> · ${prox.tipo === 'SOLO' ? 'solo' : 'duplo comando'} · ${hmin(prox.min)}${prox.endosso ? ' · voo de endosso' : ''}` : 'Todas as missões cumpridas.'}
       <br>Previsto na FIP: <b>${hmin(prevMin)}</b> · você cumpriu: <b>${hmin(feitoMin)}</b>.</p></div>
   ${FIP.fases.map(fase).join('')}
+  <div class="caixa"><h3>A FIP em papel</h3>
+    <p class="sub">Resumo em PDF para imprimir ou levar: o programa de instrução, uma ficha de avaliação de exemplo (frente e verso) e a Declaração de Realização de Voo Solo. As fichas das outras missões cada um recebe da escola.</p>
+    <div class="links"><a class="pdf" href="fip-pph-resumo.pdf" target="_blank" rel="noopener">📄 FIP: programa, ficha modelo e declaração</a></div></div>
   <p class="sub">${esc(FIP.rodape || '')}</p>`;
 },
 /*@ACESSOS@*/
@@ -336,6 +344,7 @@ fip(){
 const LIGAR = {
   inicio(c){
     c.querySelectorAll('[data-ir]').forEach(b => b.addEventListener('click', (e) => { e.preventDefault(); irPara(b.dataset.ir); })); ckAbrir(c);
+    $('#novOk')?.addEventListener('click', () => { novMarcar(); render(); });
     ligarPix(c, { db, uid: user.uid, quem: membro.nome, gastos: () => gastos, toast, depois: (v, trocar) => { if (v) membro.pix = v; trocandoPix = !!trocar; render(); } });
     resumoInicio($('#tpInicio'));
     LIGAR.linkTurma();

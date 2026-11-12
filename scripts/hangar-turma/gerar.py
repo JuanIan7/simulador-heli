@@ -30,6 +30,8 @@ acessos = re.sub(r'\s*<div class="caixa"><h3>Meus atalhos</h3>.*?</div></div>`;'
 metar = bloco("function decodificarMetar(txt){", "// ---------- ligações ----------")
 sn = next(l for l in L if l.startswith("const SN = "))
 fip = (Path.home() / "Projetos/hangar-ccoa/fip.json").read_text(encoding="utf-8").strip()
+novidades = (Path.home() / "Projetos/hangar-ccoa/novidades.json").read_text(encoding="utf-8").strip()
+novui = bloco("// ---------- novidades ----------", "// ---------- fim novidades ----------")
 ligar_treino = next(i for i, l in enumerate(L) if l.startswith("  treino(){ $('#mtBtn')"))
 ligar_treino = "\n".join(L[ligar_treino:ligar_treino + 5])
 esquilo = bloco("  { dia: 'esquilo'", "];")
@@ -41,7 +43,7 @@ for nome, txt in [("acessos", acessos), ("ligar", ligar_treino)]:
         assert proibido not in txt, (nome, proibido)
 
 modelo = (Path(sys.argv[1])).read_text(encoding="utf-8")
-saida = (modelo.replace("/*@SN@*/", sn).replace("/*@FIP@*/", fip).replace("/*@ESQUILO@*/", esquilo)
+saida = (modelo.replace("/*@SN@*/", sn).replace("/*@FIP@*/", fip).replace("/*@NOVIDADES@*/", novidades).replace("/*@NOVUI@*/", novui).replace("/*@ESQUILO@*/", esquilo)
          .replace("/*@REVISAO@*/", revisao).replace("/*@TREINO@*/", treino).replace("/*@ACESSOS@*/", acessos)
          .replace("/*@METAR@*/", metar).replace("/*@LIGAR_TREINO@*/", ligar_treino)
          .replace("/*@CKDADOS@*/", ckdados).replace("/*@CHECKLISTS@*/", checklists).replace("/*@LIGAR_CK@*/", ligar_ck))
