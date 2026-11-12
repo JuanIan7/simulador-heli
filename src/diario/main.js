@@ -39,7 +39,10 @@ onAuthStateChanged(auth, async (u) => {
   topo();
   pararVoos = onSnapshot(collection(db, 'diario', u.uid, 'voos'), (s) => {
     voos = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.data + (b.inicio || '')).localeCompare(a.data + (a.inicio || '')));
-    if (!editando) telaPrincipal();
+    if (editando) return;
+    const pend = lerHashImport();
+    if (pend) { editando = 'importar'; return telaImportar(pend); }
+    telaPrincipal();
   }, (e) => { el.innerHTML = `<div class="cartao"><p class="erro">Erro ao ler os voos (${esc(e.code)}).</p></div>`; });
 });
 
@@ -124,7 +127,7 @@ function telaPrincipal() {
       ${lista.length ? `<div class="tabela"><table><thead><tr><th>Data</th><th>Aeronave</th><th>Trecho</th><th>Horário</th><th class="n">Diurno</th><th class="n">Noturno</th><th class="n">Pousos</th><th>Função</th><th>CIV</th><th></th></tr></thead><tbody>
         ${lista.map((v) => { const c = CIV[v.civ || 'nao']; return `<tr><td>${dBR(v.data)}</td><td>${esc(v.modelo)}<br><span class="sub">${esc(v.matricula)}</span></td><td>${esc(v.origem)}${v.destino && v.destino !== v.origem ? '→' + esc(v.destino) : ''}</td><td>${esc(v.inicio || '')}–${esc(v.fim || '')}</td><td class="n">${hm(v.diurno)}</td><td class="n">${hm(v.noturno)}</td><td class="n">${(v.pousosD || 0) + (v.pousosN || 0)}</td><td>${esc((FUNCOES[v.funcao] || '').split(' (')[0])}</td><td><span class="selo ${c[0]}">${c[1]}</span></td><td><button class="mini" data-ed="${v.id}">Abrir</button></td></tr>`; }).join('')}
       </tbody></table></div>` : `<div class="vazio">${voos.length ? 'Nenhum voo pendente de conferência.' : 'Nenhum voo lançado ainda. Toque em <b>+ Novo voo</b> logo depois de cada voo, com o horário de início e fim.'}</div>`}
-      ${voos.length ? '<div class="linha-acao"><button id="btCsv">Baixar planilha (CSV)</button><button id="btCopiar">Copiar resumo</button></div>' : ''}
+      <div class="linha-acao">${voos.length ? '<button id="btCsv">Baixar planilha (CSV)</button><button id="btCopiar">Copiar resumo</button>' : ''}<button id="btImportar">Importar voos</button></div>
     </section>
     <section class="cartao"><h3>Como conferir com a CIV Digital</h3>
       <p class="sub">O registro oficial das horas é a <b>CIV Digital</b> da ANAC (acesso pelo SACI com login e senha, ou pelo app ANAC). Desde 01/12/2022 os voos são registrados só nela. Diurno + noturno = tempo total do voo. Voo noturno é o feito entre o fim do crepúsculo civil da tarde e o início do da manhã; este diário calcula a sugestão pelo crepúsculo de ${esc(LOCAIS[perfil.local]?.nome || LOCAIS.piraquara.nome)}. Confira com o instrutor como a escola marca o início e o fim do tempo de voo.</p></section>`;
@@ -132,6 +135,7 @@ function telaPrincipal() {
   el.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { filtro = b.dataset.f; telaPrincipal(); });
   el.querySelectorAll('[data-ed]').forEach((b) => b.onclick = () => telaVoo(voos.find((v) => v.id === b.dataset.ed)));
   $('#btCsv')?.addEventListener('click', baixarCsv); $('#btCopiar')?.addEventListener('click', copiarResumo);
+  $('#btImportar')?.addEventListener('click', telaColar);
 }
 
 function telaVoo(v) {
@@ -200,6 +204,112 @@ function telaVoo(v) {
     try { await setDoc(doc(db, 'diario', user.uid, 'voos', id), v.id ? d : { ...d, criadoEm: serverTimestamp() }, { merge: true }); toast('Voo salvo'); telaPrincipal(); }
     catch (e2) { $('#vErro').textContent = 'Não salvou: ' + (e2.code || e2.message); }
   };
+}
+
+// ---------- importar voos ----------
+// Recebe uma lista de voos pronta (do Hangar CCOA, por exemplo) e grava no diário DESTE usuário,
+// logado como ele: por link (diario.html#importar=<JSON em base64url>) ou colando o JSON.
+// Nada é gravado sem a pessoa ver a lista e confirmar.
+function lerHashImport() {
+  const m = /[#&]importar=([^&]+)/.exec(location.hash || '');
+  return m ? decodificarImport(decodeURIComponent(m[1])) : null;
+}
+function limparHashImport() {
+  try { history.replaceState(null, '', location.pathname + location.search); } catch { /* ignora */ }
+}
+function decodificarImport(txt) {
+  const s = String(txt || '').trim();
+  if (!s) return null;
+  let json = s;
+  if (s[0] !== '[' && s[0] !== '{') {
+    try {
+      const b = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
+      json = new TextDecoder().decode(Uint8Array.from(b, (c) => c.charCodeAt(0)));
+    } catch { return null; }
+  }
+  try { const v = JSON.parse(json); const l = Array.isArray(v) ? v : [v]; return l.length ? l.slice(0, 50) : null; }
+  catch { return null; }
+}
+// põe um voo recebido no mesmo formato que a tela de voo grava, e diz o que o impede
+function normalizarVoo(x) {
+  const p = perfil || {}, local = LOCAIS[p.local] || LOCAIS.piraquara;
+  const inteiro = (v, max) => Math.min(max, Math.max(0, Math.floor(+v) || 0));
+  const d = {
+    data: String(x.data || '').slice(0, 10),
+    modelo: formatarModelo(String(x.modelo || p.modelo || '')).trim(),
+    matricula: formatarMatricula(String(x.matricula || p.matricula || '')),
+    origem: formatarIcao(String(x.origem || p.origem || '')),
+    destino: formatarIcao(String(x.destino || x.origem || p.origem || '')),
+    inicio: /^\d{2}:\d{2}$/.test(x.inicio || '') ? x.inicio : '',
+    fim: /^\d{2}:\d{2}$/.test(x.fim || '') ? x.fim : '',
+    funcao: FUNCOES[x.funcao] ? x.funcao : 'instrucao',
+    pousosD: inteiro(x.pousosD, 99), pousosN: inteiro(x.pousosN, 99),
+    navegacao: inteiro(x.navegacao, 6000), capota: inteiro(x.capota, 6000),
+    instrutor: limparNome(String(x.instrutor || ''), 80),
+    canacInstrutor: soDigitos(String(x.canacInstrutor || ''), 6),
+    exercicios: Array.isArray(x.exercicios) ? x.exercicios.filter((e) => EXERCICIOS.includes(e)) : [],
+    obs: limpar(String(x.obs || ''), 2000, { multilinha: true }),
+    civ: CIV[x.civ] ? x.civ : 'nao',
+  };
+  let diurno = inteiro(x.diurno, 6000), noturno = inteiro(x.noturno, 6000);
+  if (d.inicio && d.fim) { const r = dividirVoo(d.data, d.inicio, d.fim, local); if (r) { diurno = r.diurno; noturno = r.noturno; } }
+  else if (!diurno && !noturno) diurno = inteiro(x.minutos, 6000);
+  d.diurno = diurno; d.noturno = noturno;
+  const erros = [];
+  if (!dataValida(d.data, '2000-01-01', hojeIso(1))) erros.push('data inválida');
+  if (!matriculaValida(d.matricula)) erros.push('matrícula fora do formato PR-ABC');
+  if (!icaoValido(d.origem) || !icaoValido(d.destino)) erros.push('origem/destino não são ICAO');
+  if (d.canacInstrutor && d.canacInstrutor.length !== 6) erros.push('CANAC do instrutor');
+  if (d.diurno + d.noturno <= 0) erros.push('sem tempo de voo');
+  const repetido = voos.some((v) => v.data === d.data && v.matricula === d.matricula && (v.inicio || '') === d.inicio);
+  return { d, erros, repetido };
+}
+function telaColar() {
+  editando = 'importar';
+  el.innerHTML = `<section class="cartao"><div class="cab"><h2>Importar voos</h2><button type="button" id="imVoltar">Voltar</button></div>
+    <p class="sub">Cole aqui a lista de voos que o Claude preparou no Hangar (ou abra o link de importação que ele mandar). Você confere a lista antes de gravar, e nada entra sem a sua confirmação.</p>
+    <label class="largo">Lista de voos<textarea id="imTexto" rows="6" placeholder='[{"data":"2026-11-12","matricula":"PR-HMI","inicio":"07:00","fim":"08:30",...}]'></textarea></label>
+    <div class="linha-acao"><button class="pri" id="imConferir">Conferir</button></div>
+    <p class="erro" id="imErro"></p></section>`;
+  $('#imVoltar').onclick = () => { editando = null; telaPrincipal(); };
+  $('#imConferir').onclick = () => {
+    const l = decodificarImport($('#imTexto').value);
+    if (!l) { $('#imErro').textContent = 'Não entendi essa lista. Cole o texto exatamente como o Claude mandou.'; return; }
+    telaImportar(l);
+  };
+}
+function telaImportar(lista) {
+  editando = 'importar';
+  const itens = lista.map(normalizarVoo);
+  const bons = itens.filter((i) => !i.erros.length && !i.repetido);
+  const linha = (i) => {
+    const d = i.d, estado = i.erros.length ? `<span class="selo nao">${esc(i.erros.join(', '))}</span>`
+      : i.repetido ? '<span class="selo lan">já está no diário</span>' : '<span class="selo ok">vai entrar</span>';
+    return `<tr><td>${dBR(d.data)}</td><td>${esc(d.matricula)}</td><td>${esc(d.inicio || '')}–${esc(d.fim || '')}</td><td class="n">${hm(d.diurno + d.noturno)}</td><td class="n">${d.pousosD + d.pousosN}</td><td>${esc(d.instrutor)}</td><td>${estado}</td></tr>`;
+  };
+  el.innerHTML = `<section class="cartao"><div class="cab"><h2>Importar ${itens.length} voo(s)</h2><button type="button" id="imVoltar">Voltar</button></div>
+    <p class="sub">Confira antes de gravar. Entram no <b>seu</b> diário, na sua conta. Voos repetidos (mesma data, aeronave e horário) são deixados de fora.</p>
+    <div class="tabela"><table><thead><tr><th>Data</th><th>Aeronave</th><th>Horário</th><th class="n">Tempo</th><th class="n">Pousos</th><th>Instrutor</th><th></th></tr></thead><tbody>${itens.map(linha).join('')}</tbody></table></div>
+    <div class="linha-acao">${bons.length ? `<button class="pri" id="imGravar">Gravar ${bons.length} voo(s) no meu diário</button>` : ''}<button id="imCancelar">Cancelar</button></div>
+    <p class="erro" id="imErro"></p></section>`;
+  const sair = () => { limparHashImport(); editando = null; telaPrincipal(); };
+  $('#imVoltar').onclick = sair; $('#imCancelar').onclick = sair;
+  $('#imGravar')?.addEventListener('click', async () => {
+    $('#imGravar').disabled = true;
+    let n = 0;
+    try {
+      for (const { d } of bons) {
+        const id = d.data + '-' + (d.inicio || '').replace(':', '') + '-' + Math.random().toString(36).slice(2, 6);
+        await setDoc(doc(db, 'diario', user.uid, 'voos', id), { ...d, atualizadoEm: serverTimestamp(), criadoEm: serverTimestamp() });
+        n++;
+      }
+      toast(n + ' voo(s) importado(s)');
+      sair();
+    } catch (e) {
+      $('#imErro').textContent = `Gravou ${n} de ${bons.length} e parou: ` + (e.code || e.message);
+      $('#imGravar').disabled = false;
+    }
+  });
 }
 
 function linhasCsv() {
