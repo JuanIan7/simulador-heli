@@ -38,6 +38,8 @@ const hmin = (m) => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
 const FIP = /*@FIP@*/;
 const NOVIDADES = /*@NOVIDADES@*/;
 /*@NOVUI@*/
+const TRAD = /*@TRAD@*/;
+/*@TRADUI@*/
 const yt = (q) => 'https://www.youtube.com/results?search_query=' + encodeURIComponent(q);
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
