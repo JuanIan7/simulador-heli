@@ -27,6 +27,15 @@ const DADOS = { FONIA, ALFABETO, NUMEROS, PALAVRAS_PADRAO, TRANSPONDER, METAR };
 const ARQ = Object.fromEntries(Object.entries(DRIVE).map(([k, id]) => [k, `https://drive.google.com/file/d/${id}/view`]));
 const CHAVE_CODIGO = 'gastos-codigo';
 const SIMULADOR = './';
+function codigosDoExercicio(s){
+  const out = new Set(), re = /([A-Z]{2,5})-?\s*(\d{1,2}(?:\s*\/\s*\d{1,2})*)/g;
+  const txt = String(s || '').toUpperCase();
+  let m; while ((m = re.exec(txt))) m[2].split('/').forEach((n) => out.add(m[1] + '-' + String(+n).padStart(2, '0')));
+  if (/\bAVX\b/.test(txt)) out.add('AVX');
+  return out;
+}
+const hmin = (m) => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
+const FIP = /*@FIP@*/;
 const yt = (q) => 'https://www.youtube.com/results?search_query=' + encodeURIComponent(q);
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -34,7 +43,7 @@ const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTi
 function toast(t){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2400); }
 const pdf = (k, rot) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_blank" rel="noopener">📄 ${esc(rot)}</a>` : `<span class="sub">📄 ${esc(rot)}</span>`;
 
-const ABAS = [['inicio','Início'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['contrato','Contrato'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['diario','Diário de voo'],['fichas','DB e Ficha'],['acessos','Acessos e rotas']];
+const ABAS = [['inicio','Início'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['contrato','Contrato'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['fip','FIP'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
 let aba = (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
 let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], compras = [], errCompras = '', anotacoes = [], errAnotacoes = '', notasProvas = [], meusDocs = [], meusVoos = [], meusDias = [], diaOutro = '', parar = [], trocandoPix = false;
 
@@ -204,32 +213,22 @@ function perguntaOntem() {
   return meusDias.some((d) => d.iso === iso) || meusDocs.some((d) => (d.data || d.voo.slice(0, 10)) === iso) ? '' : perguntaDia(iso, `ontem (${iso.split('-').reverse().join('/').slice(0, 5)})`);
 }
 async function marcarDia(iso, dados) {
-  try { await setDoc(doc(db, 'diario', user.uid, 'dias', iso), { ...dados, em: serverTimestamp() }); diaOutro = ''; if (dados.voou) toast('Marcado: voou. Guarde o DB e a ficha na aba DB e Ficha.'); }
+  try { await setDoc(doc(db, 'diario', user.uid, 'dias', iso), { ...dados, em: serverTimestamp() }); diaOutro = ''; if (dados.voou) toast('Marcado: voou.'); }
   catch (e) { toast('Não salvou: ' + (e.code === 'permission-denied' ? 'o "voou hoje?" ainda está sendo ativado no banco.' : e.code || e.message)); }
-}
-function blocoDocs() {
-  const { total, pend } = pendenciasDocs(), dBR = (iso) => iso ? iso.split('-').reverse().join('/').slice(0, 5) : '';
-  const enviou = (iso) => meusDocs.some((d) => (d.data || d.voo.slice(0, 10)) === iso);
-  return `<div class="goa-docs ${pend.length ? 'pend' : 'ok'}">
-    ${pend.length ? `<b>⚠ Seus documentos de voo que faltam no Hangar:</b><ul>${pend.map((x) => `<li>${x.aula ? 'Aula ' + x.aula : 'Voo'} · ${dBR(x.data)}: falta ${x.falta.join(' e ')}</li>`).join('')}</ul>`
-      : total ? `<b>✓ Seus documentos de voo estão em dia</b> <span class="sub">(${total} voo${total > 1 ? 's' : ''} com DB e ficha)</span>` : '<b>Nenhum documento de voo guardado ainda.</b>'}
-    ${perguntaDia(hoje(), 'hoje')}${perguntaOntem()}
-    <div class="linha-acao"><button class="${pend.length ? 'pri' : ''}" data-ir="fichas">📷 ${pend.length ? 'Enviar o que falta' : 'Enviar DB e ficha'}</button></div></div>`;
 }
 const cartaoGoa = () => `<div class="caixa goa-cartao">
   <div class="goa-topo"><span class="goa-ico">📋</span><div><div class="rotulo">Todo dia · exigência do GOA</div><h3>Acompanhamento diário do curso</h3>
     <p class="sub">Uma resposta para cada atividade (dois voos = duas respostas). Dia sem voo também: marque "Não" e informe o motivo.</p></div></div>
   <div class="linha-acao"><a class="btn pri goa-bt" href="${FORM_GOA}" target="_blank" rel="noopener">Preencher o formulário de hoje</a><button data-ir="contrato">📜 O que diz o contrato</button></div>
-  ${blocoDocs()}
+  <div class="goa-docs ok">${perguntaDia(hoje(), 'hoje')}${perguntaOntem()}</div>
   <details class="goa-como"><summary>Como preencher (8 páginas)</summary><ol>
     <li><b>Identificação:</b> seu nome na lista, a data e se houve instrução. Se não houve, o formulário pula para "Dia sem atividade" (motivo, se a escola avisou e a nova data).</li>
     <li><b>Atividade:</b> tipo (voo de instrução, ground school, simulador...), se estava no cronograma, horários efetivos de início e fim, a fase (Fase 1 – Adaptação, por enquanto) e a missão como está na ficha (ex.: INCT-02).</li>
     <li><b>Dados do voo:</b> modelo e matrícula (R22, PR-HMI), instrutor e CANAC, saída e destino (SISY), horas de decolagem e pouso, tempo de voo lançado na ficha, natureza (duplo comando), decolagens, pousos e rota.</li>
     <li><b>Instrução:</b> briefing, debriefing, se o instrutor passou os pontos a melhorar, o grau da ficha, se precisa repetir e o parecer.</li>
-    <li><b>Documentação:</b> anexar a foto ou o PDF da <b>Ficha de Avaliação</b> e do <b>Diário de Bordo (DB)</b>.</li>
+    <li><b>Documentação:</b> a escola passou a enviar a Ficha de Avaliação e o Diário de Bordo automaticamente — não é mais preciso anexar foto nem PDF.</li>
     <li><b>Execução do contrato:</b> aeronave, instrutor e material disponíveis, se a atividade foi integral e se houve ocorrência.</li>
-    <li><b>Declaração</b> e enviar.</li></ol>
-    <p class="sub">Dica: guarde a foto ou o PDF do DB e da ficha na aba <b>DB e Ficha</b> do Hangar (só a data e os arquivos, sem digitar nada). Fica tudo num lugar para ver e baixar na hora de anexar no formulário. Os horários do DB estão em UTC (Z): em Piraquara, hora local = Z − 3 h.</p></details>
+    <li><b>Declaração</b> e enviar.</li></ol></details>
 </div>`;
 const ctxProvas = { db, user: () => user, membro: () => membro, notas: () => notasProvas, arq: ARQ, toast, render: () => { if (aba === 'provas') render(); } };
 const quadro = (pag, titulo) => `<iframe class="quadro" src="${pag}?embed=1" title="${titulo}" loading="lazy" allow="microphone"></iframe>`;
@@ -250,7 +249,7 @@ inicio(){
       <p class="sub">Comandos, aerodinâmica, limites e emergências do R22, tráfego e fonia; depois, o Esquilo. Marque cada item ao terminar.</p>
       <div class="linha-acao"><button class="pri" data-ir="estudo">Abrir o cronograma</button><button data-ir="revisao">Revisão R22</button></div></div>
     <div class="caixa"><div class="rotulo">Atalhos</div><div class="linha-acao">
-      <button class="pri" data-ir="diario">📒 Lançar voo</button><button data-ir="fichas">📷 DB e Ficha</button><button data-ir="tempo">🌤️ Tempo</button><button data-ir="gastos">💸 Lançar gasto</button><button data-ir="compras">🛒 Lista de compras${compras.filter((x) => !x.feito).length ? ` (${compras.filter((x) => !x.feito).length})` : ''}</button><button data-ir="provas">✍️ Provas (${totalQuestoes()} questões)</button><button data-ir="anotacoes">📝 Anotações${anotacoes.filter((x) => !x.feito).length ? ` (${anotacoes.filter((x) => !x.feito).length})` : ''}</button><button data-ir="treino">🎧 Fonia e METAR</button><button data-ir="materiais">📄 Materiais</button><a class="btn" href="${SIMULADOR}" target="_blank" rel="noopener">🚁 Simulador</a></div></div>
+      <button class="pri" data-ir="diario">📒 Lançar voo</button><button data-ir="fip">🎯 FIP do curso</button><button data-ir="tempo">🌤️ Tempo</button><button data-ir="gastos">💸 Lançar gasto</button><button data-ir="compras">🛒 Lista de compras${compras.filter((x) => !x.feito).length ? ` (${compras.filter((x) => !x.feito).length})` : ''}</button><button data-ir="provas">✍️ Provas (${totalQuestoes()} questões)</button><button data-ir="anotacoes">📝 Anotações${anotacoes.filter((x) => !x.feito).length ? ` (${anotacoes.filter((x) => !x.feito).length})` : ''}</button><button data-ir="treino">🎧 Fonia e METAR</button><button data-ir="materiais">📄 Materiais</button><a class="btn" href="${SIMULADOR}" target="_blank" rel="noopener">🚁 Simulador</a></div></div>
   </div>
   <div class="grade">
     <div class="caixa"><div class="rotulo">A turma</div>
@@ -301,8 +300,33 @@ materiais(){
   <div class="caixa"><h3>Pasta completa</h3><div class="links">${DRIVE_PASTA ? `<a class="pdf" href="https://drive.google.com/drive/folders/${DRIVE_PASTA}" target="_blank" rel="noopener">📁 Abrir a pasta no Google Drive</a>` : ''}<a href="${SIMULADOR}" target="_blank" rel="noopener">Simulador Heli (21 fases)</a></div></div>`;
 },
 gastos(){ return quadro('gastos.html', 'Gastos da turma'); },
-diario(){ return `<p class="sub">Só você vê os seus voos.</p>` + quadro('diario.html', 'Diário de voo'); },
-fichas(){ return `<p class="sub">Diário de Bordo (DB) e Ficha de Avaliação de Voo (FAV) de cada voo. Só você vê os seus.</p>` + quadro('fichas.html', 'DB e Ficha de Voo'); },
+diario(){ return `<p class="sub">Só você vê os seus voos. <a href="fichas.html" target="_blank" rel="noopener">Arquivos antigos de DB e ficha</a> continuam guardados aí, caso você já tenha subido algum.</p>` + quadro('diario.html', 'Diário de voo'); },
+fip(){
+  // o que cada um já cumpriu sai dos próprios voos: o código da missão vem nas observações
+  const feitas = new Set();
+  meusVoos.forEach((v) => codigosDoExercicio((v.obs || '') + ' ' + (v.exercicios || []).join(' ')).forEach((c) => feitas.add(c)));
+  const todas = FIP.fases.flatMap((f) => f.missoes), nFeitas = todas.filter((m) => feitas.has(m.cod)).length;
+  const prox = todas.find((m) => !feitas.has(m.cod));
+  const prevMin = todas.reduce((s, m) => s + m.min, 0), feitoMin = todas.filter((m) => feitas.has(m.cod)).reduce((s, m) => s + m.min, 0);
+  const prep = (m) => { const p = m.preparo; if (!p) return '';
+    return `<div class="tp-int"><b>Preparo para esta missão</b>
+      <p>${esc(p.objetivo)}</p>${p.pre ? `<p class="sub">Pré-requisito: ${esc(p.pre)}</p>` : ''}
+      ${p.exercicios ? `<b>O que vai ser avaliado</b><ul>${p.exercicios.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+      ${p.tolerancias ? `<b>Tolerâncias</b><ul>${p.tolerancias.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+      ${p.bizus ? `<b>Bizu</b><ul>${p.bizus.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+      ${p.video ? `<div class="links"><a href="${yt(p.video)}" target="_blank" rel="noopener">▶ Vídeos sobre a missão</a></div>` : ''}</div>`; };
+  const fase = (f) => { const ok = f.missoes.filter((m) => feitas.has(m.cod)).length;
+    return `<details class="mat-grupo" ${f.missoes.some((m) => m.preparo && !feitas.has(m.cod)) ? 'open' : ''}><summary>Fase ${f.n} · ${esc(f.nome)} <span class="selo ${ok === f.missoes.length ? 'ok' : ok ? 'al' : 'la'}">${ok}/${f.missoes.length}</span></summary>
+      ${f.missoes.map((m) => { const d = feitas.has(m.cod);
+        return `<div class="tp-est"><div class="cab"><b>${d ? '✓ ' : ''}${esc(m.cod)}</b><span class="sub">${m.tipo === 'SOLO' ? 'solo' : 'duplo comando'} · ${hmin(m.min)}${m.pousos ? ' · ' + m.pousos + ' pousos' : ''}${m.endosso ? ' · endosso' : ''}${m.obs ? ' · ' + esc(m.obs) : ''}</span></div>${prep(m)}</div>`; }).join('')}</details>`; };
+  return `<div class="cab"><h2>FIP · o curso inteiro</h2><span class="selo ${nFeitas ? 'al' : 'la'}">${nFeitas} de ${todas.length} missões</span></div>
+  <p class="intro">O Programa de Instrução do PPH: tudo o que a turma tem pela frente até o fim do curso, fase por fase. As missões que você já cumpriu são marcadas pelos seus próprios voos do Diário, pelo código da missão nas observações (ex.: INCT-01, TMS-01/02).</p>
+  <div class="caixa destaque"><div class="barra"><i style="width:${Math.round(feitoMin / prevMin * 100)}%"></i></div>
+    <p class="sub">${prox ? `Sua próxima missão: <b>${esc(prox.cod)}</b> · ${prox.tipo === 'SOLO' ? 'solo' : 'duplo comando'} · ${hmin(prox.min)}${prox.endosso ? ' · voo de endosso' : ''}` : 'Todas as missões cumpridas.'}
+      <br>Previsto na FIP: <b>${hmin(prevMin)}</b> · você cumpriu: <b>${hmin(feitoMin)}</b>.</p></div>
+  ${FIP.fases.map(fase).join('')}
+  <p class="sub">${esc(FIP.rodape || '')}</p>`;
+},
 /*@ACESSOS@*/
 };
 

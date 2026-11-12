@@ -97,6 +97,10 @@ th{font-size:12px;color:var(--tinta3);text-transform:uppercase;letter-spacing:.0
 .opcao{display:block;width:100%;text-align:left;font-weight:600;background:var(--painel);border:1.5px solid var(--linha);margin-top:6px}
 .opcao.certa{border-color:var(--ok);background:var(--ok-claro)} .opcao.errada{border-color:var(--perigo);background:var(--perigo-claro)}
 .mat-grupo summary{cursor:pointer;font-weight:700;padding:6px 0}
+/* traduções nossas das Safety Notices */
+.trad p{margin:8px 0;font-size:15px;line-height:1.55}
+.trad[open] summary{border-bottom:1px solid var(--linha);margin-bottom:6px}
+.trad .assina{font-size:12px;color:var(--tinta3);font-style:italic;margin-top:8px}
 .mat-item{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--linha);font-size:14.5px}
 .mat-item .nome{min-width:0;overflow-wrap:anywhere}
 .caminho{font-family:var(--mono);font-size:12px;color:var(--tinta3);overflow-wrap:anywhere}
@@ -199,6 +203,19 @@ th{font-size:12px;color:var(--tinta3);text-transform:uppercase;letter-spacing:.0
 .ct-cobrar{background:var(--ok-claro);border-color:var(--ok)}
 .ct-cobrar h3{color:var(--ok)}
 .ct-cobrar ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px;font-size:14.5px}
+.ct-semvoo{border:2px solid var(--alerta);box-shadow:inset 4px 0 0 var(--alerta)}
+.ct-sv{display:flex;flex-direction:column}
+.ct-sv-item{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-bottom:1px solid var(--linha);font-size:14.5px}
+.ct-sv-item:last-child{border-bottom:0}
+.ct-sv-item b{font-size:16px}
+.ct-tag{align-self:flex-start;font-size:11.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 10px}
+.ct-tag.sim{background:var(--ok-claro);color:var(--ok)}
+.ct-tag.nao{background:var(--perigo-claro);color:var(--perigo)}
+.ct-tag.info{background:var(--laranja-claro);color:var(--laranja-esc)}
+.ct-refs{display:flex;flex-wrap:wrap;gap:2px 6px}
+.ct-passos{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14.5px}
+.ct-mod summary{cursor:pointer;font-weight:700;color:var(--laranja-esc)}
+.ct-mod textarea{width:100%;margin:8px 0;font-size:13.5px;line-height:1.4}
 @media(max-width:520px){.ct-horas div,.ct-prazos div,.ct-fatos div{grid-template-columns:minmax(0,1fr)}}
 .goa-como summary{cursor:pointer;font-weight:700;color:var(--perigo)}
 .goa-como ol{margin:8px 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14.5px}

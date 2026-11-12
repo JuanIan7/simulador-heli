@@ -27,6 +27,268 @@ const DADOS = { FONIA, ALFABETO, NUMEROS, PALAVRAS_PADRAO, TRANSPONDER, METAR };
 const ARQ = Object.fromEntries(Object.entries(DRIVE).map(([k, id]) => [k, `https://drive.google.com/file/d/${id}/view`]));
 const CHAVE_CODIGO = 'gastos-codigo';
 const SIMULADOR = './';
+function codigosDoExercicio(s){
+  const out = new Set(), re = /([A-Z]{2,5})-?\s*(\d{1,2}(?:\s*\/\s*\d{1,2})*)/g;
+  const txt = String(s || '').toUpperCase();
+  let m; while ((m = re.exec(txt))) m[2].split('/').forEach((n) => out.add(m[1] + '-' + String(+n).padStart(2, '0')));
+  if (/\bAVX\b/.test(txt)) out.add('AVX');
+  return out;
+}
+const hmin = (m) => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
+const FIP = {
+ "titulo": "FIP · Programa de Instrução do PPH",
+ "escola": "EACAR · PI PPH001 · módulo prático · etapa II · R22 (HMNC) · VFR",
+ "totalHoras": 35,
+ "fases": [
+  {
+   "n": 1,
+   "nome": "Introdução ao voo e controle da aeronave",
+   "missoes": [
+    {
+     "cod": "INCT-01",
+     "tipo": "DC",
+     "min": 60
+    },
+    {
+     "cod": "INCT-02",
+     "tipo": "DC",
+     "min": 60
+    },
+    {
+     "cod": "INCT-03",
+     "tipo": "DC",
+     "min": 60
+    }
+   ]
+  },
+  {
+   "n": 2,
+   "nome": "Treinamento de manobras e operação no solo",
+   "missoes": [
+    {
+     "cod": "TMS-01",
+     "tipo": "DC",
+     "min": 60
+    },
+    {
+     "cod": "TMS-02",
+     "tipo": "DC",
+     "min": 60
+    },
+    {
+     "cod": "TMS-03",
+     "tipo": "DC",
+     "min": 60,
+     "pousos": 5,
+     "preparo": {
+      "objetivo": "Controlar a aeronave perto do solo com consciência do espaço usado para deslocar. Já aplicando pouso e decolagem, indo para o pairado e saindo dele.",
+      "pre": "Ter sido aprovado na TMS-02.",
+      "exercicios": [
+       "Pairado com o aluno assumindo todos os comandos",
+       "Táxi aéreo: velocidade e altura precisas",
+       "Efeito da direção e da intensidade do vento na atitude e na margem de controle",
+       "Giro de 360° em torno da posição do piloto, do mastro e do rotor de cauda",
+       "Clarear a área em quadrantes",
+       "Deslocamento lateral e à ré, aproado com o vento",
+       "Quadrado de proa constante e de proa variável"
+      ],
+      "tolerancias": [
+       "Táxi: ±1 m do traçado · ±5° da proa · ±20% da altura",
+       "Giro de 360°: rolamento ±5° · altitude ±100 ft"
+      ],
+      "bizus": [
+       "5 pousos previstos nesta missão: é a de maior repetição da fase.",
+       "Pedal e coletivo andam juntos: ao subir o coletivo, o nariz vai para a direita e pede pedal esquerdo.",
+       "No deslocamento à ré e lateral o perigo é o rotor de cauda, que você não vê. Clareie a área em quadrantes ANTES, não durante.",
+       "Perto do solo, excesso de passo derruba a RPM e pode dar guinada incontrolável para a direita (SN-42, traduzida no Hangar)."
+      ],
+      "video": "pairado R22 táxi aéreo giro no ponto instrução helicóptero"
+     }
+    }
+   ]
+  },
+  {
+   "n": 3,
+   "nome": "Treinamento de manobras em voo e aproximações",
+   "missoes": [
+    {
+     "cod": "TMA-01",
+     "tipo": "DC",
+     "min": 60,
+     "pousos": 10,
+     "preparo": {
+      "objetivo": "Aplicar o que veio das fases anteriores nos limites operacionais e na relação entre atitude e potência, em manobras em voo e nas aproximações.",
+      "pre": "Ter sido aprovado na TMS-03.",
+      "exercicios": [
+       "Transição do pairado para a subida e da aproximação para o pairado",
+       "Clarear a área",
+       "Efeito solo e sustentação de deslocamento",
+       "Efeitos do vento na transição, de e para o pairado",
+       "Aproximação normal: rampa, potência, atitude e proa alinhada",
+       "Decolagem vertical e cheque do pairado",
+       "Riscos da movimentação lateral ou à ré próximo ao solo"
+      ],
+      "tolerancias": [
+       "10 pousos previstos: a missão de mais repetição do curso até aqui."
+      ],
+      "bizus": [
+       "A aproximação normal é o coração da missão: interceptar a rampa, manter o ângulo, e reconhecer a perda da sustentação de deslocamento no fim.",
+       "Ao perder a translacional na final, o rotor rende menos: vai precisar de MAIS coletivo, e logo de mais pedal esquerdo.",
+       "A ficha chama de LTE o efeito do vento no rotor de cauda. Cuidado: a SN-42 da Robinson diz que o rotor de cauda dela dificilmente sofre LTE, e que o nome certo é guinada inesperada, por pedal insuficiente. Vale conhecer as duas versões antes do briefing.",
+       "Efeito solo: dentro dele precisa de menos potência; ao sair, precisa de mais. Em dia quente e com peso é onde falta margem."
+      ],
+      "video": "aproximação normal helicóptero R22 efeito solo sustentação translacional"
+     }
+    },
+    {
+     "cod": "TMA-02",
+     "tipo": "DC",
+     "min": 60
+    },
+    {
+     "cod": "TMA-03",
+     "tipo": "DC",
+     "min": 60
+    },
+    {
+     "cod": "TMA-04",
+     "tipo": "DC",
+     "min": 60
+    },
+    {
+     "cod": "TMA-05",
+     "tipo": "DC",
+     "min": 60
+    }
+   ]
+  },
+  {
+   "n": 4,
+   "nome": "Procedimentos avançados e de emergência",
+   "missoes": [
+    {
+     "cod": "PE-01",
+     "tipo": "DC",
+     "min": 60
+    },
+    {
+     "cod": "PE-02",
+     "tipo": "DC",
+     "min": 60
+    },
+    {
+     "cod": "PE-03",
+     "tipo": "DC",
+     "min": 60
+    },
+    {
+     "cod": "PE-04",
+     "tipo": "DC",
+     "min": 60
+    }
+   ]
+  },
+  {
+   "n": 5,
+   "nome": "Treinamento de voo noturno",
+   "missoes": [
+    {
+     "cod": "NOT-01",
+     "tipo": "DC",
+     "min": 60
+    },
+    {
+     "cod": "NOT-02",
+     "tipo": "DC",
+     "min": 60
+    },
+    {
+     "cod": "NOT-03",
+     "tipo": "DC",
+     "min": 60
+    }
+   ]
+  },
+  {
+   "n": 6,
+   "nome": "Treinamento de voo solo",
+   "missoes": [
+    {
+     "cod": "SOLO-01",
+     "tipo": "DC",
+     "min": 60,
+     "endosso": true
+    },
+    {
+     "cod": "SOLO-02",
+     "tipo": "SOLO",
+     "min": 60
+    },
+    {
+     "cod": "SOLO-03",
+     "tipo": "SOLO",
+     "min": 60
+    },
+    {
+     "cod": "SOLO-04",
+     "tipo": "SOLO",
+     "min": 60
+    },
+    {
+     "cod": "SOLO-05",
+     "tipo": "SOLO",
+     "min": 60
+    },
+    {
+     "cod": "SOLO-06",
+     "tipo": "SOLO",
+     "min": 60
+    }
+   ]
+  },
+  {
+   "n": 7,
+   "nome": "Procedimentos de navegação",
+   "missoes": [
+    {
+     "cod": "NV-01",
+     "tipo": "DC",
+     "min": 150,
+     "obs": "100 NM"
+    },
+    {
+     "cod": "NV-02",
+     "tipo": "DC",
+     "min": 150,
+     "endosso": true
+    },
+    {
+     "cod": "NV-03",
+     "tipo": "SOLO",
+     "min": 150
+    },
+    {
+     "cod": "NV-04",
+     "tipo": "SOLO",
+     "min": 150
+    }
+   ]
+  },
+  {
+   "n": 8,
+   "nome": "Endosso de aviônicos",
+   "missoes": [
+    {
+     "cod": "AVX",
+     "tipo": "DC",
+     "min": 60,
+     "endosso": true
+    }
+   ]
+  }
+ ],
+ "rodape": "Resumo do Programa de Instrução da EACAR (PI PPH001). O que vale é a FIP oficial e o seu instrutor. Preparo e bizus são nossos (Hangar CCOA, by Claude), não são da escola."
+};
 const yt = (q) => 'https://www.youtube.com/results?search_query=' + encodeURIComponent(q);
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -34,7 +296,7 @@ const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTi
 function toast(t){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2400); }
 const pdf = (k, rot) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_blank" rel="noopener">📄 ${esc(rot)}</a>` : `<span class="sub">📄 ${esc(rot)}</span>`;
 
-const ABAS = [['inicio','Início'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['contrato','Contrato'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['diario','Diário de voo'],['fichas','DB e Ficha'],['acessos','Acessos e rotas']];
+const ABAS = [['inicio','Início'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['contrato','Contrato'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['fip','FIP'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
 let aba = (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
 let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], compras = [], errCompras = '', anotacoes = [], errAnotacoes = '', notasProvas = [], meusDocs = [], meusVoos = [], meusDias = [], diaOutro = '', parar = [], trocandoPix = false;
 
@@ -279,32 +541,22 @@ function perguntaOntem() {
   return meusDias.some((d) => d.iso === iso) || meusDocs.some((d) => (d.data || d.voo.slice(0, 10)) === iso) ? '' : perguntaDia(iso, `ontem (${iso.split('-').reverse().join('/').slice(0, 5)})`);
 }
 async function marcarDia(iso, dados) {
-  try { await setDoc(doc(db, 'diario', user.uid, 'dias', iso), { ...dados, em: serverTimestamp() }); diaOutro = ''; if (dados.voou) toast('Marcado: voou. Guarde o DB e a ficha na aba DB e Ficha.'); }
+  try { await setDoc(doc(db, 'diario', user.uid, 'dias', iso), { ...dados, em: serverTimestamp() }); diaOutro = ''; if (dados.voou) toast('Marcado: voou.'); }
   catch (e) { toast('Não salvou: ' + (e.code === 'permission-denied' ? 'o "voou hoje?" ainda está sendo ativado no banco.' : e.code || e.message)); }
-}
-function blocoDocs() {
-  const { total, pend } = pendenciasDocs(), dBR = (iso) => iso ? iso.split('-').reverse().join('/').slice(0, 5) : '';
-  const enviou = (iso) => meusDocs.some((d) => (d.data || d.voo.slice(0, 10)) === iso);
-  return `<div class="goa-docs ${pend.length ? 'pend' : 'ok'}">
-    ${pend.length ? `<b>⚠ Seus documentos de voo que faltam no Hangar:</b><ul>${pend.map((x) => `<li>${x.aula ? 'Aula ' + x.aula : 'Voo'} · ${dBR(x.data)}: falta ${x.falta.join(' e ')}</li>`).join('')}</ul>`
-      : total ? `<b>✓ Seus documentos de voo estão em dia</b> <span class="sub">(${total} voo${total > 1 ? 's' : ''} com DB e ficha)</span>` : '<b>Nenhum documento de voo guardado ainda.</b>'}
-    ${perguntaDia(hoje(), 'hoje')}${perguntaOntem()}
-    <div class="linha-acao"><button class="${pend.length ? 'pri' : ''}" data-ir="fichas">📷 ${pend.length ? 'Enviar o que falta' : 'Enviar DB e ficha'}</button></div></div>`;
 }
 const cartaoGoa = () => `<div class="caixa goa-cartao">
   <div class="goa-topo"><span class="goa-ico">📋</span><div><div class="rotulo">Todo dia · exigência do GOA</div><h3>Acompanhamento diário do curso</h3>
     <p class="sub">Uma resposta para cada atividade (dois voos = duas respostas). Dia sem voo também: marque "Não" e informe o motivo.</p></div></div>
   <div class="linha-acao"><a class="btn pri goa-bt" href="${FORM_GOA}" target="_blank" rel="noopener">Preencher o formulário de hoje</a><button data-ir="contrato">📜 O que diz o contrato</button></div>
-  ${blocoDocs()}
+  <div class="goa-docs ok">${perguntaDia(hoje(), 'hoje')}${perguntaOntem()}</div>
   <details class="goa-como"><summary>Como preencher (8 páginas)</summary><ol>
     <li><b>Identificação:</b> seu nome na lista, a data e se houve instrução. Se não houve, o formulário pula para "Dia sem atividade" (motivo, se a escola avisou e a nova data).</li>
     <li><b>Atividade:</b> tipo (voo de instrução, ground school, simulador...), se estava no cronograma, horários efetivos de início e fim, a fase (Fase 1 – Adaptação, por enquanto) e a missão como está na ficha (ex.: INCT-02).</li>
     <li><b>Dados do voo:</b> modelo e matrícula (R22, PR-HMI), instrutor e CANAC, saída e destino (SISY), horas de decolagem e pouso, tempo de voo lançado na ficha, natureza (duplo comando), decolagens, pousos e rota.</li>
     <li><b>Instrução:</b> briefing, debriefing, se o instrutor passou os pontos a melhorar, o grau da ficha, se precisa repetir e o parecer.</li>
-    <li><b>Documentação:</b> anexar a foto ou o PDF da <b>Ficha de Avaliação</b> e do <b>Diário de Bordo (DB)</b>.</li>
+    <li><b>Documentação:</b> a escola passou a enviar a Ficha de Avaliação e o Diário de Bordo automaticamente — não é mais preciso anexar foto nem PDF.</li>
     <li><b>Execução do contrato:</b> aeronave, instrutor e material disponíveis, se a atividade foi integral e se houve ocorrência.</li>
-    <li><b>Declaração</b> e enviar.</li></ol>
-    <p class="sub">Dica: guarde a foto ou o PDF do DB e da ficha na aba <b>DB e Ficha</b> do Hangar (só a data e os arquivos, sem digitar nada). Fica tudo num lugar para ver e baixar na hora de anexar no formulário. Os horários do DB estão em UTC (Z): em Piraquara, hora local = Z − 3 h.</p></details>
+    <li><b>Declaração</b> e enviar.</li></ol></details>
 </div>`;
 const ctxProvas = { db, user: () => user, membro: () => membro, notas: () => notasProvas, arq: ARQ, toast, render: () => { if (aba === 'provas') render(); } };
 const quadro = (pag, titulo) => `<iframe class="quadro" src="${pag}?embed=1" title="${titulo}" loading="lazy" allow="microphone"></iframe>`;
@@ -325,7 +577,7 @@ inicio(){
       <p class="sub">Comandos, aerodinâmica, limites e emergências do R22, tráfego e fonia; depois, o Esquilo. Marque cada item ao terminar.</p>
       <div class="linha-acao"><button class="pri" data-ir="estudo">Abrir o cronograma</button><button data-ir="revisao">Revisão R22</button></div></div>
     <div class="caixa"><div class="rotulo">Atalhos</div><div class="linha-acao">
-      <button class="pri" data-ir="diario">📒 Lançar voo</button><button data-ir="fichas">📷 DB e Ficha</button><button data-ir="tempo">🌤️ Tempo</button><button data-ir="gastos">💸 Lançar gasto</button><button data-ir="compras">🛒 Lista de compras${compras.filter((x) => !x.feito).length ? ` (${compras.filter((x) => !x.feito).length})` : ''}</button><button data-ir="provas">✍️ Provas (${totalQuestoes()} questões)</button><button data-ir="anotacoes">📝 Anotações${anotacoes.filter((x) => !x.feito).length ? ` (${anotacoes.filter((x) => !x.feito).length})` : ''}</button><button data-ir="treino">🎧 Fonia e METAR</button><button data-ir="materiais">📄 Materiais</button><a class="btn" href="${SIMULADOR}" target="_blank" rel="noopener">🚁 Simulador</a></div></div>
+      <button class="pri" data-ir="diario">📒 Lançar voo</button><button data-ir="fip">🎯 FIP do curso</button><button data-ir="tempo">🌤️ Tempo</button><button data-ir="gastos">💸 Lançar gasto</button><button data-ir="compras">🛒 Lista de compras${compras.filter((x) => !x.feito).length ? ` (${compras.filter((x) => !x.feito).length})` : ''}</button><button data-ir="provas">✍️ Provas (${totalQuestoes()} questões)</button><button data-ir="anotacoes">📝 Anotações${anotacoes.filter((x) => !x.feito).length ? ` (${anotacoes.filter((x) => !x.feito).length})` : ''}</button><button data-ir="treino">🎧 Fonia e METAR</button><button data-ir="materiais">📄 Materiais</button><a class="btn" href="${SIMULADOR}" target="_blank" rel="noopener">🚁 Simulador</a></div></div>
   </div>
   <div class="grade">
     <div class="caixa"><div class="rotulo">A turma</div>
@@ -396,7 +648,9 @@ revisao(){
       <div class="reflexo">Perda do rotor de cauda em voo: autorrotação, ≥ 70 KIAS. No pairado: manete na mola de sobrecurso.</div>
       <p class="sub">Gelo no carburador é provável entre −4 e 30 °C com OAT − orvalho &lt; 15 °C: Rio e Curitiba se encaixam bem.</p></div>
   </div>
-  <div class="caixa"><h3>Safety Notices que mais pesam</h3><div class="links">${SN.map(([k,c,t]) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_blank" rel="noopener">${c} · ${esc(t)}</a>` : `<span class="sub">${c} · ${esc(t)}</span>`).join('')}</div>
+  <div class="caixa"><div class="cab"><h3>Safety Notices que mais pesam</h3><span class="selo la">${Object.keys(TRAD).length} em português</span></div>
+    <p class="sub">A Robinson só publica em inglês. Estas são <b>traduções nossas</b> (Hangar CCOA · by Claude), para estudar no celular. Toque para abrir em português; o original em inglês está no fim de cada uma. <b>Não são documento oficial: em caso de dúvida vale o original.</b></p>
+    ${SN.map(([k,c,t]) => traducaoSN(k,c,t)).join('')}
     <p class="sub">Use a SFAR 73 dos EUA como padrão de segurança: gestão de energia, mast bumping, baixa RPM (estol de pá), baixo G e decaimento de RPM.</p></div>`;
 },
 treino(){
@@ -438,8 +692,33 @@ materiais(){
   <div class="caixa"><h3>Pasta completa</h3><div class="links">${DRIVE_PASTA ? `<a class="pdf" href="https://drive.google.com/drive/folders/${DRIVE_PASTA}" target="_blank" rel="noopener">📁 Abrir a pasta no Google Drive</a>` : ''}<a href="${SIMULADOR}" target="_blank" rel="noopener">Simulador Heli (21 fases)</a></div></div>`;
 },
 gastos(){ return quadro('gastos.html', 'Gastos da turma'); },
-diario(){ return `<p class="sub">Só você vê os seus voos.</p>` + quadro('diario.html', 'Diário de voo'); },
-fichas(){ return `<p class="sub">Diário de Bordo (DB) e Ficha de Avaliação de Voo (FAV) de cada voo. Só você vê os seus.</p>` + quadro('fichas.html', 'DB e Ficha de Voo'); },
+diario(){ return `<p class="sub">Só você vê os seus voos. <a href="fichas.html" target="_blank" rel="noopener">Arquivos antigos de DB e ficha</a> continuam guardados aí, caso você já tenha subido algum.</p>` + quadro('diario.html', 'Diário de voo'); },
+fip(){
+  // o que cada um já cumpriu sai dos próprios voos: o código da missão vem nas observações
+  const feitas = new Set();
+  meusVoos.forEach((v) => codigosDoExercicio((v.obs || '') + ' ' + (v.exercicios || []).join(' ')).forEach((c) => feitas.add(c)));
+  const todas = FIP.fases.flatMap((f) => f.missoes), nFeitas = todas.filter((m) => feitas.has(m.cod)).length;
+  const prox = todas.find((m) => !feitas.has(m.cod));
+  const prevMin = todas.reduce((s, m) => s + m.min, 0), feitoMin = todas.filter((m) => feitas.has(m.cod)).reduce((s, m) => s + m.min, 0);
+  const prep = (m) => { const p = m.preparo; if (!p) return '';
+    return `<div class="tp-int"><b>Preparo para esta missão</b>
+      <p>${esc(p.objetivo)}</p>${p.pre ? `<p class="sub">Pré-requisito: ${esc(p.pre)}</p>` : ''}
+      ${p.exercicios ? `<b>O que vai ser avaliado</b><ul>${p.exercicios.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+      ${p.tolerancias ? `<b>Tolerâncias</b><ul>${p.tolerancias.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+      ${p.bizus ? `<b>Bizu</b><ul>${p.bizus.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+      ${p.video ? `<div class="links"><a href="${yt(p.video)}" target="_blank" rel="noopener">▶ Vídeos sobre a missão</a></div>` : ''}</div>`; };
+  const fase = (f) => { const ok = f.missoes.filter((m) => feitas.has(m.cod)).length;
+    return `<details class="mat-grupo" ${f.missoes.some((m) => m.preparo && !feitas.has(m.cod)) ? 'open' : ''}><summary>Fase ${f.n} · ${esc(f.nome)} <span class="selo ${ok === f.missoes.length ? 'ok' : ok ? 'al' : 'la'}">${ok}/${f.missoes.length}</span></summary>
+      ${f.missoes.map((m) => { const d = feitas.has(m.cod);
+        return `<div class="tp-est"><div class="cab"><b>${d ? '✓ ' : ''}${esc(m.cod)}</b><span class="sub">${m.tipo === 'SOLO' ? 'solo' : 'duplo comando'} · ${hmin(m.min)}${m.pousos ? ' · ' + m.pousos + ' pousos' : ''}${m.endosso ? ' · endosso' : ''}${m.obs ? ' · ' + esc(m.obs) : ''}</span></div>${prep(m)}</div>`; }).join('')}</details>`; };
+  return `<div class="cab"><h2>FIP · o curso inteiro</h2><span class="selo ${nFeitas ? 'al' : 'la'}">${nFeitas} de ${todas.length} missões</span></div>
+  <p class="intro">O Programa de Instrução do PPH: tudo o que a turma tem pela frente até o fim do curso, fase por fase. As missões que você já cumpriu são marcadas pelos seus próprios voos do Diário, pelo código da missão nas observações (ex.: INCT-01, TMS-01/02).</p>
+  <div class="caixa destaque"><div class="barra"><i style="width:${Math.round(feitoMin / prevMin * 100)}%"></i></div>
+    <p class="sub">${prox ? `Sua próxima missão: <b>${esc(prox.cod)}</b> · ${prox.tipo === 'SOLO' ? 'solo' : 'duplo comando'} · ${hmin(prox.min)}${prox.endosso ? ' · voo de endosso' : ''}` : 'Todas as missões cumpridas.'}
+      <br>Previsto na FIP: <b>${hmin(prevMin)}</b> · você cumpriu: <b>${hmin(feitoMin)}</b>.</p></div>
+  ${FIP.fases.map(fase).join('')}
+  <p class="sub">${esc(FIP.rodape || '')}</p>`;
+},
 acessos(){
   const ad = (c,n,s) => `<a href="https://aisweb.decea.mil.br/?i=aerodromos&codigo=${c}" target="_blank" rel="noopener"><b class="mono">${c}</b> ${n}</a>${s?`<span class="sub" style="align-self:center">${s}</span>`:''}`;
   return `<h2>Acessos e rotas</h2>
