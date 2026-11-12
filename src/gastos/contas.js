@@ -2,6 +2,7 @@
 // A chave Pix fica em gastosMembros/{uid}.pix: cada um grava a sua, e todos do grupo leem para copiar na hora de pagar.
 // Acerto em dois passos: quem deve avisa que pagou (gastos/{id}.informados[]) e só quem recebe confirma (quitados[]).
 import { doc, writeBatch, updateDoc, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
+import { partesParaAvisar, partesParaQuitar } from './acerto.js';
 export const hojeIso = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
 
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -45,9 +46,7 @@ export function calcular(lista) {
 // Quita todas as partes pendentes entre duas pessoas (nos dois sentidos, porque o acerto já é a diferença). Devolve quantas.
 export async function quitarPar(db, gastos, a, b, quem) {
   const lote = writeBatch(db); let n = 0;
-  for (const g of gastos) {
-    const devedor = g.pagoPor === b ? a : g.pagoPor === a ? b : null;
-    if (!devedor || !(g.participantes || []).includes(devedor) || (g.quitados || []).includes(devedor)) continue;
+  for (const { g, devedor } of partesParaQuitar(gastos, a, b)) {
     // set+merge (e não update) porque o nome pode ter espaço ou acento, o que não cabe num caminho "quitadosEm.Nome"
     lote.set(doc(db, 'gastos', g.id), { quitados: arrayUnion(devedor), quitadosEm: { [devedor]: hojeIso() }, atualizadoPor: quem, atualizadoEm: serverTimestamp() }, { merge: true }); n++;
   }
@@ -55,13 +54,12 @@ export async function quitarPar(db, gastos, a, b, quem) {
   return n;
 }
 
-// O devedor avisa que pagou (ou desfaz o aviso). Marca as partes pendentes nos dois sentidos, porque o acerto já é a diferença.
+// O devedor avisa que pagou (ou desfaz o aviso). Só o sentido dele: confirmar o recebimento é do outro lado.
 export async function informarPar(db, gastos, de, para, quem, desfazer = false) {
+  if (quem !== de) throw new Error('o aviso de pagamento é de quem paga');
   const lote = writeBatch(db); let n = 0;
-  for (const g of gastos) {
-    const devedor = g.pagoPor === para ? de : g.pagoPor === de ? para : null;
-    if (!devedor || !(g.participantes || []).includes(devedor) || (g.quitados || []).includes(devedor)) continue;
-    if (desfazer === (g.informados || []).includes(devedor)) { lote.update(doc(db, 'gastos', g.id), { informados: desfazer ? arrayRemove(devedor) : arrayUnion(devedor), atualizadoPor: quem, atualizadoEm: serverTimestamp() }); n++; }
+  for (const g of partesParaAvisar(gastos, de, para)) {
+    if (desfazer === (g.informados || []).includes(de)) { lote.update(doc(db, 'gastos', g.id), { informados: desfazer ? arrayRemove(de) : arrayUnion(de), atualizadoPor: quem, atualizadoEm: serverTimestamp() }); n++; }
   }
   if (n) await lote.commit();
   return n;
