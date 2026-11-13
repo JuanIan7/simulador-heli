@@ -807,11 +807,10 @@ revisao(){
       <div class="reflexo">Perda do rotor de cauda em voo: autorrotação, ≥ 70 KIAS. No pairado: manete na mola de sobrecurso.</div>
       <p class="sub">Gelo no carburador é provável entre −4 e 30 °C com OAT − orvalho &lt; 15 °C: Rio e Curitiba se encaixam bem.</p></div>
   </div>
-  <div class="caixa"><div class="cab"><h3>Safety Notices que mais pesam</h3><span class="selo ok">19 em português</span></div>
-    <div class="reflexo" style="border-left-color:var(--ok);background:var(--ok-claro)">A EACAR traduziu as Safety Notices: <b>19 avisos ilustrados</b>, com fotos da frota da escola. É a referência.
-      <div class="links" style="margin-top:6px">${pdf('eacarsn','Safety Notices da EACAR, em português')}</div></div>
-    <p class="sub">Os originais da Robinson, em inglês, abrem um a um:</p>
-    <div class="links">${SN.map(([k,c,t]) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_blank" rel="noopener">${c} · ${esc(t)}</a>` : `<span class="sub">${c} · ${esc(t)}</span>`).join('')}</div>
+  <div class="caixa"><div class="cab"><h3>Safety Notices que mais pesam</h3><span class="selo la">${Object.keys(TRAD).length} em português</span></div>
+    <div class="reflexo" style="border-left-color:var(--ok);background:var(--ok-claro)">A EACAR entregou em 12/11 a <b>tradução oficial dela</b>, com 19 avisos ilustrados e fotos da frota da escola. <b>É essa que vale.</b><div class="links" style="margin-top:6px">${pdf('eacarsn','Safety Notices da EACAR, em português')}</div></div>
+    <p class="sub">Abaixo ficam as <b>nossas</b> traduções (Hangar CCOA · by Claude), feitas antes de a da escola chegar. Servem como leitura rápida aqui dentro, sem abrir PDF, e trazem o original em inglês no fim de cada uma. Em qualquer divergência, vale a da EACAR e depois o original da Robinson.</p>
+    ${SN.map(([k,c,t]) => traducaoSN(k,c,t)).join('')}
     <p class="sub">Use a SFAR 73 dos EUA como padrão de segurança: gestão de energia, mast bumping, baixa RPM (estol de pá), baixo G e decaimento de RPM.</p></div>`;
 },
 treino(){
