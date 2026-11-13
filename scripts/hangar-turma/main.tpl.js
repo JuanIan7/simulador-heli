@@ -18,6 +18,7 @@ import { telaCompras, ligarCompras, digitandoCompras } from './compras.js';
 import { telaAnotacoes, ligarAnotacoes, digitandoAnotacoes } from './anotacoes.js';
 import { telaProvas, ligarProvas, emProva, totalQuestoes } from './provas.js';
 import { telaContrato } from './contrato.js';
+import { telaFotos, ligarFotos } from './fotos.js';
 import { telaTempo, ligarTempo, resumoInicio } from './tempo.js';
 import { limpar, limparNome, linkSeguro, ligarMascaras } from '../entrada.js';
 
@@ -48,7 +49,7 @@ const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTi
 function toast(t){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2400); }
 const pdf = (k, rot) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_blank" rel="noopener">📄 ${esc(rot)}</a>` : `<span class="sub">📄 ${esc(rot)}</span>`;
 
-const ABAS = [['inicio','Início'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['contrato','Contrato'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['fip','FIP'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
+const ABAS = [['inicio','Início'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['contrato','Contrato'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['fotos','Fotos e vídeos'],['fip','FIP'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
 let aba = (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
 let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], compras = [], errCompras = '', anotacoes = [], errAnotacoes = '', notasProvas = [], meusDocs = [], meusVoos = [], meusDias = [], diaOutro = '', parar = [], trocandoPix = false;
 
@@ -256,7 +257,7 @@ inicio(){
       <p class="sub">Comandos, aerodinâmica, limites e emergências do R22, tráfego e fonia; depois, o Esquilo. Marque cada item ao terminar.</p>
       <div class="linha-acao"><button class="pri" data-ir="estudo">Abrir o cronograma</button><button data-ir="revisao">Revisão R22</button></div></div>
     <div class="caixa"><div class="rotulo">Atalhos</div><div class="linha-acao">
-      <button class="pri" data-ir="diario">📒 Lançar voo</button><button data-ir="fip">🎯 FIP do curso</button><button data-ir="tempo">🌤️ Tempo</button><button data-ir="gastos">💸 Lançar gasto</button><button data-ir="compras">🛒 Lista de compras${compras.filter((x) => !x.feito).length ? ` (${compras.filter((x) => !x.feito).length})` : ''}</button><button data-ir="provas">✍️ Provas (${totalQuestoes()} questões)</button><button data-ir="anotacoes">📝 Anotações${anotacoes.filter((x) => !x.feito).length ? ` (${anotacoes.filter((x) => !x.feito).length})` : ''}</button><button data-ir="treino">🎧 Fonia e METAR</button><button data-ir="materiais">📄 Materiais</button><a class="btn" href="${SIMULADOR}" target="_blank" rel="noopener">🚁 Simulador</a></div></div>
+      <button class="pri" data-ir="diario">📒 Lançar voo</button><button data-ir="fip">🎯 FIP do curso</button><button data-ir="tempo">🌤️ Tempo</button><button data-ir="gastos">💸 Lançar gasto</button><button data-ir="compras">🛒 Lista de compras${compras.filter((x) => !x.feito).length ? ` (${compras.filter((x) => !x.feito).length})` : ''}</button><button data-ir="provas">✍️ Provas (${totalQuestoes()} questões)</button><button data-ir="anotacoes">📝 Anotações${anotacoes.filter((x) => !x.feito).length ? ` (${anotacoes.filter((x) => !x.feito).length})` : ''}</button><button data-ir="fotos">📸 Fotos e vídeos</button><button data-ir="treino">🎧 Fonia e METAR</button><button data-ir="materiais">📄 Materiais</button><a class="btn" href="${SIMULADOR}" target="_blank" rel="noopener">🚁 Simulador</a></div></div>
   </div>
   <div class="grade">
     <div class="caixa"><div class="rotulo">A turma</div>
@@ -274,6 +275,7 @@ tempo(){ return telaTempo(); },
 compras(){ return telaCompras(compras, errCompras); },
 anotacoes(){ return telaAnotacoes(anotacoes, errAnotacoes); },
 contrato(){ return telaContrato(ARQ); },
+fotos(){ return telaFotos(); },
 provas(){ return telaProvas(ctxProvas); },
 estudo(){
   const f = feitos(membro);
@@ -372,6 +374,7 @@ const LIGAR = {
   },
   compras(c){ ligarCompras(c, { db, user: () => user, membro: () => membro, compras: () => compras, toast, render: () => { if (aba === 'compras') render(); } }); },
   provas(c){ ligarProvas(c, ctxProvas); },
+  fotos(c){ ligarFotos(c, () => { if (aba === 'fotos') render(); }); },
   anotacoes(c){ ligarAnotacoes(c, { db, user: () => user, membro: () => membro, anotacoes: () => anotacoes, toast, render: () => { if (aba === 'anotacoes') render(); } }); },
   tempo(c){ ligarTempo(c, { decodificarMetar, toast, render: () => { if (aba === 'tempo') render(); } }); },
   // botão do link da turma (fica no Início; vale para qualquer tela que o tenha)

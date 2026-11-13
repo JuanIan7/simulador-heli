@@ -224,6 +224,9 @@ th{font-size:12px;color:var(--tinta3);text-transform:uppercase;letter-spacing:.0
 .ct-passos{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14.5px}
 .ct-mod summary{cursor:pointer;font-weight:700;color:var(--laranja-esc)}
 .ct-mod textarea{width:100%;margin:8px 0;font-size:13.5px;line-height:1.4}
+.ft-cab{margin-top:12px;flex-wrap:wrap;gap:8px}
+.ft-cab a.chip{text-decoration:none;display:inline-flex;align-items:center}
+.ft-quadro{width:100%;height:65vh;min-height:360px;border:1px solid var(--linha);border-radius:12px;background:#fff;margin-top:8px;display:block}
 @media(max-width:520px){.ct-horas div,.ct-prazos div,.ct-fatos div{grid-template-columns:minmax(0,1fr)}}
 .goa-como summary{cursor:pointer;font-weight:700;color:var(--perigo)}
 .goa-como ol{margin:8px 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14.5px}
