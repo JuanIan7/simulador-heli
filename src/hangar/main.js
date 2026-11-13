@@ -296,35 +296,40 @@ const NOVIDADES = {
    "data": "2026-11-12",
    "titulo": "Safety Notices da Robinson em português, pela EACAR",
    "desc": "19 avisos traduzidos e ilustrados, com fotos da frota da escola. Substitui a nossa tradução como referência.",
-   "aba": "revisao"
+   "aba": "revisao",
+   "arq": "eacarsn"
   },
   {
    "id": "eacarpoh27-2026-11-12",
    "data": "2026-11-12",
    "titulo": "POH do R22 Beta II 2026/2027, tradução da EACAR",
    "desc": "Versão nova da tradução do Manual de Operação do Piloto, 86 páginas.",
-   "aba": "materiais"
+   "aba": "materiais",
+   "arq": "eacarpoh27"
   },
   {
    "id": "eacarmanobras-2026-11-12",
    "data": "2026-11-12",
    "titulo": "Manual de Manobras da EACAR, edição revisada",
    "desc": "Padronização da instrução prática de voo no R22: 6 capítulos, 41 tópicos, 126 páginas.",
-   "aba": "materiais"
+   "aba": "materiais",
+   "arq": "eacarmanobras"
   },
   {
    "id": "eacarpeso-2026-11-12",
    "data": "2026-11-12",
    "titulo": "Peso e balanceamento do PR-HNE, passo a passo",
    "desc": "Guia do aluno com os dados de pesagem desta matrícula já preenchidos: peso vazio 887,60 lb, braço 103,69 in.",
-   "aba": "materiais"
+   "aba": "materiais",
+   "arq": "eacarpeso"
   },
   {
    "id": "fip-2026-11-12",
    "data": "2026-11-12",
    "titulo": "FIP do PPH: o curso inteiro, fase por fase",
    "desc": "As 29 missões, 35 h, com tempo e pousos previstos. Começou o preparo de cada missão: objetivo, o que é avaliado, tolerâncias e bizu.",
-   "aba": "fip"
+   "aba": "fip",
+   "arq": "fip"
   },
   {
    "id": "sn-pt-2026-11-12",
@@ -340,10 +345,15 @@ const NOVIDADES = {
 const novVistas = () => { try { return new Set(JSON.parse(localStorage.getItem('nov-vistas') || '[]')); } catch { return new Set(); } };
 const novNovas = () => { const v = novVistas(); return (NOVIDADES.itens || []).filter(i => !v.has(i.id)); };
 function novMarcar(){ try { localStorage.setItem('nov-vistas', JSON.stringify((NOVIDADES.itens || []).map(i => i.id))); } catch(e) {} }
+const novItem = (i) => `<li><div class="txt"><div class="titulo">${esc(i.titulo)}</div><div class="sub">${dBR(i.data)} · ${esc(i.desc)}</div>
+  <div class="links">${i.arq ? pdf(i.arq, 'Abrir o arquivo') : ''}${i.aba ? `<a href="#${esc(i.aba)}" data-ir="${esc(i.aba)}">Ver na aba</a>` : ''}</div></div></li>`;
 function cartaoNovidades(){
-  const n = novNovas(); if (!n.length) return '';
+  const n = novNovas(), todas = NOVIDADES.itens || [];
+  // nada novo: a lista continua à mão, fechada e sem piscar, para nunca se perder
+  if (!n.length) return todas.length ? `<details class="caixa"><summary class="rotulo">Materiais que já chegaram (${todas.length})</summary>
+    <ul class="lista-check">${todas.map(novItem).join('')}</ul></details>` : '';
   return `<div class="caixa novo-aviso"><div class="cab"><h3><span class="novo-sino">🔔</span> ${n.length} ${n.length > 1 ? 'materiais novos' : 'material novo'} no Hangar</h3><span class="selo pe novo-selo">NOVO</span></div>
-    <ul class="lista-check">${n.map(i => `<li><div class="txt"><div class="titulo">${esc(i.titulo)}</div><div class="sub">${dBR(i.data)} · ${esc(i.desc)}</div>${i.aba ? `<div class="links"><a href="#${esc(i.aba)}" data-ir="${esc(i.aba)}">Abrir</a></div>` : ''}</div></li>`).join('')}</ul>
+    <ul class="lista-check">${n.map(novItem).join('')}</ul>
     <div class="linha-acao"><button class="pri" id="novOk">Vi, obrigado</button></div></div>`;
 }
 const TRAD = {
