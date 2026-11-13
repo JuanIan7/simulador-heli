@@ -871,11 +871,20 @@ fip(){
     return `<details class="mat-grupo" ${f.missoes.some((m) => m.preparo && !feitas.has(m.cod)) ? 'open' : ''}><summary>Fase ${f.n} · ${esc(f.nome)} <span class="selo ${ok === f.missoes.length ? 'ok' : ok ? 'al' : 'la'}">${ok}/${f.missoes.length}</span></summary>
       ${f.missoes.map((m) => { const d = feitas.has(m.cod);
         return `<div class="tp-est"><div class="cab"><b>${d ? '✓ ' : ''}${esc(m.cod)}</b><span class="sub">${m.tipo === 'SOLO' ? 'solo' : 'duplo comando'} · ${hmin(m.min)}${m.pousos ? ' · ' + m.pousos + ' pousos' : ''}${m.endosso ? ' · endosso' : ''}${m.obs ? ' · ' + esc(m.obs) : ''}</span></div>${prep(m)}</div>`; }).join('')}</details>`; };
-  return `<div class="cab"><h2>FIP · o curso inteiro</h2><span class="selo ${nFeitas ? 'al' : 'la'}">${nFeitas} de ${todas.length} missões</span></div>
+  // sem missão reconhecida não dá para dizer "você cumpriu 0h": o certo é dizer que falta lançar
+  const semDados = !feitas.size;
+  const topo = semDados
+    ? `<div class="caixa destaque"><div class="rotulo">Ainda não dá para marcar o seu progresso</div>
+        <p>O Hangar lê as missões cumpridas dos <b>seus voos no Diário de voo</b>, pelo código da missão nas observações (ex.: <b>INCT-01</b>, <b>TMS-01/02</b>).</p>
+        <p class="sub">${meusVoos.length ? `Você tem ${meusVoos.length} voo(s) lançado(s), mas nenhum com o código da missão nas observações. Edite o voo e escreva o código, que o progresso aparece sozinho.` : 'Você ainda não lançou nenhum voo no Diário. Lance os seus voos (ou importe de uma vez) e esta aba passa a mostrar onde você está no curso.'}</p>
+        <div class="linha-acao"><button class="pri" data-ir="diario">📒 Abrir o Diário de voo</button></div>
+        <p class="sub">O curso inteiro continua listado abaixo, com o preparo de cada missão.</p></div>`
+    : `<div class="caixa destaque"><div class="barra"><i style="width:${Math.round(feitoMin / prevMin * 100)}%"></i></div>
+        <p class="sub">${prox ? `Sua próxima missão: <b>${esc(prox.cod)}</b> · ${prox.tipo === 'SOLO' ? 'solo' : 'duplo comando'} · ${hmin(prox.min)}${prox.endosso ? ' · voo de endosso' : ''}` : 'Todas as missões cumpridas.'}
+          <br>Previsto na FIP: <b>${hmin(prevMin)}</b> · você cumpriu: <b>${hmin(feitoMin)}</b>.</p></div>`;
+  return `<div class="cab"><h2>FIP · o curso inteiro</h2><span class="selo ${nFeitas ? 'al' : 'la'}">${semDados ? todas.length + ' missões' : nFeitas + ' de ' + todas.length + ' missões'}</span></div>
   <p class="intro">O Programa de Instrução do PPH: tudo o que a turma tem pela frente até o fim do curso, fase por fase. As missões que você já cumpriu são marcadas pelos seus próprios voos do Diário, pelo código da missão nas observações (ex.: INCT-01, TMS-01/02).</p>
-  <div class="caixa destaque"><div class="barra"><i style="width:${Math.round(feitoMin / prevMin * 100)}%"></i></div>
-    <p class="sub">${prox ? `Sua próxima missão: <b>${esc(prox.cod)}</b> · ${prox.tipo === 'SOLO' ? 'solo' : 'duplo comando'} · ${hmin(prox.min)}${prox.endosso ? ' · voo de endosso' : ''}` : 'Todas as missões cumpridas.'}
-      <br>Previsto na FIP: <b>${hmin(prevMin)}</b> · você cumpriu: <b>${hmin(feitoMin)}</b>.</p></div>
+  ${topo}
   ${FIP.fases.map(fase).join('')}
   <div class="caixa"><h3>A FIP em papel</h3>
     <p class="sub">Resumo em PDF para imprimir ou levar: o programa de instrução, uma ficha de avaliação de exemplo (frente e verso) e a Declaração de Realização de Voo Solo. As fichas das outras missões cada um recebe da escola.</p>
