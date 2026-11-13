@@ -330,13 +330,6 @@ const NOVIDADES = {
    "desc": "As 29 missões, 35 h, com tempo e pousos previstos. Começou o preparo de cada missão: objetivo, o que é avaliado, tolerâncias e bizu.",
    "aba": "fip",
    "arq": "fip"
-  },
-  {
-   "id": "sn-pt-2026-11-12",
-   "data": "2026-11-12",
-   "titulo": "As 10 Safety Notices da Robinson em português",
-   "desc": "Tradução nossa, com o original em inglês ao lado de cada uma.",
-   "aba": "revisao"
   }
  ]
 };
@@ -345,8 +338,15 @@ const NOVIDADES = {
 const novVistas = () => { try { return new Set(JSON.parse(localStorage.getItem('nov-vistas') || '[]')); } catch { return new Set(); } };
 const novNovas = () => { const v = novVistas(); return (NOVIDADES.itens || []).filter(i => !v.has(i.id)); };
 function novMarcar(){ try { localStorage.setItem('nov-vistas', JSON.stringify((NOVIDADES.itens || []).map(i => i.id))); } catch(e) {} }
-const novItem = (i) => `<li><div class="txt"><div class="titulo">${esc(i.titulo)}</div><div class="sub">${dBR(i.data)} · ${esc(i.desc)}</div>
-  <div class="links">${i.arq ? pdf(i.arq, 'Abrir o arquivo') : ''}${i.aba ? `<a href="#${esc(i.aba)}" data-ir="${esc(i.aba)}">Ver na aba</a>` : ''}</div></div></li>`;
+// a FIP é aba própria no Hangar da Turma e um painel dentro de "Diário de voo" aqui
+const ALIAS_ABA = { fip: 'voo' };
+const abaDe = (k) => ABAS.some(a => a[0] === k) ? k : (ALIAS_ABA[k] || 'inicio');
+const nomeAba = (k) => { const a = abaDe(k); return (ABAS.find(x => x[0] === a) || [a, a])[1]; };
+// com arquivo, o título abre o PDF; embaixo, os dois caminhos separados e nomeados
+const novItem = (i) => `<li><div class="txt">
+  <div class="titulo">${i.arq && ARQ[i.arq] ? `<a href="${esc(ARQ[i.arq])}" target="_blank" rel="noopener">📄 ${esc(i.titulo)}</a>` : esc(i.titulo)}</div>
+  <div class="sub">${dBR(i.data)} · ${esc(i.desc)}</div>
+  <div class="linha-acao" style="margin-top:6px">${i.arq && ARQ[i.arq] ? `<a class="btn pri" href="${esc(ARQ[i.arq])}" target="_blank" rel="noopener">📄 Abrir o arquivo</a>` : ''}${i.aba ? `<button type="button" class="fantasma" data-ir="${esc(abaDe(i.aba))}">Ir para a aba ${esc(nomeAba(i.aba))}</button>` : ''}</div></div></li>`;
 function cartaoNovidades(){
   const n = novNovas(), todas = NOVIDADES.itens || [];
   // nada novo: a lista continua à mão, fechada e sem piscar, para nunca se perder
@@ -807,10 +807,11 @@ revisao(){
       <div class="reflexo">Perda do rotor de cauda em voo: autorrotação, ≥ 70 KIAS. No pairado: manete na mola de sobrecurso.</div>
       <p class="sub">Gelo no carburador é provável entre −4 e 30 °C com OAT − orvalho &lt; 15 °C: Rio e Curitiba se encaixam bem.</p></div>
   </div>
-  <div class="caixa"><div class="cab"><h3>Safety Notices que mais pesam</h3><span class="selo la">${Object.keys(TRAD).length} em português</span></div>
-    <div class="reflexo" style="border-left-color:var(--ok);background:var(--ok-claro)">A EACAR entregou em 12/11 a <b>tradução oficial dela</b>, com 19 avisos ilustrados e fotos da frota da escola. <b>É essa que vale.</b><div class="links" style="margin-top:6px">${pdf('eacarsn','Safety Notices da EACAR, em português')}</div></div>
-    <p class="sub">Abaixo ficam as <b>nossas</b> traduções (Hangar CCOA · by Claude), feitas antes de a da escola chegar. Servem como leitura rápida aqui dentro, sem abrir PDF, e trazem o original em inglês no fim de cada uma. Em qualquer divergência, vale a da EACAR e depois o original da Robinson.</p>
-    ${SN.map(([k,c,t]) => traducaoSN(k,c,t)).join('')}
+  <div class="caixa"><div class="cab"><h3>Safety Notices que mais pesam</h3><span class="selo ok">19 em português</span></div>
+    <div class="reflexo" style="border-left-color:var(--ok);background:var(--ok-claro)">A EACAR traduziu as Safety Notices: <b>19 avisos ilustrados</b>, com fotos da frota da escola. É a referência.
+      <div class="links" style="margin-top:6px">${pdf('eacarsn','Safety Notices da EACAR, em português')}</div></div>
+    <p class="sub">Os originais da Robinson, em inglês, abrem um a um:</p>
+    <div class="links">${SN.map(([k,c,t]) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_blank" rel="noopener">${c} · ${esc(t)}</a>` : `<span class="sub">${c} · ${esc(t)}</span>`).join('')}</div>
     <p class="sub">Use a SFAR 73 dos EUA como padrão de segurança: gestão de energia, mast bumping, baixa RPM (estol de pá), baixo G e decaimento de RPM.</p></div>`;
 },
 treino(){
