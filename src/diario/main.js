@@ -121,11 +121,17 @@ function telaPrincipal() {
         <div class="tot"><span>Capota (IFR)</span><b>${hm(t.capota)}</b></div>
       </div>
       ${meta ? `<div><div class="cab"><span class="sub">Meta do curso: ${perfil.meta} h</span><span class="sub">${Math.min(100, Math.round(t.total / meta * 100))}%</span></div><div class="barra"><i style="width:${Math.min(100, t.total / meta * 100)}%"></i></div></div>` : ''}
-      ${pend ? `<div class="dica"><b>${pend} voo(s) ainda não conferido(s) com a CIV Digital.</b> Abra a CIV (ANAC › SACI ou app ANAC) e compare data, aeronave, tempos e pousos.</div>` : voos.length ? '<div class="dica">Todos os voos conferidos com a CIV.</div>' : ''}
+      ${pend ? (() => {
+        const porInstrutor = {};
+        voos.filter((v) => (v.civ || 'nao') === 'nao' && v.instrutor).forEach((v) => (porInstrutor[v.instrutor] = porInstrutor[v.instrutor] || []).push(v));
+        const quem = Object.entries(porInstrutor).sort((a, b) => b[1].length - a[1].length);
+        return `<div class="dica"><b>${pend} voo(s) ainda não conferido(s) com a CIV Digital.</b> Abra a CIV (ANAC › SACI ou app ANAC) e compare data, aeronave, tempos e pousos.
+          ${quem.length ? `<br><b>A cobrar o lançamento:</b> ${quem.map(([n, l]) => `${esc(n)} <span class="sub">(${l.map((v) => dBR(v.data).slice(0, 5)).join(', ')})</span>`).join(' · ')}` : ''}</div>`;
+      })() : voos.length ? '<div class="dica">Todos os voos conferidos com a CIV.</div>' : ''}
     </section>
     <section class="cartao"><div class="cab"><h2>Voos</h2><div class="chips"><button class="chip" aria-pressed="${filtro === 'todos'}" data-f="todos">Todos</button><button class="chip" aria-pressed="${filtro === 'pendentes'}" data-f="pendentes">Falta conferir</button></div></div>
-      ${lista.length ? `<div class="tabela"><table><thead><tr><th>Data</th><th>Aeronave</th><th>Trecho</th><th>Horário</th><th class="n">Diurno</th><th class="n">Noturno</th><th class="n">Pousos</th><th>Função</th><th>CIV</th><th></th></tr></thead><tbody>
-        ${lista.map((v) => { const c = CIV[v.civ || 'nao']; return `<tr><td>${dBR(v.data)}</td><td>${esc(v.modelo)}<br><span class="sub">${esc(v.matricula)}</span></td><td>${esc(v.origem)}${v.destino && v.destino !== v.origem ? '→' + esc(v.destino) : ''}</td><td>${esc(v.inicio || '')}–${esc(v.fim || '')}</td><td class="n">${hm(v.diurno)}</td><td class="n">${hm(v.noturno)}</td><td class="n">${(v.pousosD || 0) + (v.pousosN || 0)}</td><td>${esc((FUNCOES[v.funcao] || '').split(' (')[0])}</td><td><span class="selo ${c[0]}">${c[1]}</span></td><td><button class="mini" data-ed="${v.id}">Abrir</button></td></tr>`; }).join('')}
+      ${lista.length ? `<div class="tabela"><table><thead><tr><th>Data</th><th>Aeronave</th><th>Trecho</th><th>Horário</th><th class="n">Diurno</th><th class="n">Noturno</th><th class="n">Pousos</th><th>Função</th><th>Instrutor</th><th>CIV</th><th></th></tr></thead><tbody>
+        ${lista.map((v) => { const c = CIV[v.civ || 'nao']; return `<tr><td>${dBR(v.data)}</td><td>${esc(v.modelo)}<br><span class="sub">${esc(v.matricula)}</span></td><td>${esc(v.origem)}${v.destino && v.destino !== v.origem ? '→' + esc(v.destino) : ''}</td><td>${esc(v.inicio || '')}–${esc(v.fim || '')}</td><td class="n">${hm(v.diurno)}</td><td class="n">${hm(v.noturno)}</td><td class="n">${(v.pousosD || 0) + (v.pousosN || 0)}</td><td>${esc((FUNCOES[v.funcao] || '').split(' (')[0])}</td><td>${v.instrutor ? `<b>${esc(v.instrutor)}</b>${v.canacInstrutor ? `<br><span class="sub">CANAC ${esc(v.canacInstrutor)}</span>` : ''}` : '<span class="sub">—</span>'}</td><td><span class="selo ${c[0]}">${c[1]}</span></td><td><button class="mini" data-ed="${v.id}">Abrir</button></td></tr>`; }).join('')}
       </tbody></table></div>` : `<div class="vazio">${voos.length ? 'Nenhum voo pendente de conferência.' : 'Nenhum voo lançado ainda. Toque em <b>+ Novo voo</b> logo depois de cada voo, com o horário de início e fim.'}</div>`}
       <div class="linha-acao">${voos.length ? '<button id="btCsv">Baixar planilha (CSV)</button><button id="btCopiar">Copiar resumo</button>' : ''}<button id="btImportar">Importar voos</button></div>
     </section>
