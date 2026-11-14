@@ -250,6 +250,7 @@ export function telaGoa() {
       <label>Conta do Google que vai responder<input id="goaEmail" type="email" inputmode="email" autocomplete="email" placeholder="seu.email@gmail.com" value="${esc(email)}"></label>
     </div>
     <p class="sub">O formulário abre <b>já nesta conta</b> e com o e-mail preenchido. Quem tem mais de uma conta do Google no celular: confira aqui, porque trocar de conta dentro do formulário apaga tudo o que já estava preenchido. Fica guardado só neste aparelho.</p>
+    <p class="sub"><b>Atenção:</b> a conta precisa estar conectada neste navegador. Se não estiver, o Google abre calado na conta padrão. Confira o e-mail que aparece no topo do formulário, ao lado de "Mudar de conta": se for outro, feche, entre na conta certa no Google e abra de novo por aqui.</p>
   </div>`;
 
   if (est.etapa === 'previa') {
@@ -263,7 +264,7 @@ export function telaGoa() {
     <div class="caixa goa-fim">
       ${contaPronta ? '' : '<p class="pv-alerta">Escolha o militar e a conta do Google lá em cima antes de abrir.</p>'}
       <div class="linha-acao"><a id="goaAbrir" class="btn pri goa-bt${contaPronta ? '' : ' goa-off'}" href="${contaPronta ? esc(link) : '#'}" target="_blank" rel="noopener">Abrir o formulário preenchido ↗</a><button id="goaCopiar">Copiar o link</button><button id="goaRecomecar" class="fantasma">Outra ficha</button></div>
-      <p class="sub">Dois voos no mesmo dia = duas respostas: faça uma ficha de cada vez.</p></div>`;
+      <p class="sub">No topo do formulário tem que aparecer <b>${esc(email || 'a sua conta')}</b>. Se aparecer outra, não preencha por lá: entre nessa conta no Google e abra de novo por aqui. Dois voos no mesmo dia = duas respostas: uma ficha de cada vez. Quem voou termina na página "6. Execução contratual", com o botão Enviar.</p></div>`;
   }
 
   return `<h2>Formulário do GOA pela ficha</h2>
