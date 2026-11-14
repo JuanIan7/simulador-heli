@@ -21,7 +21,7 @@ a{color:var(--laranja-esc)}
 .faixa{background:var(--laranja);color:var(--sobre-laranja)}
 .faixa-in,.abas-in,.conteudo,.rodape{max-width:1100px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .faixa-in{display:flex;align-items:center;gap:16px;padding-block:16px;flex-wrap:wrap}
-.faixa img{width:58px;height:58px;border-radius:14px;background:#fff;padding:4px}
+.faixa img{width:58px;height:58px}
 .faixa h1{font-family:var(--display);font-weight:800;font-size:clamp(28px,6vw,42px);line-height:1;letter-spacing:.02em;margin:0;text-transform:uppercase}
 .faixa .lema{font-size:14px;opacity:.92}
 .faixa .contagem{margin-left:auto;text-align:right;font-family:var(--display);line-height:1}
@@ -227,6 +227,26 @@ th{font-size:12px;color:var(--tinta3);text-transform:uppercase;letter-spacing:.0
 .ft-cab{margin-top:12px;flex-wrap:wrap;gap:8px}
 .ft-cab a.chip{text-decoration:none;display:inline-flex;align-items:center}
 .ft-quadro{width:100%;height:65vh;min-height:360px;border:1px solid var(--linha);border-radius:12px;background:#fff;margin-top:8px;display:block}
+.goa-conta{border:2px solid var(--ok)}
+.goa-conta.goa-falta{border-color:var(--perigo);box-shadow:inset 4px 0 0 var(--perigo)}
+.goa-grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:10px;margin-top:8px}
+.goa-grade .largo{grid-column:1/-1}
+.goa-campo{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:var(--tinta2);min-width:0}
+.goa-campo b{color:var(--tinta);font-size:14px}
+.goa-campo .chips{display:flex;flex-wrap:wrap;gap:6px}
+.goa-duv input,.goa-duv select,.goa-duv textarea{border-color:var(--alerta);background:var(--alerta-claro)}
+.goa-confira{display:inline-block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--alerta);background:var(--alerta-claro);border-radius:999px;padding:1px 8px}
+.goa-caixas{display:flex;flex-direction:column;gap:6px}
+.goa-cx{display:flex;align-items:center;gap:8px;font-weight:500;color:var(--tinta)}
+.goa-cx input{width:22px;min-height:22px;flex:none}
+.goa-envio{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.goa-arq{cursor:pointer;display:inline-flex;align-items:center}
+.goa-arqs{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.goa-arqs img{height:110px;width:auto;max-width:100%;border-radius:8px;border:1px solid var(--linha);object-fit:cover}
+.goa-pag .rotulo{color:var(--laranja-esc)}
+.goa-fim{position:sticky;bottom:8px;z-index:3;box-shadow:0 6px 24px -10px var(--tinta)}
+.goa-off{opacity:.5}
+.goa-como ul{margin:8px 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14.5px}
 @media(max-width:520px){.ct-horas div,.ct-prazos div,.ct-fatos div{grid-template-columns:minmax(0,1fr)}}
 .goa-como summary{cursor:pointer;font-weight:700;color:var(--perigo)}
 .goa-como ol{margin:8px 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14.5px}

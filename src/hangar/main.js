@@ -19,6 +19,7 @@ import { telaAnotacoes, ligarAnotacoes, digitandoAnotacoes } from './anotacoes.j
 import { telaProvas, ligarProvas, emProva, totalQuestoes } from './provas.js';
 import { telaContrato } from './contrato.js';
 import { telaFotos, ligarFotos } from './fotos.js';
+import { telaGoa, ligarGoa, prepararSemVoo } from './goaficha.js';
 import { telaTempo, ligarTempo, resumoInicio } from './tempo.js';
 import { limpar, limparNome, linkSeguro, ligarMascaras } from '../entrada.js';
 
@@ -454,7 +455,7 @@ const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTi
 function toast(t){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2400); }
 const pdf = (k, rot) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_blank" rel="noopener">📄 ${esc(rot)}</a>` : `<span class="sub">📄 ${esc(rot)}</span>`;
 
-const ABAS = [['inicio','Início'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['contrato','Contrato'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['fotos','Fotos e vídeos'],['fip','FIP'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
+const ABAS = [['inicio','Início'],['goa','Form do GOA'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['contrato','Contrato'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['fotos','Fotos e vídeos'],['fip','FIP'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
 let aba = (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
 let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], compras = [], errCompras = '', anotacoes = [], errAnotacoes = '', notasProvas = [], meusDocs = [], meusVoos = [], meusDias = [], diaOutro = '', parar = [], trocandoPix = false;
 
@@ -670,6 +671,11 @@ function irPara(k) { aba = k; try { history.replaceState(null, '', '#' + k); } c
 // allow="microphone": a página de gastos deixa falar o gasto (reconhecimento de voz do navegador)
 // Formulário diário do GOA (Acompanhamento PPH/2026, Contrato 089/2026): um por atividade, todo dia, inclusive sem voo.
 const FORM_GOA = 'https://forms.gle/vFepv8CD5RDd7Ret7';
+function instrutoresConhecidos() {
+  const m = new Map();
+  for (const v of meusVoos) if (v.instrutor) m.set((v.canacInstrutor || v.instrutor).toString(), { nome: v.instrutor, canac: String(v.canacInstrutor || '') });
+  return [...m.values()];
+}
 // Voos do Diário (registros de horas ou só documentos), na ordem, com o que falta: DB e/ou ficha
 function pendenciasDocs() {
   const g = new Map();
@@ -688,7 +694,7 @@ const isoMenos = (n) => { const d = new Date(Date.parse(hoje() + 'T12:00:00')); 
 function perguntaDia(iso, rotulo) {
   const r = meusDias.find((d) => d.iso === iso), temDoc = meusDocs.some((d) => (d.data || d.voo.slice(0, 10)) === iso);
   if (r?.voou === false) { const m = MOTIVOS[r.motivo] || MOTIVOS.outro;
-    return `<div class="dia-res">Sem voo ${rotulo}: <b>${esc(r.motivo === 'outro' && r.outro ? r.outro : m[0])}</b> <span class="sub">· no formulário do GOA: "Não" › motivo "${esc(m[1])}"</span> <button class="mini fantasma" data-dia-mudar="${iso}">mudar</button></div>`; }
+    return `<div class="dia-res">Sem voo ${rotulo}: <b>${esc(r.motivo === 'outro' && r.outro ? r.outro : m[0])}</b> <span class="sub">· no formulário do GOA: "Não" › motivo "${esc(m[1])}"</span> <button class="mini" data-goa-sem="${iso}">📋 Formulário já preenchido</button> <button class="mini fantasma" data-dia-mudar="${iso}">mudar</button></div>`; }
   if (r?.voou || temDoc) return temDoc ? '' : `<div class="dia-res">Voou ${rotulo}: guarde o DB e a ficha (está na lista acima). <button class="mini fantasma" data-dia-mudar="${iso}">mudar</button></div>`;
   const aberto = diaOutro === iso;
   return `<div class="dia-perg"><b>Voou ${rotulo}?</b>
@@ -706,7 +712,8 @@ async function marcarDia(iso, dados) {
 const cartaoGoa = () => `<div class="caixa goa-cartao">
   <div class="goa-topo"><span class="goa-ico">📋</span><div><div class="rotulo">Todo dia · exigência do GOA</div><h3>Acompanhamento diário do curso</h3>
     <p class="sub">Uma resposta para cada atividade (dois voos = duas respostas). Dia sem voo também: marque "Não" e informe o motivo.</p></div></div>
-  <div class="linha-acao"><a class="btn pri goa-bt" href="${FORM_GOA}" target="_blank" rel="noopener">Preencher o formulário de hoje</a><button data-ir="contrato">📜 O que diz o contrato</button></div>
+  <div class="linha-acao"><button class="pri goa-bt" data-ir="goa">📷 Preencher pela foto da ficha</button><a class="btn" href="${FORM_GOA}" target="_blank" rel="noopener">Formulário em branco ↗</a><button data-ir="contrato">📜 O que diz o contrato</button></div>
+  <p class="sub">Foto ou PDF da ficha → o Hangar lê e abre o formulário já preenchido na sua conta. Você confere as páginas e envia.</p>
   <div class="goa-docs ok">${perguntaDia(hoje(), 'hoje')}${perguntaOntem()}</div>
   <details class="goa-como"><summary>Como preencher (8 páginas)</summary><ol>
     <li><b>Identificação:</b> seu nome na lista, a data e se houve instrução. Se não houve, o formulário pula para "Dia sem atividade" (motivo, se a escola avisou e a nova data).</li>
@@ -756,6 +763,7 @@ compras(){ return telaCompras(compras, errCompras); },
 anotacoes(){ return telaAnotacoes(anotacoes, errAnotacoes); },
 contrato(){ return telaContrato(ARQ); },
 fotos(){ return telaFotos(); },
+goa(){ return telaGoa(); },
 provas(){ return telaProvas(ctxProvas); },
 estudo(){
   const f = feitos(membro);
@@ -975,11 +983,16 @@ const LIGAR = {
       marcarDia(iso, { voou: false, motivo: b.dataset.motivo, outro: '' });
     });
     c.querySelectorAll('[data-dia-outro]').forEach((b) => b.onclick = () => marcarDia(b.dataset.diaOutro, { voou: false, motivo: 'outro', outro: limpar($('#diaOutroTxt').value, 60) }));
+    c.querySelectorAll('[data-goa-sem]').forEach((b) => b.onclick = () => {
+      const iso = b.dataset.goaSem, r = meusDias.find((d) => d.iso === iso) || {}, m = MOTIVOS[r.motivo] || MOTIVOS.outro;
+      prepararSemVoo(iso, m[1], r.motivo === 'outro' ? r.outro || '' : m[0].replace(/^\S+\s/, ''), membro.nome); irPara('goa');
+    });
     c.querySelectorAll('[data-dia-mudar]').forEach((b) => b.onclick = async () => { try { await deleteDoc(doc(db, 'diario', user.uid, 'dias', b.dataset.diaMudar)); } catch (e) { toast('Não deu: ' + (e.code || e.message)); } });
   },
   compras(c){ ligarCompras(c, { db, user: () => user, membro: () => membro, compras: () => compras, toast, render: () => { if (aba === 'compras') render(); } }); },
   provas(c){ ligarProvas(c, ctxProvas); },
   fotos(c){ ligarFotos(c, () => { if (aba === 'fotos') render(); }); },
+  goa(c){ ligarGoa(c, { app, toast, hoje, nome: () => membro?.nome || '', instrutores: instrutoresConhecidos, render: () => { if (aba === 'goa') render(); } }); },
   anotacoes(c){ ligarAnotacoes(c, { db, user: () => user, membro: () => membro, anotacoes: () => anotacoes, toast, render: () => { if (aba === 'anotacoes') render(); } }); },
   tempo(c){ ligarTempo(c, { decodificarMetar, toast, render: () => { if (aba === 'tempo') render(); } }); },
   // botão do link da turma (fica no Início; vale para qualquer tela que o tenha)
