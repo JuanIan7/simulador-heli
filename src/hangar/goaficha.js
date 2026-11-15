@@ -47,7 +47,7 @@ const PAGS_VOO = [
     ['aeronaveDisp', 615736813, 'Aeronave disponível e em condições?', 'radio', ['Sim', 'Não', 'Não se aplica / não houve voo']], ['instrutorDisp', 430923899, 'Instrutor disponível?', 'radio', SNA],
     ['materialDisp', 1093875843, 'Material e equipamentos disponíveis?', 'radio', SNA], ['conforme', 1367237963, 'Ocorreu integralmente conforme programada?', 'radio', SN],
     ['ocorrencia', 1380681158, 'Houve ocorrência, dificuldade ou irregularidade?', 'radio', NS], ['ocorrDesc', 908197795, 'Se houve, descreva', 'parag']]],
-  ['7. Declaração', [['declara', 1897421599, 'Declaração', 'caixas', [DECLARA]], ['obsFinais', 1909206995, 'Observações finais', 'parag']]],
+  ['7. Declaração (só aparece se o formulário pedir)', [['declara', 1897421599, 'Declaração', 'caixas', [DECLARA]], ['obsFinais', 1909206995, 'Observações finais', 'parag']]],
 ];
 const PAGS_SEM = [
   ['1. Identificação', [...P1, ['houve', 2144682723, 'Houve atividade de instrução nesta data?', 'radio', SN]]],
@@ -258,7 +258,7 @@ export function telaGoa() {
     const link = linkForm({ ...est.f, militar }, est.modo, email);
     return `<h2>Formulário do GOA pela ficha</h2>${cabConta}
     <div class="caixa destaque"><b>Prévia: confira página por página.</b> ${est.modelo ? `Lido da ficha pelo ${esc(est.modelo)}.` : 'Preenchido com os padrões da turma.'} ${est.duvidas.length ? `<span class="goa-confira">${est.duvidas.length} campo(s) para conferir</span>` : ''}
-      <p class="sub">Corrija o que precisar aqui mesmo. Depois toque em "Abrir o formulário preenchido": ele abre no Google já com tudo marcado. Vá passando as páginas com "Próxima" e só toque em <b>Enviar</b> no fim, depois de conferir. Daqui nada é enviado.</p>
+      <p class="sub">Corrija o que precisar aqui mesmo. Depois toque em "Abrir o formulário preenchido": ele abre no Google já com tudo marcado. Vá passando as páginas com "Avançar" e só toque em <b>Enviar</b> no fim, depois de conferir. Daqui nada é enviado.</p>
       ${est.arqs.length ? `<div class="goa-arqs">${est.arqs.map((a) => a.url ? `<a href="${a.url}" target="_blank" rel="noopener"><img src="${a.url}" alt="ficha"></a>` : `<span class="chip">📄 ${esc(a.nome)}</span>`).join('')}</div>` : ''}</div>
     ${pags.map(([tit, campos]) => `<div class="caixa goa-pag"><div class="rotulo">Página ${esc(tit)}</div>${campos.length ? `<div class="form goa-grade">${campos.map(campoHTML).join('')}</div>` : '<p class="sub">Upload da ficha e do DB: a escola já envia os dois automaticamente. Se quiser anexar mesmo assim, é nesta página do formulário (anexo não dá para pré-preencher).</p>'}</div>`).join('')}
     <div class="caixa goa-fim">

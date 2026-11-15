@@ -244,7 +244,7 @@ th{font-size:12px;color:var(--tinta3);text-transform:uppercase;letter-spacing:.0
 .goa-arqs{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
 .goa-arqs img{height:110px;width:auto;max-width:100%;border-radius:8px;border:1px solid var(--linha);object-fit:cover}
 .goa-pag .rotulo{color:var(--laranja-esc)}
-.goa-fim{position:sticky;bottom:8px;z-index:3;box-shadow:0 6px 24px -10px var(--tinta)}
+.goa-fim{border:2px solid var(--perigo)}
 .goa-off{opacity:.5}
 .goa-como ul{margin:8px 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14.5px}
 @media(max-width:520px){.ct-horas div,.ct-prazos div,.ct-fatos div{grid-template-columns:minmax(0,1fr)}}
