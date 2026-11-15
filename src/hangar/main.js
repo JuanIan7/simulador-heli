@@ -763,7 +763,7 @@ compras(){ return telaCompras(compras, errCompras); },
 anotacoes(){ return telaAnotacoes(anotacoes, errAnotacoes); },
 contrato(){ return telaContrato(ARQ); },
 fotos(){ return telaFotos(); },
-goa(){ return telaGoa(); },
+goa(){ return telaGoa(meusVoos); },
 provas(){ return telaProvas(ctxProvas); },
 estudo(){
   const f = feitos(membro);
@@ -992,7 +992,10 @@ const LIGAR = {
   compras(c){ ligarCompras(c, { db, user: () => user, membro: () => membro, compras: () => compras, toast, render: () => { if (aba === 'compras') render(); } }); },
   provas(c){ ligarProvas(c, ctxProvas); },
   fotos(c){ ligarFotos(c, () => { if (aba === 'fotos') render(); }); },
-  goa(c){ ligarGoa(c, { app, toast, hoje, nome: () => membro?.nome || '', instrutores: instrutoresConhecidos, render: () => { if (aba === 'goa') render(); } }); },
+  goa(c){ ligarGoa(c, { app, toast, hoje, nome: () => membro?.nome || '', instrutores: instrutoresConhecidos, voos: () => meusVoos, ir: irPara,
+    // mesmo caminho e formato da tela de voo do Diário (diario/{uid}/voos/{id})
+    salvarVoo: (d) => setDoc(doc(db, 'diario', user.uid, 'voos', d.data + '-' + (d.inicio || '').replace(':', '') + '-' + Math.random().toString(36).slice(2, 6)), { ...d, criadoEm: serverTimestamp(), atualizadoEm: serverTimestamp() }),
+    render: () => { if (aba === 'goa') render(); } }); },
   anotacoes(c){ ligarAnotacoes(c, { db, user: () => user, membro: () => membro, anotacoes: () => anotacoes, toast, render: () => { if (aba === 'anotacoes') render(); } }); },
   tempo(c){ ligarTempo(c, { decodificarMetar, toast, render: () => { if (aba === 'tempo') render(); } }); },
   // botão do link da turma (fica no Início; vale para qualquer tela que o tenha)

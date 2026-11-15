@@ -246,6 +246,10 @@ th{font-size:12px;color:var(--tinta3);text-transform:uppercase;letter-spacing:.0
 .goa-pag .rotulo{color:var(--laranja-esc)}
 .goa-fim{border:2px solid var(--perigo)}
 .goa-off{opacity:.5}
+.goa-diario{border:2px solid var(--ok)}
+.goa-diario.goa-pede{box-shadow:0 0 0 4px var(--ok-claro)}
+.goa-resumo{font-size:14.5px;line-height:1.5;background:var(--ok-claro);border-radius:10px;padding:8px 12px}
+.goa-ok{color:var(--ok);font-weight:700;margin:6px 0}
 .goa-como ul{margin:8px 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14.5px}
 @media(max-width:520px){.ct-horas div,.ct-prazos div,.ct-fatos div{grid-template-columns:minmax(0,1fr)}}
 .goa-como summary{cursor:pointer;font-weight:700;color:var(--perigo)}

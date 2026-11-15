@@ -3,6 +3,7 @@
 // Fluxo: conta e militar (uma vez) → foto/PDF da ficha → leitura pelo Gemini (Firebase AI Logic, plano Spark, sem custo)
 // → prévia editável, página por página → link do formulário já preenchido. O site NUNCA envia: quem toca em Enviar é o aluno.
 // Mapa dos campos e regras: automação do Loureiro (14/11/2026), conferida com o formulário no ar no mesmo dia.
+import { dividirVoo, paraMin, LOCAIS } from '../diario/crepusculo.js';
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSd2OFx-J611f1J_CXAiESXHGYNDDM2XcgF1kJMvOf8T0k2njQ/viewform';
@@ -62,7 +63,7 @@ const PAGS_SEM = [
 const CHAVE = 'hangar-goa-conta';
 const lerConta = () => { try { return JSON.parse(localStorage.getItem(CHAVE) || '{}'); } catch { return {}; } };
 const gravarConta = (v) => { try { localStorage.setItem(CHAVE, JSON.stringify(v)); } catch {} };
-const est = { modo: '', etapa: 'escolha', arqs: [], f: {}, erro: '', duvidas: [], modelo: '', lendo: false };
+const est = { diario: '', modo: '', etapa: 'escolha', arqs: [], f: {}, erro: '', duvidas: [], modelo: '', lendo: false };
 const emailOk = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e || '');
 
 // militar da lista a partir do nome do membro ("Juan Araujo" → CAP ... JUAN CARLOS SILVA DE ARAUJO)
@@ -146,6 +147,53 @@ export function fichaParaForm(r, base, instrutores = []) {
   const insat = (r.itensInsatisfatorios || []).filter(Boolean);
   f.pontos = [r.parecer && `Parecer do instrutor: ${String(r.parecer).trim()}`, r.comentarios && `Comentários: ${String(r.comentarios).trim()}`, insat.length && `Itens com grau I: ${insat.join('; ')}`].filter(Boolean).join('\n');
   return f;
+}
+
+// ---------- registro do Diário de voo ----------
+// Mesmo formato que a tela de voo do Diário grava (diario/{uid}/voos/{id}). Início e fim = partida e corte (hora local),
+// que é o tempo que a ficha lança. Diurno/noturno pelo crepúsculo de Piraquara; o total vem do tempo da ficha.
+const minDeDuracao = (t) => { const m = /^(\d{1,2}):(\d{2})/.exec(t || ''); return m ? +m[1] * 60 + +m[2] : 0; };
+export function vooDoForm(f) {
+  const nat = f.natureza || [];
+  const funcao = nat.includes('Solo') ? 'solo' : nat.includes('Piloto em comando') ? 'pic' : 'instrucao';
+  const total = minDeDuracao(f.tempo) || ((paraMin(f.hFim) != null && paraMin(f.hIni) != null) ? ((paraMin(f.hFim) - paraMin(f.hIni) + 1440) % 1440) : 0);
+  let diurno = total, noturno = 0;
+  if (f.hIni && f.hFim && /^\d{4}-\d{2}-\d{2}$/.test(f.data || '')) {
+    const r = dividirVoo(f.data, f.hIni, f.hFim, LOCAIS.piraquara);
+    if (r) { noturno = Math.min(total, r.noturno); diurno = Math.max(0, total - noturno); }
+  }
+  const pousos = Math.min(99, Math.max(0, parseInt(f.pousos, 10) || 0));
+  const obs = [f.missao && String(f.missao).trim(), f.objetivo && f.objetivo !== f.missao ? String(f.objetivo).replace(/^[A-Z]+-\d+\s*·\s*/, '') : '', f.pontos].filter(Boolean).join('. ').replace(/\s+/g, ' ').slice(0, 1900);
+  const noite = noturno > diurno;
+  const d = {
+    data: f.data || '', modelo: String(f.modelo || 'R22').toUpperCase(), matricula: matricula(f.matricula),
+    origem: String(f.saida || 'SISY').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4), destino: String(f.destino || f.saida || 'SISY').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4),
+    inicio: /^\d{2}:\d{2}$/.test(f.hIni || '') ? f.hIni : '', fim: /^\d{2}:\d{2}$/.test(f.hFim || '') ? f.hFim : '', diurno, noturno, funcao,
+    pousosD: noite ? 0 : pousos, pousosN: noite ? pousos : 0, navegacao: nat.includes('Navegação') ? total : 0, capota: nat.includes('Voo por instrumentos / sob capota') ? total : 0,
+    instrutor: String(f.instrutor || '').trim().slice(0, 80), canacInstrutor: String(f.canacInstr || '').replace(/\D/g, '').slice(0, 6), exercicios: [], obs, civ: 'nao',
+  };
+  const erros = [];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d.data)) erros.push('data');
+  if (!/^PR-[A-Z]{3}$/.test(d.matricula)) erros.push('matrícula (PR-ABC)');
+  if (!/^[A-Z]{4}$/.test(d.origem) || !/^[A-Z]{4}$/.test(d.destino)) erros.push('origem e destino (4 letras)');
+  if (d.diurno + d.noturno <= 0) erros.push('tempo de voo');
+  if (d.canacInstrutor && d.canacInstrutor.length !== 6) erros.push('CANAC do instrutor (6 dígitos)');
+  return { d, erros };
+}
+const hm = (m) => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
+const dBR = (iso) => String(iso || '').split('-').reverse().join('/');
+function cartaoDiario(voos) {
+  const { d, erros } = vooDoForm({ ...est.f });
+  const rep = !erros.length && (voos || []).some((v) => v.data === d.data && v.matricula === d.matricula && (v.inicio || '') === d.inicio);
+  const estado = est.diario === 'salvo' ? '<p class="goa-ok">✔ Salvo no seu Diário de voo.</p>'
+    : rep ? '<p class="sub"><b>Este voo já está no seu Diário</b> (mesma data, aeronave e horário). Não vou lançar de novo.</p>'
+    : est.diario === 'nao' ? '<p class="sub">Tudo bem, não lancei no Diário.</p>' : '';
+  return `<div class="caixa goa-diario${est.diario === '' ? ' goa-pede' : ''}" id="goaDiarioCx"><div class="rotulo">📒 Diário de voo</div>
+    <b>Quer lançar este voo também no seu Diário de voo?</b>
+    ${erros.length ? `<p class="pv-alerta">Falta corrigir lá em cima para lançar no Diário: ${esc(erros.join(', '))}.</p>` : `<div class="goa-resumo">${esc(dBR(d.data))} · ${esc(d.modelo)} ${esc(d.matricula)} · ${esc(d.origem)}→${esc(d.destino)} · ${esc(d.inicio)}–${esc(d.fim)} (hora local)<br>Tempo ${hm(d.diurno + d.noturno)} (diurno ${hm(d.diurno)}, noturno ${hm(d.noturno)}) · ${d.pousosD + d.pousosN} pouso(s) · ${esc(d.instrutor || 'sem instrutor')}${d.canacInstrutor ? ' (CANAC ' + esc(d.canacInstrutor) + ')' : ''}<br><span class="sub">Missão no Diário: ${esc((d.obs || '').slice(0, 140))}${(d.obs || '').length > 140 ? '…' : ''}</span></div>`}
+    ${estado}
+    ${est.diario === 'salvo' || rep ? '<div class="linha-acao"><button data-ir="diario">Ver no Diário de voo</button></div>' : `<div class="linha-acao"><button class="pri" id="goaDiarioSim"${erros.length ? ' disabled' : ''}>Sim, lançar no Diário</button><button id="goaDiarioNao">Não</button></div>`}
+  </div>`;
 }
 
 // ---------- link pré-preenchido ----------
@@ -251,7 +299,7 @@ function campoHTML([k, , rot, tipo, opts]) {
   return lab(`<input data-gk="${k}" value="${esc(v)}">`);
 }
 
-export function telaGoa() {
+export function telaGoa(voos = []) {
   const conta = lerConta();
   const militar = conta.militar || '', email = conta.email || '';
   const contaPronta = militar && emailOk(email);
@@ -276,7 +324,8 @@ export function telaGoa() {
     <div class="caixa goa-fim">
       ${contaPronta ? '' : '<p class="pv-alerta">Escolha o militar e a conta do Google lá em cima antes de abrir.</p>'}
       <div class="linha-acao"><a id="goaAbrir" class="btn pri goa-bt${contaPronta ? '' : ' goa-off'}" href="${contaPronta ? esc(link) : '#'}" target="_blank" rel="noopener">Abrir o formulário preenchido ↗</a><button id="goaCopiar">Copiar o link</button><button id="goaRecomecar" class="fantasma">Outra ficha</button></div>
-      <p class="sub">No topo do formulário tem que aparecer <b>${esc(email || 'a sua conta')}</b>. Se aparecer outra, não preencha por lá: entre nessa conta no Google e abra de novo por aqui. Dois voos no mesmo dia = duas respostas: uma ficha de cada vez. Quem voou termina na página "6. Execução contratual", com o botão Enviar.</p></div>`;
+      <p class="sub">No topo do formulário tem que aparecer <b>${esc(email || 'a sua conta')}</b>. Se aparecer outra, não preencha por lá: entre nessa conta no Google e abra de novo por aqui. Dois voos no mesmo dia = duas respostas: uma ficha de cada vez. Quem voou termina na página "6. Execução contratual", com o botão Enviar.</p></div>
+    ${est.modo === 'semvoo' ? '' : cartaoDiario(voos)}`;
   }
 
   return `<h2>Formulário do GOA pela ficha</h2>
@@ -313,19 +362,37 @@ export function prepararSemVoo(iso, motivo, detalhe, nomeMembro) {
 }
 
 export function ligarGoa(c, ctx) {
-  const { render, toast, hoje, app, instrutores, nome } = ctx;
+  const { render, toast, hoje, app, instrutores, nome, salvarVoo, voos, ir } = ctx;
   // primeira vez: sugere o militar pelo nome de quem entrou
   const conta = lerConta();
   if (!conta.militar && militarDoNome(nome())) { gravarConta({ ...conta, militar: militarDoNome(nome()) }); return render(); }
   const contaAtual = () => lerConta();
   const atualizarLink = () => {
+    atualizarDiario();
     const a = c.querySelector('#goaAbrir'); if (!a) return;
     const { militar, email } = contaAtual(); const ok = militar && emailOk(email);
     a.classList.toggle('goa-off', !ok); a.href = ok ? linkForm({ ...est.f, militar }, est.modo, email) : '#';
   };
   c.querySelector('#goaMilitar')?.addEventListener('change', (e) => { gravarConta({ ...contaAtual(), militar: e.target.value }); est.f.militar = e.target.value; render(); });
   c.querySelector('#goaEmail')?.addEventListener('change', (e) => { gravarConta({ ...contaAtual(), email: e.target.value.trim() }); render(); });
-  c.querySelector('#goaAbrir')?.addEventListener('click', (e) => { if (e.currentTarget.classList.contains('goa-off')) { e.preventDefault(); toast('Escolha o militar e a conta do Google primeiro.'); c.querySelector('#goaEmail')?.focus(); } });
+  c.querySelector('#goaAbrir')?.addEventListener('click', (e) => {
+    if (e.currentTarget.classList.contains('goa-off')) { e.preventDefault(); toast('Escolha o militar e a conta do Google primeiro.'); c.querySelector('#goaEmail')?.focus(); return; }
+    // o formulário abre em outra guia; ao voltar, a pergunta do Diário já está à vista
+    if (est.modo !== 'semvoo') setTimeout(() => c.querySelector('#goaDiarioCx')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 600);
+  });
+  const ligarDiario = () => {
+    c.querySelector('#goaDiarioNao')?.addEventListener('click', () => { est.diario = 'nao'; render(); });
+    c.querySelectorAll('#goaDiarioCx [data-ir]').forEach((b) => b.onclick = () => ir(b.dataset.ir));
+    c.querySelector('#goaDiarioSim')?.addEventListener('click', async (e) => {
+      const { d, erros } = vooDoForm({ ...est.f }); if (erros.length) return;
+      e.currentTarget.disabled = true;
+      try { await salvarVoo(d); est.diario = 'salvo'; toast('Voo lançado no Diário de voo'); }
+      catch (err) { toast('Não salvou no Diário: ' + (err.code || err.message)); e.currentTarget.disabled = false; return; }
+      render();
+    });
+  };
+  const atualizarDiario = () => { const cx = c.querySelector('#goaDiarioCx'); if (!cx || est.diario === 'salvo') return; const n = document.createElement('div'); n.innerHTML = cartaoDiario(voos()); cx.replaceWith(n.firstElementChild); ligarDiario(); };
+  ligarDiario();
 
   c.querySelectorAll('[data-gmodo]').forEach((b) => b.onclick = () => {
     est.modo = b.dataset.gmodo; est.erro = '';
@@ -345,7 +412,7 @@ export function ligarGoa(c, ctx) {
   c.querySelector('#goaFoto')?.addEventListener('change', (e) => receber(e.target.files));
   c.querySelector('#goaArq')?.addEventListener('change', (e) => receber(e.target.files));
   c.querySelector('#goaLimpar')?.addEventListener('click', () => { est.arqs = []; est.erro = ''; render(); });
-  c.querySelector('#goaManual')?.addEventListener('click', () => { est.modo = 'voo'; est.f = padraoVoo(hoje(), contaAtual().militar || ''); est.etapa = 'previa'; est.modelo = ''; est.duvidas = []; render(); window.scrollTo(0, 0); });
+  c.querySelector('#goaManual')?.addEventListener('click', () => { est.modo = 'voo'; est.f = padraoVoo(hoje(), contaAtual().militar || ''); est.diario = ''; est.etapa = 'previa'; est.modelo = ''; est.duvidas = []; render(); window.scrollTo(0, 0); });
   c.querySelector('#goaLer')?.addEventListener('click', async () => {
     est.lendo = true; est.erro = ''; render();
     try {
@@ -356,7 +423,7 @@ export function ligarGoa(c, ctx) {
       est.duvidas = (dados.duvidas || []).map((d) => mapa[d] || d);
       // o que ficou vazio também é para conferir
       ['data', 'missao', 'instrutor', 'matricula', 'hIni', 'hFim', 'hDec', 'hPouso', 'tempo', 'pousos'].forEach((k) => { if (!est.f[k] && !est.duvidas.includes(k)) est.duvidas.push(k); });
-      est.modelo = modelo; est.etapa = 'previa'; est.modo = 'voo';
+      est.modelo = modelo; est.etapa = 'previa'; est.modo = 'voo'; est.diario = '';
     } catch (e) { est.erro = explicarErro(e); }
     est.lendo = false; render(); if (est.etapa === 'previa') window.scrollTo(0, 0);
   });
@@ -374,5 +441,5 @@ export function ligarGoa(c, ctx) {
     const { email, militar } = contaAtual(); const l = linkForm({ ...est.f, militar }, est.modo, email);
     navigator.clipboard?.writeText(l).then(() => toast('Link copiado'), () => toast('Não deu para copiar'));
   });
-  c.querySelector('#goaRecomecar')?.addEventListener('click', () => { Object.assign(est, { modo: '', etapa: 'escolha', arqs: [], f: {}, erro: '', duvidas: [], modelo: '' }); render(); window.scrollTo(0, 0); });
+  c.querySelector('#goaRecomecar')?.addEventListener('click', () => { Object.assign(est, { diario: '', modo: '', etapa: 'escolha', arqs: [], f: {}, erro: '', duvidas: [], modelo: '' }); render(); window.scrollTo(0, 0); });
 }
