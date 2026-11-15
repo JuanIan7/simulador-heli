@@ -177,7 +177,18 @@ Responda apenas com este JSON:
 "duvidas":["campos que você não conseguiu ler com segurança"]}
 ${dicas.length ? `Instrutores que este aluno já teve (use para reconhecer a letra, sem forçar): ${dicas.join('; ')}.` : ''}`;
 
+// App Check (reCAPTCHA Enterprise / Fraud Defense, chave de site pública, domínio juanian7.github.io): o Firebase AI Logic recusa
+// pedido sem token ("401 App Check token is invalid"). Só liga na primeira leitura de ficha; só funciona no domínio do site.
+const CHAVE_SITE_RECAPTCHA = '6LcEeCEuAAAAAAsNebP5ijs3X8xT0K-fnKN_JblW';
+let appCheckPronto = false;
+async function ligarAppCheck(app) {
+  if (appCheckPronto) return;
+  const { initializeAppCheck, ReCaptchaEnterpriseProvider } = await import('firebase/app-check');
+  initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(CHAVE_SITE_RECAPTCHA), isTokenAutoRefreshEnabled: true });
+  appCheckPronto = true;
+}
 async function lerFicha(app, arqs, dicas) {
+  await ligarAppCheck(app);
   const { getAI, getGenerativeModel, GoogleAIBackend } = await import('firebase/ai');
   const ai = getAI(app, { backend: new GoogleAIBackend() });
   let ultimo;
@@ -197,6 +208,7 @@ async function lerFicha(app, arqs, dicas) {
 function explicarErro(e) {
   const s = String(e?.message || e);
   if (/api-not-enabled|has not been used|is disabled|SERVICE_DISABLED|firebasevertexai|firebaseml/i.test(s)) return 'A leitura automática ainda está sendo ativada no Firebase. Enquanto isso, use "Preencher sem foto" e digite o que está na ficha.';
+  if (/app ?check|recaptcha|appcheck/i.test(s)) return 'O Firebase recusou o pedido (App Check). Abra o Hangar pelo endereço juanian7.github.io e tente de novo; se continuar, use "Preencher sem foto".';
   if (/429|quota|exhausted/i.test(s)) return 'A cota gratuita de leitura do dia acabou. Tente mais tarde ou use "Preencher sem foto".';
   if (/fetch|network|Failed/i.test(s)) return 'Sem internet para ler a ficha agora. Tente de novo quando tiver sinal.';
   return 'Não deu para ler a ficha (' + s.slice(0, 140) + '). Tente outra foto, mais de perto e com luz, ou use "Preencher sem foto".';
