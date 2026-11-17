@@ -43,6 +43,31 @@ const NOVIDADES = /*@NOVIDADES@*/;
 const TRAD = /*@TRAD@*/;
 /*@TRADUI@*/
 const yt = (q) => 'https://www.youtube.com/results?search_query=' + encodeURIComponent(q);
+
+// Cartão de conceito (fora do cronograma, sem marcação de progresso): autorrotação.
+// Fonte: Manual de Manobras R22 da EACAR, cap. 6, p. 101-103. A física é explicação geral.
+const VIDEOS_AUTORROTACAO = [
+  ['IK2tSKgiK-A', 'Aula de Piloto Privado de Helicóptero: autorrotação (CAVOK, português)'],
+  ['4O7FltBLAV4', 'Autorrotação no Esquilo, com a aerodinâmica explicada (português)'],
+  ['C9VgGWlv2WQ', 'Autorrotação no R44, parecido com o R22 (português)'],
+  ['tFPrd5aQVuo', 'Landing a Helicopter When the Engine Quits (instrutor, inglês)'],
+  ['gi3N68xllME', 'How autorotation works (animação, inglês)'],
+];
+const cartaoAutorrotacao = () => `<div class="caixa destaque" style="margin-bottom:12px">
+  <div class="rotulo">Conceito difícil · explicado</div><h3>Autorrotação: o que é e por que funciona</h3>
+  <p><b>É o voo sem potência do motor.</b> O rotor continua girando só pelo ar que passa por ele, e o helicóptero desce de forma controlada até o pouso. É como o planeio de um avião, mas com o rotor no lugar da asa.</p>
+  <p><b>Por que o rotor continua girando:</b> em voo normal o ar atravessa o rotor de cima para baixo. Em autorrotação o helicóptero está descendo, e o ar passa a subir através do rotor. Esse ar que sobe mantém as pás girando. <b>A energia vem da descida.</b> Por isso a RPM do rotor tem que ficar no arco verde: sem ela não há controle nem pouso.</p>
+  <p><b>Passo a passo no R22 (Manual de Manobras da EACAR, cap. 6):</b></p>
+  <ol>
+    <li><b>Entrada:</b> baixar todo o coletivo, de forma suave, com pé direito e cíclico para trás para manter 65 kt. Os dois ponteiros de RPM se separam: é a confirmação.</li>
+    <li><b>Planeio:</b> 65 kt, RPM do rotor no verde, fio de lã centrado. Aos 100 ft, confira tudo; se algo estiver fora, recupere a RPM e arremeta.</li>
+    <li><b>Flare:</b> a cerca de 40 ft, cíclico para trás para reduzir a velocidade e a razão de descida.</li>
+    <li><b>Nivelar e amortecer:</b> a cerca de 3 m, nivelar os esquis e usar o coletivo no final para amortecer. É aí que se gasta a energia guardada no rotor.</li>
+  </ol>
+  <p><b>A lógica dos erros comuns:</b> nariz mais baixo dá mais velocidade e mantém a RPM; segurar o nariz alto demais faz a RPM cair. O erro principal é o medo de manter o nariz na atitude de planeio, que parece íngreme. Coletivo para baixo pede pé direito; coletivo para cima pede pé esquerdo.</p>
+  <p class="sub">Em uma frase para a prova: em autorrotação a energia vem da descida, o rotor gira pelo ar que sobe, e o coletivo guarda essa energia para amortecer o pouso. Nunca pratique sem instrutor a bordo.</p>
+  <div class="links">${VIDEOS_AUTORROTACAO.map(([id, t]) => `<a href="https://www.youtube.com/watch?v=${id}" target="_blank" rel="noopener">▶ ${esc(t)}</a>`).join('')}</div>
+</div>`;
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dBR = (iso) => iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : '';
@@ -296,6 +321,7 @@ estudo(){
   const f = feitos(membro);
   return `<div class="cab"><h2>Cronograma de estudo</h2><span class="selo la">${f}/${IDS.length} feitos</span></div>
   <p class="intro">Cada um marca o próprio progresso (a turma vê quantos itens cada um fez, na aba Início). Os PDFs abrem no Google Drive; os vídeos abrem a busca no YouTube.</p>
+  ${cartaoAutorrotacao()}
   <div class="grade">${CRONO.map(d => `<div class="caixa"><div class="dia-cab"><b>${esc(d.nome)}</b><span class="sub">${esc(d.meta)}</span></div>
     <ul class="lista-check">${d.itens.map(i => { const ok = !!membro?.estudo?.[i.id]; return `<li class="${ok?'feito':''}"><button class="check" aria-pressed="${ok}" aria-label="Marcar ${esc(i.t)}" data-prog="${i.id}">✓</button><div class="txt"><div class="titulo">${esc(i.t)}</div><div class="sub">${esc(i.d)}</div><div class="links">${i.l.map(([tp,a,b]) => tp==='pdf' ? pdf(a,b) : `<a href="${yt(a)}" target="_blank" rel="noopener">▶ ${esc(b)}</a>`).join('')}</div></div></li>`; }).join('')}</ul></div>`).join('')}</div>`;
 },
