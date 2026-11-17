@@ -51,7 +51,12 @@ function toast(t){ const d=document.createElement('div'); d.className='toast'; d
 const pdf = (k, rot) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_blank" rel="noopener">📄 ${esc(rot)}</a>` : `<span class="sub">📄 ${esc(rot)}</span>`;
 
 const ABAS = [['inicio','Início'],['goa','Form do GOA'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['contrato','Contrato'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['fotos','Fotos e vídeos'],['fip','FIP'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
-let aba = (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
+// Importação de voos pelo link hangar.html#importar=<JSON em base64url> (o mesmo do Diário): abre a aba Diário já com a tela de conferência.
+// Fica guardado na sessão para sobreviver ao login (que recarrega a página).
+const lerImportar = () => { try { return sessionStorage.getItem('hangar-importar') || ''; } catch { return ''; } };
+let importarHash = /^#importar=/.test(location.hash) ? location.hash : lerImportar();
+if (importarHash) { try { sessionStorage.setItem('hangar-importar', importarHash); history.replaceState(null, '', location.pathname + location.search + '#diario'); } catch {} }
+let aba = importarHash ? 'diario' : (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
 let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], compras = [], errCompras = '', anotacoes = [], errAnotacoes = '', notasProvas = [], meusDocs = [], meusVoos = [], meusDias = [], diaOutro = '', parar = [], trocandoPix = false;
 
 // ---------- conteúdo ----------
@@ -181,6 +186,8 @@ function render() {
   const c = $('#conteudo'), y = window.scrollY;
   c.innerHTML = `<section data-painel="${aba}">${(TELAS[aba]||TELAS.inicio)()}</section>`;
   ligarMascaras(c); (LIGAR[aba]||(()=>{}))(c);
+  // o link de importação vale uma vez: o iframe do Diário já recebeu o hash
+  if (aba === 'diario' && importarHash) { importarHash = ''; try { sessionStorage.removeItem('hangar-importar'); } catch {} }
   contagem(); window.scrollTo(0, y);
 }
 function contagem() {
@@ -245,7 +252,7 @@ const cartaoGoa = () => `<div class="caixa goa-cartao">
     <li><b>Declaração</b> e enviar.</li></ol></details>
 </div>`;
 const ctxProvas = { db, user: () => user, membro: () => membro, notas: () => notasProvas, arq: ARQ, toast, render: () => { if (aba === 'provas') render(); } };
-const quadro = (pag, titulo) => `<iframe class="quadro" src="${pag}?embed=1" title="${titulo}" loading="lazy" allow="microphone"></iframe>`;
+const quadro = (pag, titulo, hash = '') => `<iframe class="quadro" src="${pag}?embed=1${hash}" title="${titulo}" loading="lazy" allow="microphone"></iframe>`;
 
 const TELAS = {
 inicio(){
@@ -319,7 +326,7 @@ materiais(){
   <div class="caixa"><h3>Pasta completa</h3><div class="links">${DRIVE_PASTA ? `<a class="pdf" href="https://drive.google.com/drive/folders/${DRIVE_PASTA}" target="_blank" rel="noopener">📁 Abrir a pasta no Google Drive</a>` : ''}<a href="${SIMULADOR}" target="_blank" rel="noopener">Simulador Heli (21 fases)</a></div></div>`;
 },
 gastos(){ return quadro('gastos.html', 'Gastos da turma'); },
-diario(){ return `<p class="sub">Só você vê os seus voos. <a href="fichas.html" target="_blank" rel="noopener">Arquivos antigos de DB e ficha</a> continuam guardados aí, caso você já tenha subido algum.</p>` + quadro('diario.html', 'Diário de voo'); },
+diario(){ return `<p class="sub">Só você vê os seus voos. <a href="fichas.html" target="_blank" rel="noopener">Arquivos antigos de DB e ficha</a> continuam guardados aí, caso você já tenha subido algum.</p>` + quadro('diario.html', 'Diário de voo', importarHash); },
 fip(){
   // o que cada um já cumpriu sai dos próprios voos: o código da missão vem nas observações
   const feitas = new Set();
@@ -419,7 +426,8 @@ const LIGAR = {
 };
 
 document.getElementById('abas').addEventListener('click', (e) => { const b = e.target.closest('[data-aba]'); if (b && membro) irPara(b.dataset.aba); });
-window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (membro && ABAS.some(a=>a[0]===h) && h !== aba) { aba = h; render(); } });
+window.addEventListener('hashchange', () => { const h = location.hash.slice(1);
+  if (/^importar=/.test(h)) { importarHash = '#' + h; try { sessionStorage.setItem('hangar-importar', importarHash); history.replaceState(null, '', location.pathname + location.search + '#diario'); } catch {} if (membro) { aba = 'diario'; render(); } return; } if (membro && ABAS.some(a=>a[0]===h) && h !== aba) { aba = h; render(); } });
 // As páginas de gastos e diário, abertas aqui dentro, avisam a altura para o quadro crescer junto.
 window.addEventListener('message', (e) => {
   if (e.origin !== location.origin || e.data?.tipo !== 'altura') return;
