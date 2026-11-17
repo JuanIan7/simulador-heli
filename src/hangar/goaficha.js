@@ -182,20 +182,21 @@ export function vooDoForm(f) {
 }
 const hm = (m) => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
 const dBR = (iso) => String(iso || '').split('-').reverse().join('/');
-const diarioAuto = () => lerConta().diarioAuto !== false;
 const jaNoDiario = (d, voos) => (voos || []).some((v) => v.id !== est.diarioId && mesmoVoo(v, d));
+function resumoDiario(d) {
+  return `<div class="goa-resumo">${esc(dBR(d.data))} · ${esc(d.modelo)} ${esc(d.matricula)} · ${esc(d.origem)}→${esc(d.destino)} · ${esc(d.inicio)}–${esc(d.fim)} (hora local)<br>Tempo ${hm(d.diurno + d.noturno)} (diurno ${hm(d.diurno)}, noturno ${hm(d.noturno)}) · ${d.pousosD + d.pousosN} pouso(s) · ${esc(d.instrutor || 'sem instrutor')}${d.canacInstrutor ? ' (CANAC ' + esc(d.canacInstrutor) + ')' : ''}<br><span class="sub">Missão no Diário: ${esc((d.obs || '').slice(0, 140))}${(d.obs || '').length > 140 ? '…' : ''}</span></div>`;
+}
 function cartaoDiario(voos) {
   const { d, erros } = vooDoForm({ ...est.f });
-  const rep = !erros.length && jaNoDiario(d, voos), auto = diarioAuto();
-  const resumo = erros.length ? '' : `<div class="goa-resumo">${esc(dBR(d.data))} · ${esc(d.modelo)} ${esc(d.matricula)} · ${esc(d.origem)}→${esc(d.destino)} · ${esc(d.inicio)}–${esc(d.fim)} (hora local)<br>Tempo ${hm(d.diurno + d.noturno)} (diurno ${hm(d.diurno)}, noturno ${hm(d.noturno)}) · ${d.pousosD + d.pousosN} pouso(s) · ${esc(d.instrutor || 'sem instrutor')}${d.canacInstrutor ? ' (CANAC ' + esc(d.canacInstrutor) + ')' : ''}<br><span class="sub">Missão no Diário: ${esc((d.obs || '').slice(0, 140))}${(d.obs || '').length > 140 ? '…' : ''}</span></div>`;
-  const estado = est.diario === 'salvo' ? '<p class="goa-ok">✔ Lançado no seu Diário de voo. Se você mudar algo aqui e abrir o formulário de novo, o mesmo voo é atualizado (não duplica).</p>'
-    : erros.length ? `<p class="pv-alerta">Falta corrigir lá em cima para entrar no Diário: ${esc(erros.join(', '))}.</p>`
+  const rep = !erros.length && jaNoDiario(d, voos);
+  const estado = est.diario === 'salvo' ? '<p class="goa-ok">✔ Lançado no seu Diário de voo. Para corrigir ou excluir, use "Editar" ou "Excluir" na aba Diário de voo.</p>'
     : rep ? '<p class="sub"><b>Este voo já está no seu Diário</b> (mesma data e aeronave, com horário igual ou parecido). Não vou lançar de novo.</p>'
-    : auto ? '<p class="sub">Ao tocar em <b>Abrir o formulário preenchido</b>, este voo é lançado no seu Diário <b>automaticamente</b>, com estes dados:</p>' : '<p class="sub">Lançamento automático desligado: este voo só entra no Diário se você tocar em "Lançar agora".</p>';
-  return `<div class="caixa goa-diario" id="goaDiarioCx"><div class="rotulo">📒 Diário de voo</div>
-    ${estado}${resumo}
-    <label class="goa-cx"><input type="checkbox" id="goaDiarioAuto"${auto ? ' checked' : ''}> Lançar no Diário automaticamente quando eu abrir o formulário</label>
-    <div class="linha-acao">${est.diario === 'salvo' || rep ? '<button data-ir="diario">Ver no Diário de voo</button>' : (!auto && !erros.length ? '<button class="pri" id="goaDiarioSim">Lançar agora</button>' : '')}</div>
+    : est.diario === 'nao' ? '<p class="sub">Certo, não lancei no Diário. Se mudar de ideia, toque em "Lançar agora".</p>' : '';
+  return `<div class="caixa goa-diario${est.diario === '' ? ' goa-pede' : ''}" id="goaDiarioCx"><div class="rotulo">📒 Diário de voo</div>
+    <b>Quer lançar este voo também no seu Diário de voo?</b>
+    ${erros.length ? `<p class="pv-alerta">Falta corrigir lá em cima para entrar no Diário: ${esc(erros.join(', '))}.</p>` : resumoDiario(d)}
+    ${estado}
+    <div class="linha-acao">${est.diario === 'salvo' || rep ? '<button data-ir="diario">Ver no Diário de voo</button>' : `<button class="pri" id="goaDiarioSim"${erros.length ? ' disabled' : ''}>${est.diario === 'nao' ? 'Lançar agora' : 'Sim, lançar no Diário'}</button>${est.diario === 'nao' ? '' : '<button id="goaDiarioNao">Não</button>'}`}</div>
   </div>`;
 }
 
@@ -379,23 +380,34 @@ export function ligarGoa(c, ctx) {
   };
   c.querySelector('#goaMilitar')?.addEventListener('change', (e) => { gravarConta({ ...contaAtual(), militar: e.target.value }); est.f.militar = e.target.value; render(); });
   c.querySelector('#goaEmail')?.addEventListener('change', (e) => { gravarConta({ ...contaAtual(), email: e.target.value.trim() }); render(); });
-  const lancarDiario = async (aviso) => {
+  const lancarDiario = async () => {
     const { d, erros } = vooDoForm({ ...est.f });
-    if (erros.length) { if (aviso) toast('Não lancei no Diário: falta ' + erros.join(', ')); return; }
-    if (jaNoDiario(d, voos())) return;
+    if (erros.length) { toast('Não dá para lançar: falta ' + erros.join(', ')); return; }
+    if (jaNoDiario(d, voos())) { toast('Este voo já está no seu Diário.'); return; }
     try { est.diarioId = await salvarVoo(d, est.diarioId); est.diario = 'salvo'; toast('Voo lançado no Diário de voo'); }
     catch (err) { toast('Não salvou no Diário: ' + (err.code || err.message)); }
     atualizarDiario(true);
   };
+  // pergunta em janela própria ao abrir o formulário (ele abre em outra guia; a pergunta espera aqui quando você voltar)
+  const perguntarDiario = () => {
+    const { d, erros } = vooDoForm({ ...est.f });
+    if (erros.length || est.diario === 'salvo' || jaNoDiario(d, voos())) return;
+    document.getElementById('goaModal')?.remove();
+    const m = document.createElement('div'); m.id = 'goaModal'; m.className = 'goa-modal'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
+    m.innerHTML = `<div class="goa-modal-cx"><h3>Lançar este voo também no Diário de voo?</h3>${resumoDiario(d)}<div class="linha-acao"><button class="pri" id="goaMSim">Sim, lançar no Diário</button><button id="goaMNao">Não, só o formulário</button></div></div>`;
+    document.body.appendChild(m);
+    m.querySelector('#goaMSim').onclick = async () => { m.remove(); await lancarDiario(); };
+    m.querySelector('#goaMNao').onclick = () => { m.remove(); est.diario = 'nao'; atualizarDiario(true); };
+    m.querySelector('#goaMSim').focus();
+  };
   c.querySelector('#goaAbrir')?.addEventListener('click', (e) => {
     if (e.currentTarget.classList.contains('goa-off')) { e.preventDefault(); toast('Escolha o militar e a conta do Google primeiro.'); c.querySelector('#goaEmail')?.focus(); return; }
-    // formulário em outra guia; o voo vai para o Diário ao mesmo tempo (sem perguntar), se o automático estiver ligado
-    if (est.modo !== 'semvoo' && diarioAuto()) lancarDiario(true);
+    if (est.modo !== 'semvoo') perguntarDiario();
   });
   const ligarDiario = () => {
     c.querySelectorAll('#goaDiarioCx [data-ir]').forEach((b) => b.onclick = () => ir(b.dataset.ir));
-    c.querySelector('#goaDiarioAuto')?.addEventListener('change', (e) => { gravarConta({ ...contaAtual(), diarioAuto: e.target.checked }); atualizarDiario(true); });
-    c.querySelector('#goaDiarioSim')?.addEventListener('click', () => lancarDiario(true));
+    c.querySelector('#goaDiarioNao')?.addEventListener('click', () => { est.diario = 'nao'; atualizarDiario(true); });
+    c.querySelector('#goaDiarioSim')?.addEventListener('click', lancarDiario);
   };
   const atualizarDiario = (forcar) => { const cx = c.querySelector('#goaDiarioCx'); if (!cx || (est.diario === 'salvo' && !forcar)) return; const n = document.createElement('div'); n.innerHTML = cartaoDiario(voos()); cx.replaceWith(n.firstElementChild); ligarDiario(); };
   ligarDiario();

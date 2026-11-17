@@ -130,8 +130,8 @@ function telaPrincipal() {
       })() : voos.length ? '<div class="dica">Todos os voos conferidos com a CIV.</div>' : ''}
     </section>
     <section class="cartao"><div class="cab"><h2>Voos</h2><div class="chips"><button class="chip" aria-pressed="${filtro === 'todos'}" data-f="todos">Todos</button><button class="chip" aria-pressed="${filtro === 'pendentes'}" data-f="pendentes">Falta conferir</button></div></div>
-      ${lista.length ? `<div class="tabela"><table><thead><tr><th>Data</th><th>Aeronave</th><th>Trecho</th><th>Horário</th><th class="n">Diurno</th><th class="n">Noturno</th><th class="n">Pousos</th><th>Função</th><th>Instrutor</th><th>CIV</th><th></th></tr></thead><tbody>
-        ${lista.map((v) => { const c = CIV[v.civ || 'nao']; return `<tr><td>${dBR(v.data)}</td><td>${esc(v.modelo)}<br><span class="sub">${esc(v.matricula)}</span></td><td>${esc(v.origem)}${v.destino && v.destino !== v.origem ? '→' + esc(v.destino) : ''}</td><td>${esc(v.inicio || '')}–${esc(v.fim || '')}</td><td class="n">${hm(v.diurno)}</td><td class="n">${hm(v.noturno)}</td><td class="n">${(v.pousosD || 0) + (v.pousosN || 0)}</td><td>${esc((FUNCOES[v.funcao] || '').split(' (')[0])}</td><td>${v.instrutor ? `<b>${esc(v.instrutor)}</b>${v.canacInstrutor ? `<br><span class="sub">CANAC ${esc(v.canacInstrutor)}</span>` : ''}` : '<span class="sub">—</span>'}</td><td><span class="selo ${c[0]}">${c[1]}</span></td><td><button class="mini" data-ed="${v.id}">Abrir</button></td></tr>`; }).join('')}
+      ${lista.length ? `<div class="tabela"><table><thead><tr><th></th><th>Data</th><th>Aeronave</th><th>Trecho</th><th>Horário</th><th class="n">Diurno</th><th class="n">Noturno</th><th class="n">Pousos</th><th>Função</th><th>Instrutor</th><th>CIV</th></tr></thead><tbody>
+        ${lista.map((v) => { const c = CIV[v.civ || 'nao']; return `<tr><td class="acoes"><button class="mini pri" data-ed="${v.id}">Editar</button> <button class="mini perigo" data-del="${v.id}">Excluir</button></td><td>${dBR(v.data)}</td><td>${esc(v.modelo)}<br><span class="sub">${esc(v.matricula)}</span></td><td>${esc(v.origem)}${v.destino && v.destino !== v.origem ? '→' + esc(v.destino) : ''}</td><td>${esc(v.inicio || '')}–${esc(v.fim || '')}</td><td class="n">${hm(v.diurno)}</td><td class="n">${hm(v.noturno)}</td><td class="n">${(v.pousosD || 0) + (v.pousosN || 0)}</td><td>${esc((FUNCOES[v.funcao] || '').split(' (')[0])}</td><td>${v.instrutor ? `<b>${esc(v.instrutor)}</b>${v.canacInstrutor ? `<br><span class="sub">CANAC ${esc(v.canacInstrutor)}</span>` : ''}` : '<span class="sub">—</span>'}</td><td><span class="selo ${c[0]}">${c[1]}</span></td></tr>`; }).join('')}
       </tbody></table></div>` : `<div class="vazio">${voos.length ? 'Nenhum voo pendente de conferência.' : 'Nenhum voo lançado ainda. Toque em <b>+ Novo voo</b> logo depois de cada voo, com o horário de início e fim.'}</div>`}
       <div class="linha-acao">${voos.length ? '<button id="btCsv">Baixar planilha (CSV)</button><button id="btCopiar">Copiar resumo</button>' : ''}<button id="btImportar">Importar voos</button></div>
     </section>
@@ -140,6 +140,13 @@ function telaPrincipal() {
   $('#btNovo').onclick = () => telaVoo(null); $('#btPerfil').onclick = () => telaPerfil(false);
   el.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { filtro = b.dataset.f; telaPrincipal(); });
   el.querySelectorAll('[data-ed]').forEach((b) => b.onclick = () => telaVoo(voos.find((v) => v.id === b.dataset.ed)));
+  // excluir em dois toques (sem janela do navegador): o primeiro pede confirmação no próprio botão
+  el.querySelectorAll('[data-del]').forEach((b) => b.onclick = async () => {
+    if (!b.dataset.pronto) { b.dataset.pronto = '1'; b.textContent = 'Confirmar?'; setTimeout(() => { if (b.isConnected) { delete b.dataset.pronto; b.textContent = 'Excluir'; } }, 4000); return; }
+    b.disabled = true;
+    try { await deleteDoc(doc(db, 'diario', user.uid, 'voos', b.dataset.del)); toast('Voo excluído'); }
+    catch (e) { toast('Não excluiu: ' + (e.code || e.message)); b.disabled = false; }
+  });
   $('#btCsv')?.addEventListener('click', baixarCsv); $('#btCopiar')?.addEventListener('click', copiarResumo);
   $('#btImportar')?.addEventListener('click', telaColar);
 }
@@ -295,7 +302,7 @@ function telaImportar(lista) {
   };
   el.innerHTML = `<section class="cartao"><div class="cab"><h2>Importar ${itens.length} voo(s)</h2><button type="button" id="imVoltar">Voltar</button></div>
     <p class="sub">Confira antes de gravar. Entram no <b>seu</b> diário, na sua conta. Voos repetidos (mesma data e aeronave, com horário igual ou que se sobrepõe) são deixados de fora.</p>
-    <div class="tabela"><table><thead><tr><th>Data</th><th>Aeronave</th><th>Horário</th><th class="n">Tempo</th><th class="n">Pousos</th><th>Instrutor</th><th></th></tr></thead><tbody>${itens.map(linha).join('')}</tbody></table></div>
+    <div class="tabela"><table><thead><tr><th></th><th>Data</th><th>Aeronave</th><th>Horário</th><th class="n">Tempo</th><th class="n">Pousos</th><th>Instrutor</th><th></th></tr></thead><tbody>${itens.map(linha).join('')}</tbody></table></div>
     <div class="linha-acao">${bons.length ? `<button class="pri" id="imGravar">Gravar ${bons.length} voo(s) no meu diário</button>` : ''}<button id="imCancelar">Cancelar</button></div>
     <p class="erro" id="imErro"></p></section>`;
   const sair = () => { limparHashImport(); editando = null; telaPrincipal(); };

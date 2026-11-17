@@ -63,6 +63,13 @@ textarea{min-height:70px;resize:vertical}
 @keyframes novo-sino{0%,60%,100%{transform:rotate(0)}70%{transform:rotate(16deg)}85%{transform:rotate(-16deg)}}
 .novo-selo{animation:novo-pisca 1s steps(1,end) infinite}
 @keyframes novo-pisca{50%{opacity:.2}}
+.pl-dias{display:flex;gap:6px;flex-wrap:wrap}
+.pl-dia{flex:none;min-width:58px;min-height:52px;padding:4px 6px;border-radius:10px;border:1.5px solid var(--linha);background:var(--painel);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font:600 12px var(--corpo);cursor:pointer}
+.pl-dia b{font-family:var(--display);font-size:16px;line-height:1}
+.pl-dia .mk{font-size:13px;line-height:1}
+.pl-dia.ok{background:var(--ok-claro);border-color:var(--ok);color:var(--ok)}
+.pl-dia.falta{background:var(--perigo-claro);border-color:var(--perigo);color:var(--perigo)}
+.pl-dia.hoje{box-shadow:0 0 0 2px var(--laranja)}
 .novo-ponto{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--perigo);margin-left:5px;vertical-align:2px;animation:novo-pisca 1s steps(1,end) infinite}
 .campo-voz>:first-child{flex:1;min-width:0}
 .voz{flex:none;width:40px;height:40px;min-height:40px;padding:0;border-radius:50%;border:1.5px solid var(--linha);background:var(--painel);font-size:17px;line-height:1;display:grid;place-items:center}
@@ -250,6 +257,9 @@ th{font-size:12px;color:var(--tinta3);text-transform:uppercase;letter-spacing:.0
 .goa-diario.goa-pede{box-shadow:0 0 0 4px var(--ok-claro)}
 .goa-resumo{font-size:14.5px;line-height:1.5;background:var(--ok-claro);border-radius:10px;padding:8px 12px}
 .goa-ok{color:var(--ok);font-weight:700;margin:6px 0}
+.goa-modal{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.goa-modal-cx{background:var(--painel);color:var(--tinta);border-radius:16px;padding:18px;max-width:460px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.4);display:flex;flex-direction:column;gap:10px}
+.goa-modal-cx h3{margin:0}
 .goa-como ul{margin:8px 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14.5px}
 @media(max-width:520px){.ct-horas div,.ct-prazos div,.ct-fatos div{grid-template-columns:minmax(0,1fr)}}
 .goa-como summary{cursor:pointer;font-weight:700;color:var(--perigo)}
