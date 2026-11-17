@@ -8,7 +8,7 @@ const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 
 const FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSd2OFx-J611f1J_CXAiESXHGYNDDM2XcgF1kJMvOf8T0k2njQ/viewform';
 // do mais forte para o mais leve; todos sem cobrança no plano Spark. Se um estourar a cota, tenta o próximo.
-const MODELOS = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
+const MODELOS = [['gemini-3.5-flash-lite', 30000], ['gemini-3.8-flash', 45000]]; // [modelo, limite em ms]; o 3.8 chegou a travar por minutos (16/11), por isso é a reserva
 
 export const MILITARES = [
   'CAP BM QOC/17 RAFAEL NASCIMENTO LOUREIRO – RG 53.373 – 2º GMar',
@@ -240,15 +240,15 @@ async function lerFicha(app, arqs, dicas) {
   const { getAI, getGenerativeModel, GoogleAIBackend } = await import('firebase/ai');
   const ai = getAI(app, { backend: new GoogleAIBackend() });
   let ultimo;
-  for (const modelo of MODELOS) {
+  for (const [modelo, limite] of MODELOS) {
     try {
-      const m = getGenerativeModel(ai, { model: modelo, generationConfig: { responseMimeType: 'application/json', temperature: 0 } });
+      const m = getGenerativeModel(ai, { model: modelo, generationConfig: { responseMimeType: 'application/json', temperature: 0 } }, { timeout: limite });
       const r = await m.generateContent([PROMPT(dicas), ...arqs.map((a) => ({ inlineData: { data: a.b64, mimeType: a.mime } }))]);
       const txt = r.response.text().replace(/^```(json)?|```$/g, '').trim();
       return { dados: JSON.parse(txt), modelo };
     } catch (e) {
       ultimo = e;
-      if (!/429|404|503|quota|exhausted|not found|unavailable|overloaded/i.test(String(e?.message || e))) break;
+      if (!/429|404|500|502|503|quota|exhausted|not found|unavailable|overloaded|fetch|timeout|timed out|abort/i.test(String(e?.message || e))) break;
     }
   }
   throw ultimo;
@@ -258,7 +258,8 @@ function explicarErro(e) {
   if (/api-not-enabled|has not been used|is disabled|SERVICE_DISABLED|firebasevertexai|firebaseml/i.test(s)) return 'A leitura automática ainda está sendo ativada no Firebase. Enquanto isso, use "Preencher sem foto" e digite o que está na ficha.';
   if (/app ?check|recaptcha|appcheck/i.test(s)) return 'O Firebase recusou o pedido (App Check). Abra o Hangar pelo endereço juanian7.github.io e tente de novo; se continuar, use "Preencher sem foto".';
   if (/429|quota|exhausted/i.test(s)) return 'A cota gratuita de leitura do dia acabou. Tente mais tarde ou use "Preencher sem foto".';
-  if (/fetch|network|Failed/i.test(s)) return 'Sem internet para ler a ficha agora. Tente de novo quando tiver sinal.';
+  if (/timeout|timed out|abort/i.test(s)) return 'A leitura demorou demais e foi cancelada. Tente de novo (às vezes o serviço do Google está lento) ou use "Preencher sem foto".';
+  if (/fetch|network|Failed/i.test(s)) return 'Sem conexão com o serviço de leitura agora. Tente de novo ou use "Preencher sem foto".';
   return 'Não deu para ler a ficha (' + s.slice(0, 140) + '). Tente outra foto, mais de perto e com luz, ou use "Preencher sem foto".';
 }
 
