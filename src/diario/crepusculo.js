@@ -43,3 +43,15 @@ export function dividirVoo(dataISO, inicio, fim, local = LOCAIS.piraquara) {
 }
 const sobrepor = (a, b, c, d) => Math.max(0, Math.min(b, d) - Math.max(a, c));
 function proxDia(iso) { const [a, m, d] = iso.split('-').map(Number); const t = new Date(Date.UTC(a, m - 1, d + 1)); return t.toISOString().slice(0, 10); }
+
+// Dois lançamentos são o mesmo voo quando têm a mesma data e aeronave e: o mesmo início, ou os horários se sobrepõem,
+// ou algum deles não tem horário e o tempo total é igual. (Início de 11:00 num e 11:30 noutro, no mesmo voo, é comum:
+// ficha de papel e SACI marcam diferente.)
+export function mesmoVoo(a, b) {
+  if (!a || !b || a.data !== b.data || a.matricula !== b.matricula) return false;
+  const ia = paraMin(a.inicio), fa = paraMin(a.fim), ib = paraMin(b.inicio), fb = paraMin(b.fim);
+  if (ia != null && ib != null && ia === ib) return true;
+  if (ia != null && fa != null && ib != null && fb != null) return Math.max(ia, ib) < Math.min(fa > ia ? fa : fa + 1440, fb > ib ? fb : fb + 1440);
+  const ta = (a.diurno || 0) + (a.noturno || 0), tb = (b.diurno || 0) + (b.noturno || 0);
+  return ta > 0 && ta === tb;
+}

@@ -9,7 +9,7 @@ import { entrarGoogle, navegadorRuim, avisoNavegador, ligarAviso } from '../entr
 import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { FIREBASE_CONFIG } from '../firebase-config.js';
 import { limpar, limparNome, soDigitos, formatarMatricula, matriculaValida, formatarIcao, icaoValido, formatarModelo, fecharDuracao, dataValida, hojeIso, celulaCsv, ligarMascaras } from '../entrada.js';
-import { LOCAIS, dividirVoo, crepusculoCivil, paraMin, paraHHMM } from './crepusculo.js';
+import { LOCAIS, dividirVoo, crepusculoCivil, paraMin, paraHHMM, mesmoVoo } from './crepusculo.js';
 
 const app = initializeApp(FIREBASE_CONFIG), auth = getAuth(app), db = getFirestore(app);
 auth.languageCode = 'pt';
@@ -267,7 +267,7 @@ function normalizarVoo(x) {
   if (!icaoValido(d.origem) || !icaoValido(d.destino)) erros.push('origem/destino não são ICAO');
   if (d.canacInstrutor && d.canacInstrutor.length !== 6) erros.push('CANAC do instrutor');
   if (d.diurno + d.noturno <= 0) erros.push('sem tempo de voo');
-  const repetido = voos.some((v) => v.data === d.data && v.matricula === d.matricula && (v.inicio || '') === d.inicio);
+  const repetido = voos.some((v) => mesmoVoo(v, d));
   return { d, erros, repetido };
 }
 function telaColar() {
@@ -294,7 +294,7 @@ function telaImportar(lista) {
     return `<tr><td>${dBR(d.data)}</td><td>${esc(d.matricula)}</td><td>${esc(d.inicio || '')}–${esc(d.fim || '')}</td><td class="n">${hm(d.diurno + d.noturno)}</td><td class="n">${d.pousosD + d.pousosN}</td><td>${esc(d.instrutor)}</td><td>${estado}</td></tr>`;
   };
   el.innerHTML = `<section class="cartao"><div class="cab"><h2>Importar ${itens.length} voo(s)</h2><button type="button" id="imVoltar">Voltar</button></div>
-    <p class="sub">Confira antes de gravar. Entram no <b>seu</b> diário, na sua conta. Voos repetidos (mesma data, aeronave e horário) são deixados de fora.</p>
+    <p class="sub">Confira antes de gravar. Entram no <b>seu</b> diário, na sua conta. Voos repetidos (mesma data e aeronave, com horário igual ou que se sobrepõe) são deixados de fora.</p>
     <div class="tabela"><table><thead><tr><th>Data</th><th>Aeronave</th><th>Horário</th><th class="n">Tempo</th><th class="n">Pousos</th><th>Instrutor</th><th></th></tr></thead><tbody>${itens.map(linha).join('')}</tbody></table></div>
     <div class="linha-acao">${bons.length ? `<button class="pri" id="imGravar">Gravar ${bons.length} voo(s) no meu diário</button>` : ''}<button id="imCancelar">Cancelar</button></div>
     <p class="erro" id="imErro"></p></section>`;

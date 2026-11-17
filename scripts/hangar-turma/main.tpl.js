@@ -396,7 +396,8 @@ const LIGAR = {
   fotos(c){ ligarFotos(c, () => { if (aba === 'fotos') render(); }); },
   goa(c){ ligarGoa(c, { app, toast, hoje, nome: () => membro?.nome || '', instrutores: instrutoresConhecidos, voos: () => meusVoos, ir: irPara,
     // mesmo caminho e formato da tela de voo do Diário (diario/{uid}/voos/{id})
-    salvarVoo: (d) => setDoc(doc(db, 'diario', user.uid, 'voos', d.data + '-' + (d.inicio || '').replace(':', '') + '-' + Math.random().toString(36).slice(2, 6)), { ...d, criadoEm: serverTimestamp(), atualizadoEm: serverTimestamp() }),
+    salvarVoo: async (d, id) => { const novo = !id; id = id || d.data + '-' + (d.inicio || '').replace(':', '') + '-' + Math.random().toString(36).slice(2, 6);
+      await setDoc(doc(db, 'diario', user.uid, 'voos', id), { ...d, ...(novo ? { criadoEm: serverTimestamp() } : {}), atualizadoEm: serverTimestamp() }, { merge: true }); return id; },
     render: () => { if (aba === 'goa') render(); } }); },
   anotacoes(c){ ligarAnotacoes(c, { db, user: () => user, membro: () => membro, anotacoes: () => anotacoes, toast, render: () => { if (aba === 'anotacoes') render(); } }); },
   tempo(c){ ligarTempo(c, { decodificarMetar, toast, render: () => { if (aba === 'tempo') render(); } }); },

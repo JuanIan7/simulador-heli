@@ -3,7 +3,7 @@
 // Fluxo: conta e militar (uma vez) → foto/PDF da ficha → leitura pelo Gemini (Firebase AI Logic, plano Spark, sem custo)
 // → prévia editável, página por página → link do formulário já preenchido. O site NUNCA envia: quem toca em Enviar é o aluno.
 // Mapa dos campos e regras: automação do Loureiro (14/11/2026), conferida com o formulário no ar no mesmo dia.
-import { dividirVoo, paraMin, LOCAIS } from '../diario/crepusculo.js';
+import { dividirVoo, paraMin, LOCAIS, mesmoVoo } from '../diario/crepusculo.js';
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSd2OFx-J611f1J_CXAiESXHGYNDDM2XcgF1kJMvOf8T0k2njQ/viewform';
@@ -63,7 +63,7 @@ const PAGS_SEM = [
 const CHAVE = 'hangar-goa-conta';
 const lerConta = () => { try { return JSON.parse(localStorage.getItem(CHAVE) || '{}'); } catch { return {}; } };
 const gravarConta = (v) => { try { localStorage.setItem(CHAVE, JSON.stringify(v)); } catch {} };
-const est = { diario: '', modo: '', etapa: 'escolha', arqs: [], f: {}, erro: '', duvidas: [], modelo: '', lendo: false };
+const est = { diario: '', diarioId: '', modo: '', etapa: 'escolha', arqs: [], f: {}, erro: '', duvidas: [], modelo: '', lendo: false };
 const emailOk = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e || '');
 
 // militar da lista a partir do nome do membro ("Juan Araujo" → CAP ... JUAN CARLOS SILVA DE ARAUJO)
@@ -182,17 +182,20 @@ export function vooDoForm(f) {
 }
 const hm = (m) => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
 const dBR = (iso) => String(iso || '').split('-').reverse().join('/');
+const diarioAuto = () => lerConta().diarioAuto !== false;
+const jaNoDiario = (d, voos) => (voos || []).some((v) => v.id !== est.diarioId && mesmoVoo(v, d));
 function cartaoDiario(voos) {
   const { d, erros } = vooDoForm({ ...est.f });
-  const rep = !erros.length && (voos || []).some((v) => v.data === d.data && v.matricula === d.matricula && (v.inicio || '') === d.inicio);
-  const estado = est.diario === 'salvo' ? '<p class="goa-ok">✔ Salvo no seu Diário de voo.</p>'
-    : rep ? '<p class="sub"><b>Este voo já está no seu Diário</b> (mesma data, aeronave e horário). Não vou lançar de novo.</p>'
-    : est.diario === 'nao' ? '<p class="sub">Tudo bem, não lancei no Diário.</p>' : '';
-  return `<div class="caixa goa-diario${est.diario === '' ? ' goa-pede' : ''}" id="goaDiarioCx"><div class="rotulo">📒 Diário de voo</div>
-    <b>Quer lançar este voo também no seu Diário de voo?</b>
-    ${erros.length ? `<p class="pv-alerta">Falta corrigir lá em cima para lançar no Diário: ${esc(erros.join(', '))}.</p>` : `<div class="goa-resumo">${esc(dBR(d.data))} · ${esc(d.modelo)} ${esc(d.matricula)} · ${esc(d.origem)}→${esc(d.destino)} · ${esc(d.inicio)}–${esc(d.fim)} (hora local)<br>Tempo ${hm(d.diurno + d.noturno)} (diurno ${hm(d.diurno)}, noturno ${hm(d.noturno)}) · ${d.pousosD + d.pousosN} pouso(s) · ${esc(d.instrutor || 'sem instrutor')}${d.canacInstrutor ? ' (CANAC ' + esc(d.canacInstrutor) + ')' : ''}<br><span class="sub">Missão no Diário: ${esc((d.obs || '').slice(0, 140))}${(d.obs || '').length > 140 ? '…' : ''}</span></div>`}
-    ${estado}
-    ${est.diario === 'salvo' || rep ? '<div class="linha-acao"><button data-ir="diario">Ver no Diário de voo</button></div>' : `<div class="linha-acao"><button class="pri" id="goaDiarioSim"${erros.length ? ' disabled' : ''}>Sim, lançar no Diário</button><button id="goaDiarioNao">Não</button></div>`}
+  const rep = !erros.length && jaNoDiario(d, voos), auto = diarioAuto();
+  const resumo = erros.length ? '' : `<div class="goa-resumo">${esc(dBR(d.data))} · ${esc(d.modelo)} ${esc(d.matricula)} · ${esc(d.origem)}→${esc(d.destino)} · ${esc(d.inicio)}–${esc(d.fim)} (hora local)<br>Tempo ${hm(d.diurno + d.noturno)} (diurno ${hm(d.diurno)}, noturno ${hm(d.noturno)}) · ${d.pousosD + d.pousosN} pouso(s) · ${esc(d.instrutor || 'sem instrutor')}${d.canacInstrutor ? ' (CANAC ' + esc(d.canacInstrutor) + ')' : ''}<br><span class="sub">Missão no Diário: ${esc((d.obs || '').slice(0, 140))}${(d.obs || '').length > 140 ? '…' : ''}</span></div>`;
+  const estado = est.diario === 'salvo' ? '<p class="goa-ok">✔ Lançado no seu Diário de voo. Se você mudar algo aqui e abrir o formulário de novo, o mesmo voo é atualizado (não duplica).</p>'
+    : erros.length ? `<p class="pv-alerta">Falta corrigir lá em cima para entrar no Diário: ${esc(erros.join(', '))}.</p>`
+    : rep ? '<p class="sub"><b>Este voo já está no seu Diário</b> (mesma data e aeronave, com horário igual ou parecido). Não vou lançar de novo.</p>'
+    : auto ? '<p class="sub">Ao tocar em <b>Abrir o formulário preenchido</b>, este voo é lançado no seu Diário <b>automaticamente</b>, com estes dados:</p>' : '<p class="sub">Lançamento automático desligado: este voo só entra no Diário se você tocar em "Lançar agora".</p>';
+  return `<div class="caixa goa-diario" id="goaDiarioCx"><div class="rotulo">📒 Diário de voo</div>
+    ${estado}${resumo}
+    <label class="goa-cx"><input type="checkbox" id="goaDiarioAuto"${auto ? ' checked' : ''}> Lançar no Diário automaticamente quando eu abrir o formulário</label>
+    <div class="linha-acao">${est.diario === 'salvo' || rep ? '<button data-ir="diario">Ver no Diário de voo</button>' : (!auto && !erros.length ? '<button class="pri" id="goaDiarioSim">Lançar agora</button>' : '')}</div>
   </div>`;
 }
 
@@ -376,23 +379,25 @@ export function ligarGoa(c, ctx) {
   };
   c.querySelector('#goaMilitar')?.addEventListener('change', (e) => { gravarConta({ ...contaAtual(), militar: e.target.value }); est.f.militar = e.target.value; render(); });
   c.querySelector('#goaEmail')?.addEventListener('change', (e) => { gravarConta({ ...contaAtual(), email: e.target.value.trim() }); render(); });
+  const lancarDiario = async (aviso) => {
+    const { d, erros } = vooDoForm({ ...est.f });
+    if (erros.length) { if (aviso) toast('Não lancei no Diário: falta ' + erros.join(', ')); return; }
+    if (jaNoDiario(d, voos())) return;
+    try { est.diarioId = await salvarVoo(d, est.diarioId); est.diario = 'salvo'; toast('Voo lançado no Diário de voo'); }
+    catch (err) { toast('Não salvou no Diário: ' + (err.code || err.message)); }
+    atualizarDiario(true);
+  };
   c.querySelector('#goaAbrir')?.addEventListener('click', (e) => {
     if (e.currentTarget.classList.contains('goa-off')) { e.preventDefault(); toast('Escolha o militar e a conta do Google primeiro.'); c.querySelector('#goaEmail')?.focus(); return; }
-    // o formulário abre em outra guia; ao voltar, a pergunta do Diário já está à vista
-    if (est.modo !== 'semvoo') setTimeout(() => c.querySelector('#goaDiarioCx')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 600);
+    // formulário em outra guia; o voo vai para o Diário ao mesmo tempo (sem perguntar), se o automático estiver ligado
+    if (est.modo !== 'semvoo' && diarioAuto()) lancarDiario(true);
   });
   const ligarDiario = () => {
-    c.querySelector('#goaDiarioNao')?.addEventListener('click', () => { est.diario = 'nao'; render(); });
     c.querySelectorAll('#goaDiarioCx [data-ir]').forEach((b) => b.onclick = () => ir(b.dataset.ir));
-    c.querySelector('#goaDiarioSim')?.addEventListener('click', async (e) => {
-      const { d, erros } = vooDoForm({ ...est.f }); if (erros.length) return;
-      e.currentTarget.disabled = true;
-      try { await salvarVoo(d); est.diario = 'salvo'; toast('Voo lançado no Diário de voo'); }
-      catch (err) { toast('Não salvou no Diário: ' + (err.code || err.message)); e.currentTarget.disabled = false; return; }
-      render();
-    });
+    c.querySelector('#goaDiarioAuto')?.addEventListener('change', (e) => { gravarConta({ ...contaAtual(), diarioAuto: e.target.checked }); atualizarDiario(true); });
+    c.querySelector('#goaDiarioSim')?.addEventListener('click', () => lancarDiario(true));
   };
-  const atualizarDiario = () => { const cx = c.querySelector('#goaDiarioCx'); if (!cx || est.diario === 'salvo') return; const n = document.createElement('div'); n.innerHTML = cartaoDiario(voos()); cx.replaceWith(n.firstElementChild); ligarDiario(); };
+  const atualizarDiario = (forcar) => { const cx = c.querySelector('#goaDiarioCx'); if (!cx || (est.diario === 'salvo' && !forcar)) return; const n = document.createElement('div'); n.innerHTML = cartaoDiario(voos()); cx.replaceWith(n.firstElementChild); ligarDiario(); };
   ligarDiario();
 
   c.querySelectorAll('[data-gmodo]').forEach((b) => b.onclick = () => {
@@ -413,7 +418,7 @@ export function ligarGoa(c, ctx) {
   c.querySelector('#goaFoto')?.addEventListener('change', (e) => receber(e.target.files));
   c.querySelector('#goaArq')?.addEventListener('change', (e) => receber(e.target.files));
   c.querySelector('#goaLimpar')?.addEventListener('click', () => { est.arqs = []; est.erro = ''; render(); });
-  c.querySelector('#goaManual')?.addEventListener('click', () => { est.modo = 'voo'; est.f = padraoVoo(hoje(), contaAtual().militar || ''); est.diario = ''; est.etapa = 'previa'; est.modelo = ''; est.duvidas = []; render(); window.scrollTo(0, 0); });
+  c.querySelector('#goaManual')?.addEventListener('click', () => { est.modo = 'voo'; est.f = padraoVoo(hoje(), contaAtual().militar || ''); est.diario = ''; est.diarioId = ''; est.etapa = 'previa'; est.modelo = ''; est.duvidas = []; render(); window.scrollTo(0, 0); });
   c.querySelector('#goaLer')?.addEventListener('click', async () => {
     est.lendo = true; est.erro = ''; render();
     try {
@@ -424,7 +429,7 @@ export function ligarGoa(c, ctx) {
       est.duvidas = (dados.duvidas || []).map((d) => mapa[d] || d);
       // o que ficou vazio também é para conferir
       ['data', 'missao', 'instrutor', 'matricula', 'hIni', 'hFim', 'hDec', 'hPouso', 'tempo', 'pousos'].forEach((k) => { if (!est.f[k] && !est.duvidas.includes(k)) est.duvidas.push(k); });
-      est.modelo = modelo; est.etapa = 'previa'; est.modo = 'voo'; est.diario = '';
+      est.modelo = modelo; est.etapa = 'previa'; est.modo = 'voo'; est.diario = ''; est.diarioId = '';
     } catch (e) { est.erro = explicarErro(e); }
     est.lendo = false; render(); if (est.etapa === 'previa') window.scrollTo(0, 0);
   });
@@ -442,5 +447,5 @@ export function ligarGoa(c, ctx) {
     const { email, militar } = contaAtual(); const l = linkForm({ ...est.f, militar }, est.modo, email);
     navigator.clipboard?.writeText(l).then(() => toast('Link copiado'), () => toast('Não deu para copiar'));
   });
-  c.querySelector('#goaRecomecar')?.addEventListener('click', () => { Object.assign(est, { diario: '', modo: '', etapa: 'escolha', arqs: [], f: {}, erro: '', duvidas: [], modelo: '' }); render(); window.scrollTo(0, 0); });
+  c.querySelector('#goaRecomecar')?.addEventListener('click', () => { Object.assign(est, { diario: '', diarioId: '', modo: '', etapa: 'escolha', arqs: [], f: {}, erro: '', duvidas: [], modelo: '' }); render(); window.scrollTo(0, 0); });
 }
