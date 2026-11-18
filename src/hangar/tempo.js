@@ -31,6 +31,8 @@ const rumo = (a, b) => { const dLon = (b.lon - a.lon) * Math.PI / 180, la = a.la
 const gms = (v, lat) => { const a = Math.abs(v), g = Math.floor(a), m = Math.round((a - g) * 60); return `${g}°${String(m).padStart(2, '0')}'${lat ? (v < 0 ? 'S' : 'N') : (v < 0 ? 'W' : 'E')}`; };
 const hhmm = (d) => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
 const fuso = -3; // Brasília, sem horário de verão
+const hhmmZ = (d) => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC', hour12: false }) + 'Z';
+const zDe = (hm) => String((+hm.slice(0, 2) + 24 - fuso) % 24).padStart(2, '0') + hm.slice(2, 5) + 'Z'; // "06:12" de Brasília → "09:12Z"
 
 // ---------- leitura de METAR e TAF ----------
 const FEN = { TS: 'trovoada', RA: 'chuva', DZ: 'chuvisco', SH: 'pancadas de', FG: 'nevoeiro', BR: 'névoa úmida', HZ: 'névoa seca', FU: 'fumaça', GR: 'granizo', GS: 'granizo miúdo',
@@ -250,11 +252,87 @@ const porEstacao = (e) => ({ nome: `${e.nome} (${e.icao})`, lat: e.lat, lon: e.l
 export const localAtual = () => local || lembrado() || porEstacao(ESTACOES[0]);
 const proximas = (l, n = 4, max = 250) => ESTACOES.filter((e) => !e.semMetar).map((e) => ({ ...e, dist: km(l, e), rumo: rumo(l, e) })).sort((a, b) => a.dist - b.dist).filter((e) => e.dist <= max).slice(0, n);
 
+
+// ---------- "Pergunte ao tempo": METAR por pergunta escrita ou falada ----------
+// O texto é entendido por regras simples (ICAO, cidade, "perto de mim"): o METAR e a leitura linha a linha vêm sempre do decodificador fixo, sem IA inventando dado.
+// Chave opcional da API-REDEMET (DECEA): fica só no localStorage deste aparelho, nunca no código do site. Sem chave (ou se falhar), usa a VATSIM/NOAA.
+const CHAVE_RM = 'tempo-redemet-key';
+const chaveRm = () => { try { return localStorage.getItem(CHAVE_RM) || ''; } catch { return ''; } };
+let perg = { q: '', carregando: false, itens: null, msg: '' };
+const semAcento = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+async function metarRedemet(icao, key) {
+  const f = (d) => d.toISOString().slice(0, 13).replace(/[-T]/g, '');
+  const j = await json(`https://api-redemet.decea.mil.br/mensagens/metar/${icao}?api_key=${encodeURIComponent(key)}&data_ini=${f(new Date(Date.now() - 6 * 36e5))}&data_fim=${f(new Date())}`);
+  const achados = [];
+  const varre = (v) => { if (typeof v === 'string') { const m = /(?:METAR|SPECI)(?: COR)?\s+([A-Z]{4}\s+\d{6}Z[^=]*)/.exec(v); if (m) achados.push(m[1].trim()); } else if (v && typeof v === 'object') Object.values(v).forEach(varre); };
+  varre(j);
+  const ms = achados.map(lerMetar).filter((m) => m.icao === icao).sort((a, b) => (b.quando || 0) - (a.quando || 0));
+  if (!ms.length) throw new Error('sem METAR na REDEMET');
+  return ms[0];
+}
+async function metaresDe(icaos) {
+  const key = chaveRm(), out = {};
+  if (key) await Promise.all(icaos.map((i) => metarRedemet(i, key).then((m) => { out[i] = { m, fonte: 'REDEMET (oficial)' }; }).catch(() => {})));
+  const falta = icaos.filter((i) => !out[i]);
+  if (falta.length) { const v = await buscarMetar(falta); falta.forEach((i) => { if (v[i]) out[i] = { m: v[i], fonte: 'VATSIM/NOAA' }; }); }
+  return out;
+}
+const comDist = (ref, e) => ({ ...e, dist: km(ref, e), rumo: rumo(ref, e) });
+async function entender(q) {
+  let n = semAcento(q).replace(/\b(?:[a-z]\s+){3}[a-z]\b/g, (m) => m.replace(/\s/g, '')); // "s b b i" falado → "sbbi"
+  const l = localAtual();
+  if (/perto|proxim|onde estou|aqui|minha posicao/.test(n)) {
+    if (!navigator.geolocation) throw new Error('Este navegador não dá a posição. Diga o lugar.');
+    const p = await new Promise((ok, no) => navigator.geolocation.getCurrentPosition(ok, no, { timeout: 12000, maximumAge: 60000 })).catch(() => { throw new Error('Sem permissão para a posição. Diga o lugar ou o ICAO.'); });
+    const ref = { lat: p.coords.latitude, lon: p.coords.longitude };
+    return proximas(ref, 3).map((e) => ({ e }));
+  }
+  const icaos = [...new Set((n.match(/\b[a-z]{4}\b/g) || []).map((x) => x.toUpperCase()))].filter((x) => ESTACOES.some((e) => e.icao === x && !e.semMetar));
+  if (icaos.length) return icaos.slice(0, 4).map((i) => ({ e: comDist(l, ESTACOES.find((e) => e.icao === i)) }));
+  const nome = ESTACOES.filter((e) => !e.semMetar && n.includes(semAcento(e.nome.split(' · ')[0].replace(/ \(.*\)/, ''))));
+  if (nome.length) return nome.slice(0, 4).map((e) => ({ e: comDist(l, e) }));
+  const lugar = n.replace(/\b(metars?|agora|atual|atuais|de|do|da|em|me|informe|informa|qual|quais|o|os|a|as|tempo|para|por favor|cadê|cade)\b/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!lugar) return proximas(l, 2).map((e) => ({ e }));
+  const g = await geocodificar(lugar);
+  return proximas(g, 2).map((e) => ({ e }));
+}
+async function perguntar(q, render) {
+  perg = { q, carregando: true, itens: null, msg: '' }; render();
+  try {
+    const alvo = await entender(q), mm = await metaresDe(alvo.map((x) => x.e.icao));
+    perg = { q, carregando: false, itens: alvo.map((x) => ({ e: x.e, ...(mm[x.e.icao] || {}) })), msg: alvo.length ? '' : 'Não achei aeródromo com METAR por perto desse lugar.' };
+  } catch (err) { perg = { q, carregando: false, itens: null, msg: /Lugar não encontrado/.test(err.message) ? 'Não entendi o lugar. Escreva o ICAO (ex.: METAR agora de SBBI) ou a cidade.' : err.message || 'Não deu para buscar agora.' }; }
+  render(); setTimeout(() => document.getElementById('tpPerg')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 50);
+}
+function blocoPerg({ e, m, fonte }) {
+  const cab = `<div class="cab"><div><b>${e.icao}</b> <span class="sub">${esc(e.nome)}${e.dist != null ? ` · ${Math.round(e.dist)} km ao ${esc(pontoCardeal(e.rumo))}` : ''}</span></div>${m ? `<span class="selo ${m.c.n}" title="${esc(m.c.por)}">${m.c.t}</span>` : ''}</div>`;
+  if (!m) return `<div class="tp-est">${cab}<span class="sub">sem METAR agora</span></div>`;
+  return `<div class="tp-est">${cab}
+    <div class="mono tp-raw">METAR ${esc(m.raw)}=</div>
+    <div class="sub">${m.quando ? `às ${hhmm(m.quando)} Brasília · <b>${hhmmZ(m.quando)}</b> · ` : ''}fonte: ${esc(fonte)}</div>
+    <div class="tp-exp">${explicar(m.raw).map((x) => `<code>${esc(x.tok)}</code><span><b>${esc(x.nome)}:</b> ${esc(x.txt)}</span>`).join('')}</div>
+    <div class="tp-int"><b>O que isso significa para o nosso voo</b><ul>${interpretar(m, e, localAtual()).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div></div>`;
+}
+function caixaPergunta() {
+  const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  const ex = [...new Set([...proximas(localAtual(), 2).map((e) => `METAR agora de ${e.icao}`), 'METARs agora perto de mim', 'METAR agora de Curitiba'])];
+  const tem = !!chaveRm();
+  return `<div class="caixa" id="tpPerg"><div class="cab"><h3>Pergunte ao tempo</h3><span class="sub">METAR + explicação linha a linha</span></div>
+    <form id="tpPForm" class="linha-acao"><input id="tpPQ" value="${esc(perg.q)}" style="flex:1 1 220px" placeholder="Ex.: METAR agora de SBBI" autocomplete="off" maxlength="120"><button class="pri" type="submit">Perguntar</button>${SR ? '<button type="button" id="tpPMic" aria-label="Perguntar falando">🎤</button>' : ''}</form>
+    <div class="chips">${ex.map((x) => `<button type="button" class="chip" data-tp-ex="${esc(x)}">${esc(x)}</button>`).join('')}</div>
+    ${perg.carregando ? '<p class="sub">Buscando o METAR…</p>' : ''}${perg.msg ? `<p class="sub" style="color:var(--perigo)">${esc(perg.msg)}</p>` : ''}
+    ${(perg.itens || []).map(blocoPerg).join('')}
+    <details class="tp-ler"><summary>Chave da API REDEMET (opcional) ${tem ? '· ativa neste aparelho' : ''}</summary>
+      <p class="sub">Com a chave, a pergunta usa o METAR oficial do DECEA; sem ela (ou se falhar), usa a VATSIM/NOAA. A chave fica só neste aparelho: não vai para o site nem para a turma.</p>
+      <form id="tpChaveForm" class="linha-acao"><input id="tpChave" type="password" style="flex:1 1 220px" placeholder="${tem ? 'chave guardada (digite para trocar)' : 'cole aqui a chave recebida por e-mail'}" autocomplete="off"><button class="pri" type="submit">Guardar</button>${tem ? '<button type="button" id="tpChaveTira">Remover</button>' : ''}</form></details></div>`;
+}
+
 export function telaTempo() {
   const l = localAtual(), est = proximas(l);
   const atalhos = ['SISY', 'SBBI', 'SBCT', 'SBJV', 'SBFL'].map((k) => ESTACOES.find((e) => e.icao === k));
   return `<div class="cab"><h2>Tempo para o voo</h2>${ultima ? `<span class="sub">atualizado ${hhmm(ultima)}</span>` : ''}</div>
   <p class="intro">Na véspera, olhe a previsão de amanhã. Antes de sair, o METAR e o TAF de agora. Isto orienta o briefing; quem decide é o instrutor.</p>
+  ${caixaPergunta()}
   <div class="caixa">
     <form id="tpForm" class="linha-acao"><input id="tpQ" style="flex:1 1 220px" placeholder="ICAO (SBBI), cidade ou lugar" autocomplete="off" maxlength="80"><button class="pri" type="submit">Buscar</button><button type="button" id="tpGeo">📍 Minha posição</button></form>
     <div class="chips">${atalhos.map((e) => `<button type="button" class="chip" aria-pressed="${l.icao === e.icao}" data-tp-est="${e.icao}">${e.icao} · ${esc(e.nome.split(' · ').pop())}</button>`).join('')}</div>
@@ -276,7 +354,8 @@ export function telaTempo() {
 }
 function sol() {
   const d = dados.prev?.daily; if (!d) return '';
-  return ` · 🌅 ${d.sunrise[0].slice(11)} 🌇 ${d.sunset[0].slice(11)}`;
+  const a = d.sunrise[0].slice(11), b = d.sunset[0].slice(11);
+  return ` · 🌅 ${a} 🌇 ${b}<br><span class="mono">Zulu: 🌅 ${zDe(a)} 🌇 ${zDe(b)}</span>`;
 }
 function cartaoMetar(e) {
   const hist = dados.hist[e.icao] || [], i = escolhido[e.icao], doHist = i != null && hist[i];
@@ -287,7 +366,7 @@ function cartaoMetar(e) {
     ${doHist ? `<div class="tp-hora-escolhida"><b>Hora escolhida: ${m.quando ? hhmm(m.quando) : ''}</b> (não é o METAR atual) <button type="button" class="mini pri" data-tp-agora="${e.icao}">Voltar ao agora</button></div>` : ''}
     ${chips(m.r)}${m.c.por ? `<div class="sub">Motivo: ${esc(m.c.por)}</div>` : ''}
     <div class="mono tp-raw">${esc(m.raw)}</div>
-    <div class="sub">${m.quando ? `às ${hhmm(m.quando)}${doHist ? '' : m.idade != null ? ` (há ${m.idade >= 60 ? Math.floor(m.idade / 60) + ' h ' + (m.idade % 60) + ' min' : m.idade + ' min'})` : ''}` : ''}</div>
+    <div class="sub">${m.quando ? `às ${hhmm(m.quando)} (${hhmmZ(m.quando)})${doHist ? '' : m.idade != null ? ` (há ${m.idade >= 60 ? Math.floor(m.idade / 60) + ' h ' + (m.idade % 60) + ' min' : m.idade + ' min'})` : ''}` : ''}</div>
     <details class="tp-ler" ${e === proximas(localAtual(), 1)[0] ? 'open' : ''}><summary>Como ler este METAR</summary>
       <div class="tp-exp">${explicar(m.raw).map((x) => `<code>${esc(x.tok)}</code><span><b>${esc(x.nome)}:</b> ${esc(x.txt)}</span>`).join('')}</div>
       <div class="tp-int"><b>O que isso significa para o nosso voo</b><ul>${interpretar(m, e, localAtual()).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div></details>
@@ -315,7 +394,7 @@ function tabelaPrevisao() {
   const dias = p.daily.time, hs = horas(p).filter((h) => h.dia === dias[dia] && (noite || (h.hora >= 5 && h.hora <= 20)));
   const rot = (i) => i === 0 ? 'Hoje' : i === 1 ? 'Amanhã' : new Date(dias[i] + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'long' });
   return `<div class="chips">${dias.map((d, i) => `<button type="button" class="chip" aria-pressed="${dia === i}" data-tp-dia="${i}">${rot(i)} ${d.slice(8, 10)}/${d.slice(5, 7)}</button>`).join('')}<button type="button" class="chip" aria-pressed="${noite}" data-tp-noite>madrugada</button></div>
-  <p class="sub">🌅 nascer ${p.daily.sunrise[dia].slice(11)} · 🌇 pôr ${p.daily.sunset[dia].slice(11)} · chuva no dia: até ${p.daily.precipitation_probability_max[dia]}%</p>
+  <p class="sub">🌅 nascer ${p.daily.sunrise[dia].slice(11)} · 🌇 pôr ${p.daily.sunset[dia].slice(11)} (Brasília)<br><span class="mono">Zulu: 🌅 ${zDe(p.daily.sunrise[dia].slice(11))} · 🌇 ${zDe(p.daily.sunset[dia].slice(11))}</span><br>chuva no dia: até ${p.daily.precipitation_probability_max[dia]}%</p>
   <div class="tabela"><table class="tp-tab"><thead><tr><th>Hora</th><th>Vento</th><th>Visib.</th><th>Nuvens baixas</th><th>Chuva</th><th>Tempo</th><th>T / orv.</th><th>QNH</th></tr></thead><tbody>
     ${hs.map((h) => `<tr class="tp-${h.c.n}" title="${esc(h.c.por)}"><td class="mono">${String(h.hora).padStart(2, '0')}h</td><td>${h.dir}° ${h.vel} kt${h.raj > h.vel + 4 ? ` <span class="sub">raj. ${h.raj}</span>` : ''}</td><td>${h.vis >= 9999 ? '10 km+' : h.vis >= 1000 ? (h.vis / 1000).toFixed(0) + ' km' : h.vis + ' m'}</td><td>${h.baixa}% <span class="sub">(total ${h.nub}%)</span></td><td>${h.prob}%${h.mm ? ` <span class="sub">${h.mm} mm</span>` : ''}</td><td>${esc(WMO[h.cod] || '')}</td><td>${Math.round(h.temp)} / ${Math.round(h.orv)} °C</td><td>${h.qnh}</td></tr>`).join('')}
   </tbody></table></div>`;
@@ -371,6 +450,18 @@ export function ligarTempo(c, { toast, render }) {
   const verCartao = (icao) => document.querySelector(`[data-tp-card="${icao}"]`)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   c.querySelectorAll('[data-tp-sel]').forEach((b) => b.onclick = () => { const k = b.dataset.tpSel; escolhido[k] = escolhido[k] === +b.dataset.tpI ? null : +b.dataset.tpI; render(); if (escolhido[k] != null) verCartao(k); });
   c.querySelectorAll('[data-tp-agora]').forEach((b) => b.onclick = () => { escolhido[b.dataset.tpAgora] = null; render(); });
+
+  c.querySelector('#tpPForm').onsubmit = (e) => { e.preventDefault(); const q = c.querySelector('#tpPQ').value.trim(); if (q) perguntar(q, render); };
+  c.querySelector('#tpPQ').oninput = (e) => { perg.q = e.target.value; };
+  c.querySelectorAll('[data-tp-ex]').forEach((b) => b.onclick = () => perguntar(b.dataset.tpEx, render));
+  c.querySelector('#tpPMic')?.addEventListener('click', () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition, r = new SR(); r.lang = 'pt-BR'; r.interimResults = false;
+    r.onresult = (ev) => { const t = ev.results[0][0].transcript; perguntar(t, render); };
+    r.onerror = () => toast('Não consegui ouvir. Escreva a pergunta.');
+    try { r.start(); toast('Pode falar…'); } catch { toast('O microfone não abriu.'); }
+  });
+  c.querySelector('#tpChaveForm').onsubmit = (e) => { e.preventDefault(); const v = c.querySelector('#tpChave').value.trim(); if (!v) return; try { localStorage.setItem(CHAVE_RM, v); toast('Chave guardada neste aparelho.'); } catch { toast('Não deu para guardar a chave.'); } render(); };
+  c.querySelector('#tpChaveTira')?.addEventListener('click', () => { try { localStorage.removeItem(CHAVE_RM); } catch {} toast('Chave removida.'); render(); });
   c.querySelector('#tpAtual').onclick = () => carregarTempo(render, true);
   c.querySelectorAll('[data-tp-dia]').forEach((b) => b.onclick = () => { dia = +b.dataset.tpDia; render(); });
   c.querySelector('[data-tp-noite]')?.addEventListener('click', () => { noite = !noite; render(); });
