@@ -1031,7 +1031,9 @@ const LIGAR = {
   goa(c){ ligarGoa(c, { app, toast, hoje, nome: () => membro?.nome || '', instrutores: instrutoresConhecidos, voos: () => meusVoos, ir: irPara,
     // mesmo caminho e formato da tela de voo do Diário (diario/{uid}/voos/{id})
     salvarVoo: async (d, id) => { const novo = !id; id = id || d.data + '-' + (d.inicio || '').replace(':', '') + '-' + Math.random().toString(36).slice(2, 6);
-      await setDoc(doc(db, 'diario', user.uid, 'voos', id), { ...d, ...(novo ? { criadoEm: serverTimestamp() } : {}), atualizadoEm: serverTimestamp() }, { merge: true }); return id; },
+      await setDoc(doc(db, 'diario', user.uid, 'voos', id), { ...d, ...(novo ? { criadoEm: serverTimestamp() } : {}), atualizadoEm: serverTimestamp() }, { merge: true });
+      if (novo && /^\d{4}-\d{2}-\d{2}$/.test(d.data || '')) setDoc(doc(db, 'diario', user.uid, 'goa', d.data), { enviado: true, em: serverTimestamp() }, { merge: true }).catch(() => {}); // voo lançado = dia do GOA marcado como preenchido
+      return id; },
     render: () => { if (aba === 'goa') render(); } }); },
   anotacoes(c){ ligarAnotacoes(c, { db, user: () => user, membro: () => membro, anotacoes: () => anotacoes, toast, render: () => { if (aba === 'anotacoes') render(); } }); },
   tempo(c){ ligarTempo(c, { decodificarMetar, toast, render: () => { if (aba === 'tempo') render(); } }); },

@@ -6,7 +6,7 @@ import '../embutido.js';
 import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
 import { entrarGoogle, navegadorRuim, avisoNavegador, ligarAviso } from '../entrar-google.js';
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { FIREBASE_CONFIG } from '../firebase-config.js';
 import { limpar, limparNome, soDigitos, formatarMatricula, matriculaValida, formatarIcao, icaoValido, formatarModelo, fecharDuracao, dataValida, hojeIso, celulaCsv, ligarMascaras } from '../entrada.js';
 import { LOCAIS, dividirVoo, crepusculoCivil, paraMin, paraHHMM, mesmoVoo } from './crepusculo.js';
@@ -25,12 +25,25 @@ const FUNCOES = { instrucao: 'Piloto em instrução (duplo comando)', solo: 'Sol
 const EXERCICIOS = ['Pré-voo', 'Partida e cheques', 'Táxi pairado', 'Pairado', 'Giro 360° no pairado', 'Deslocamento lateral e à ré', 'Decolagem normal', 'Tráfego padrão', 'Aproximação normal', 'Pouso', 'Decolagem de máxima performance', 'Aproximação íngreme', 'Pouso corrido', 'Autorrotação', 'Autorrotação pairada', 'Pane de governador', 'Área restrita', 'Pouso em rampa', 'Navegação', 'Voo noturno', 'Emergências simuladas'];
 const CIV = { nao: ['nao', 'Pendente'], lancado: ['lan', 'Lançado na CIV'], conferido: ['ok', 'Conferido'] };
 
-let user = null, perfil = null, voos = [], pararVoos = null, pararGoa = null, goa = {}, editando = null, filtro = 'todos';
+let preenchido = false, user = null, perfil = null, voos = [], pararVoos = null, pararGoa = null, goa = {}, editando = null, filtro = 'todos';
 
+// Voo lançado = dia do GOA já preenchido: marca o dia sem pedir (o Juan desmarca na barra se quiser).
+const marcarGoa = (iso) => { if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || '') || goa[iso]) return; goa[iso] = true; setDoc(doc(db, 'diario', user.uid, 'goa', iso), { enviado: true, em: serverTimestamp() }, { merge: true }).catch(() => {}); };
+// Uma vez por aparelho: marca no GOA os dias já voados (voos do Diário e dias marcados "voou"), porque esses foram lançados lá.
+async function preencherGoaDosVoos() {
+  const chave = 'goa-voados-v1-' + user.uid;
+  try { if (localStorage.getItem(chave)) return; } catch {}
+  try {
+    const dias = (await getDocs(collection(db, 'diario', user.uid, 'dias'))).docs.filter((d) => d.data().voou).map((d) => d.id);
+    const todos = new Set([...voos.map((v) => v.data), ...dias].filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x || '')));
+    for (const iso of todos) if (!goa[iso]) await setDoc(doc(db, 'diario', user.uid, 'goa', iso), { enviado: true, em: serverTimestamp() }, { merge: true });
+    try { localStorage.setItem(chave, '1'); } catch {}
+  } catch (e) { console.warn('GOA: preenchimento dos dias voados falhou', e); }
+}
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2600); }
 
 onAuthStateChanged(auth, async (u) => {
-  user = u; pararVoos?.(); pararVoos = null; pararGoa?.(); pararGoa = null; voos = []; goa = {}; perfil = null;
+  user = u; preenchido = false; pararVoos?.(); pararVoos = null; pararGoa?.(); pararGoa = null; voos = []; goa = {}; perfil = null;
   topo();
   if (!u) return telaLogin();
   try { const s = await getDoc(doc(db, 'diario', u.uid)); perfil = s.exists() ? s.data() : null; }
@@ -44,6 +57,7 @@ onAuthStateChanged(auth, async (u) => {
   }, () => {});
   pararVoos = onSnapshot(collection(db, 'diario', u.uid, 'voos'), (s) => {
     voos = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.data + (b.inicio || '')).localeCompare(a.data + (a.inicio || '')));
+    if (!preenchido) { preenchido = true; setTimeout(preencherGoaDosVoos, 1500); } // espera o GOA carregar
     if (editando) return;
     const pend = lerHashImport();
     if (pend) { editando = 'importar'; return telaImportar(pend); }
@@ -246,7 +260,7 @@ function telaVoo(v) {
     if (d.canacInstrutor && d.canacInstrutor.length !== 6) { $('#vErro').textContent = 'O CANAC do instrutor tem 6 dígitos.'; return; }
     if (d.diurno + d.noturno <= 0) { $('#vErro').textContent = 'Informe o tempo de voo (início e fim, ou diurno/noturno).'; return; }
     const id = v.id || (d.data + '-' + (d.inicio || '').replace(':', '') + '-' + Math.random().toString(36).slice(2, 6));
-    try { await setDoc(doc(db, 'diario', user.uid, 'voos', id), v.id ? d : { ...d, criadoEm: serverTimestamp() }, { merge: true }); toast('Voo salvo'); telaPrincipal(); }
+    try { await setDoc(doc(db, 'diario', user.uid, 'voos', id), v.id ? d : { ...d, criadoEm: serverTimestamp() }, { merge: true }); marcarGoa(d.data); toast('Voo salvo'); telaPrincipal(); }
     catch (e2) { $('#vErro').textContent = 'Não salvou: ' + (e2.code || e2.message); }
   };
 }
@@ -346,7 +360,7 @@ function telaImportar(lista) {
       for (const { d } of bons) {
         const id = d.data + '-' + (d.inicio || '').replace(':', '') + '-' + Math.random().toString(36).slice(2, 6);
         await setDoc(doc(db, 'diario', user.uid, 'voos', id), { ...d, atualizadoEm: serverTimestamp(), criadoEm: serverTimestamp() });
-        n++;
+        marcarGoa(d.data); n++;
       }
       toast(n + ' voo(s) importado(s)');
       sair();
