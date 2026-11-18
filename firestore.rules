@@ -44,6 +44,11 @@ service cloud.firestore {
         allow create, update: if dono(uid) && dia.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && request.resource.data.voou is bool
           && request.resource.data.motivo in ['', 'chuva', 'vento', 'fds', 'outro'] && txt(request.resource.data, 'outro', 60);
       }
+      // Formulário diário do GOA: um registro por dia marcado como preenchido (o formulário não dá aviso de recebimento). Só o dono.
+      match /goa/{dia} {
+        allow read, delete: if dono(uid);
+        allow create, update: if dono(uid) && dia.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && request.resource.data.enviado is bool;
+      }
       // Documentos do voo (foto/PDF do Diário de Bordo e da Ficha de Avaliação), em partes de até 700 mil caracteres.
       match /docs/{d} {
         allow read, delete: if dono(uid);

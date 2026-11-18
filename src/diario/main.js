@@ -23,20 +23,25 @@ const dec = (min) => ((min || 0) / 60).toFixed(1).replace('.', ',');
 
 const FUNCOES = { instrucao: 'Piloto em instrução (duplo comando)', solo: 'Solo (aluno em comando)', pic: 'Piloto em comando', instrutor: 'Instrutor' };
 const EXERCICIOS = ['Pré-voo', 'Partida e cheques', 'Táxi pairado', 'Pairado', 'Giro 360° no pairado', 'Deslocamento lateral e à ré', 'Decolagem normal', 'Tráfego padrão', 'Aproximação normal', 'Pouso', 'Decolagem de máxima performance', 'Aproximação íngreme', 'Pouso corrido', 'Autorrotação', 'Autorrotação pairada', 'Pane de governador', 'Área restrita', 'Pouso em rampa', 'Navegação', 'Voo noturno', 'Emergências simuladas'];
-const CIV = { nao: ['nao', 'Falta na CIV'], lancado: ['lan', 'Lançado na CIV'], conferido: ['ok', 'Conferido'] };
+const CIV = { nao: ['nao', 'Pendente'], lancado: ['lan', 'Lançado na CIV'], conferido: ['ok', 'Conferido'] };
 
-let user = null, perfil = null, voos = [], pararVoos = null, editando = null, filtro = 'todos';
+let user = null, perfil = null, voos = [], pararVoos = null, pararGoa = null, goa = {}, editando = null, filtro = 'todos';
 
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2600); }
 
 onAuthStateChanged(auth, async (u) => {
-  user = u; pararVoos?.(); pararVoos = null; voos = []; perfil = null;
+  user = u; pararVoos?.(); pararVoos = null; pararGoa?.(); pararGoa = null; voos = []; goa = {}; perfil = null;
   topo();
   if (!u) return telaLogin();
   try { const s = await getDoc(doc(db, 'diario', u.uid)); perfil = s.exists() ? s.data() : null; }
   catch (e) { el.innerHTML = `<div class="cartao"><p class="erro">Não foi possível abrir o seu diário (${esc(e.code || e.message)}). Recarregue a página.</p></div>`; return; }
   if (!perfil) return telaPerfil(true);
   topo();
+  // Formulário diário do GOA: um registro por dia em diario/{uid}/goa/{AAAA-MM-DD} = { enviado: true }.
+  pararGoa = onSnapshot(collection(db, 'diario', u.uid, 'goa'), (s) => {
+    goa = {}; s.docs.forEach((d) => { if (d.data().enviado) goa[d.id] = d.data().em?.toDate?.() || true; });
+    if (!editando && perfil) telaPrincipal();
+  }, () => {});
   pararVoos = onSnapshot(collection(db, 'diario', u.uid, 'voos'), (s) => {
     voos = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.data + (b.inicio || '')).localeCompare(a.data + (a.inicio || '')));
     if (editando) return;
@@ -103,11 +108,25 @@ function somar(lista) {
   return t;
 }
 
+const SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+function barraGoa() {
+  const dias = [0, -1, -2, -3, -4, -5, -6].map((n) => hojeIso(n)), hoje = dias[0], ok = !!goa[hoje];
+  const hora = goa[hoje] instanceof Date ? ' às ' + goa[hoje].toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+  const falta = dias.filter((d) => !goa[d]).length;
+  return `<section class="cartao goa-barra ${ok ? 'ok' : 'falta'}"><div class="cab">
+    <div><h3>${ok ? '✓ Formulário do GOA de hoje: preenchido' + hora : 'Formulário do GOA de hoje: ainda não marcado'}</h3>
+      <div class="sub">O formulário não manda aviso de recebimento. Depois de enviar, marque aqui para não esquecer.</div></div>
+    <button class="${ok ? '' : 'pri'}" data-goa="${hoje}">${ok ? 'Desmarcar hoje' : 'Marcar como preenchido'}</button></div>
+    <div class="goa-dias" aria-label="Últimos 7 dias">${dias.map((d) => { const o = !!goa[d], dt = new Date(d + 'T12:00:00'); return `<button class="goa-dia ${o ? 'ok' : 'falta'}" data-goa="${d}" aria-pressed="${o}" title="${o ? 'Preenchido: toque para desmarcar' : 'Sem marcação: toque para marcar'}"><span>${SEMANA[dt.getDay()]}</span><b>${dBR(d).slice(0, 5)}</b><i>${o ? '✓' : '—'}</i></button>`; }).join('')}</div>
+    ${falta > (ok ? 0 : 1) ? `<div class="sub">${falta} dia(s) dos últimos 7 sem marcação. Se o dia não teve formulário (sem voo e sem exigência), pode ignorar.</div>` : ''}</section>`;
+}
+
 function telaPrincipal() {
   editando = null;
   const t = somar(voos), meta = (perfil.meta || 0) * 60, pend = voos.filter((v) => (v.civ || 'nao') !== 'conferido').length;
   const lista = filtro === 'pendentes' ? voos.filter((v) => (v.civ || 'nao') !== 'conferido') : voos;
   el.innerHTML = `
+    ${barraGoa()}
     <section class="cartao"><div class="cab"><div><h2>${esc(perfil.nome)}</h2><div class="sub">${perfil.canac ? 'CANAC ' + esc(perfil.canac) + ' · ' : ''}${esc(perfil.curso || '')} · ${esc(perfil.escola || '')}</div></div>
       <div class="linha-acao"><button class="pri" id="btNovo">+ Novo voo</button><button id="btPerfil">Meus dados</button></div></div>
       <div class="totais">
@@ -131,7 +150,7 @@ function telaPrincipal() {
     </section>
     <section class="cartao"><div class="cab"><h2>Voos</h2><div class="chips"><button class="chip" aria-pressed="${filtro === 'todos'}" data-f="todos">Todos</button><button class="chip" aria-pressed="${filtro === 'pendentes'}" data-f="pendentes">Falta conferir</button></div></div>
       ${lista.length ? `<div class="tabela"><table><thead><tr><th></th><th>Data</th><th>Aeronave</th><th>Trecho</th><th>Horário</th><th class="n">Diurno</th><th class="n">Noturno</th><th class="n">Pousos</th><th>Função</th><th>Instrutor</th><th>CIV</th></tr></thead><tbody>
-        ${lista.map((v) => { const c = CIV[v.civ || 'nao']; return `<tr><td class="acoes"><button class="mini pri" data-ed="${v.id}">Editar</button> <button class="mini perigo" data-del="${v.id}">Excluir</button></td><td>${dBR(v.data)}</td><td>${esc(v.modelo)}<br><span class="sub">${esc(v.matricula)}</span></td><td>${esc(v.origem)}${v.destino && v.destino !== v.origem ? '→' + esc(v.destino) : ''}</td><td>${esc(v.inicio || '')}–${esc(v.fim || '')}</td><td class="n">${hm(v.diurno)}</td><td class="n">${hm(v.noturno)}</td><td class="n">${(v.pousosD || 0) + (v.pousosN || 0)}</td><td>${esc((FUNCOES[v.funcao] || '').split(' (')[0])}</td><td>${v.instrutor ? `<b>${esc(v.instrutor)}</b>${v.canacInstrutor ? `<br><span class="sub">CANAC ${esc(v.canacInstrutor)}</span>` : ''}` : '<span class="sub">—</span>'}</td><td><span class="selo ${c[0]}">${c[1]}</span></td></tr>`; }).join('')}
+        ${lista.map((v) => { const c = CIV[v.civ || 'nao']; return `<tr><td class="acoes"><button class="mini pri" data-ed="${v.id}">Editar</button> <button class="mini perigo" data-del="${v.id}">Excluir</button></td><td>${dBR(v.data)}</td><td>${esc(v.modelo)}<br><span class="sub">${esc(v.matricula)}</span></td><td>${esc(v.origem)}${v.destino && v.destino !== v.origem ? '→' + esc(v.destino) : ''}</td><td>${esc(v.inicio || '')}–${esc(v.fim || '')}</td><td class="n">${hm(v.diurno)}</td><td class="n">${hm(v.noturno)}</td><td class="n">${(v.pousosD || 0) + (v.pousosN || 0)}</td><td>${esc((FUNCOES[v.funcao] || '').split(' (')[0])}</td><td>${v.instrutor ? `<b>${esc(v.instrutor)}</b>${v.canacInstrutor ? `<br><span class="sub">CANAC ${esc(v.canacInstrutor)}</span>` : ''}` : '<span class="sub">—</span>'}</td><td><select class="civ-sel ${c[0]}" data-civ="${v.id}" aria-label="Situação na CIV Digital">${Object.entries(CIV).map(([k, x]) => `<option value="${k}" ${k === (v.civ || 'nao') ? 'selected' : ''}>${x[1]}</option>`).join('')}</select></td></tr>`; }).join('')}
       </tbody></table></div>` : `<div class="vazio">${voos.length ? 'Nenhum voo pendente de conferência.' : 'Nenhum voo lançado ainda. Toque em <b>+ Novo voo</b> logo depois de cada voo, com o horário de início e fim.'}</div>`}
       <div class="linha-acao">${voos.length ? '<button id="btCsv">Baixar planilha (CSV)</button><button id="btCopiar">Copiar resumo</button>' : ''}<button id="btImportar">Importar voos</button></div>
     </section>
@@ -146,6 +165,19 @@ function telaPrincipal() {
     b.disabled = true;
     try { await deleteDoc(doc(db, 'diario', user.uid, 'voos', b.dataset.del)); toast('Voo excluído'); }
     catch (e) { toast('Não excluiu: ' + (e.code || e.message)); b.disabled = false; }
+  });
+  // CIV: muda a situação direto na lista (Pendente → Lançado → Conferido)
+  el.querySelectorAll('[data-civ]').forEach((sel) => sel.onchange = async () => {
+    try { await setDoc(doc(db, 'diario', user.uid, 'voos', sel.dataset.civ), { civ: CIV[sel.value] ? sel.value : 'nao', atualizadoEm: serverTimestamp() }, { merge: true }); toast('CIV: ' + CIV[sel.value][1]); }
+    catch (e) { toast('Não salvou: ' + (e.code || e.message)); }
+  });
+  // GOA: marca ou desmarca "formulário preenchido" do dia
+  el.querySelectorAll('[data-goa]').forEach((b) => b.onclick = async () => {
+    const iso = b.dataset.goa; b.disabled = true;
+    try {
+      if (goa[iso]) await deleteDoc(doc(db, 'diario', user.uid, 'goa', iso));
+      else { await setDoc(doc(db, 'diario', user.uid, 'goa', iso), { enviado: true, em: serverTimestamp() }); toast('Marcado: formulário do GOA preenchido em ' + dBR(iso).slice(0, 5)); }
+    } catch (e) { toast('Não salvou: ' + (e.code || e.message)); b.disabled = false; }
   });
   $('#btCsv')?.addEventListener('click', baixarCsv); $('#btCopiar')?.addEventListener('click', copiarResumo);
   $('#btImportar')?.addEventListener('click', telaColar);
