@@ -242,6 +242,7 @@ function horas(prev) {
 }
 
 // ---------- estado e tela ----------
+let escolhido = {}; // ICAO → índice do METAR do histórico escolhido pela turma (só na tela: ao fechar o app volta ao atual)
 let local = null, dados = { metar: {}, taf: {}, hist: {}, prev: null, erro: {} }, carregando = false, dia = 0, noite = false, ultima = null;
 const guardar = () => { try { localStorage.setItem(CHAVE, JSON.stringify(local)); } catch {} };
 const lembrado = () => { try { return JSON.parse(localStorage.getItem(CHAVE) || 'null'); } catch { return null; } };
@@ -278,13 +279,15 @@ function sol() {
   return ` · 🌅 ${d.sunrise[0].slice(11)} 🌇 ${d.sunset[0].slice(11)}`;
 }
 function cartaoMetar(e) {
-  const m = dados.metar[e.icao];
+  const hist = dados.hist[e.icao] || [], i = escolhido[e.icao], doHist = i != null && hist[i];
+  const m = doHist ? { ...hist[i], idade: null } : dados.metar[e.icao]; // idade nula: o aviso de "observação velha" não vale para hora escolhida
   const cab = `<div class="cab"><div><b>${e.icao}</b> <span class="sub">${esc(e.nome)} · ${Math.round(e.dist)} km ao ${esc(pontoCardeal(e.rumo))}</span></div>`;
   if (!m) return `<div class="tp-est">${cab}${carregando ? '<span class="sub">buscando…</span>' : '<span class="sub">sem METAR agora</span>'}</div></div>`;
-  return `<div class="tp-est">${cab}<span class="selo ${m.c.n}" title="${esc(m.c.por)}">${m.c.t}</span></div>
+  return `<div class="tp-est" data-tp-card="${e.icao}">${cab}<span class="selo ${m.c.n}" title="${esc(m.c.por)}">${m.c.t}</span></div>
+    ${doHist ? `<div class="tp-hora-escolhida"><b>Hora escolhida: ${m.quando ? hhmm(m.quando) : ''}</b> (não é o METAR atual) <button type="button" class="mini pri" data-tp-agora="${e.icao}">Voltar ao agora</button></div>` : ''}
     ${chips(m.r)}${m.c.por ? `<div class="sub">Motivo: ${esc(m.c.por)}</div>` : ''}
     <div class="mono tp-raw">${esc(m.raw)}</div>
-    <div class="sub">${m.quando ? `às ${hhmm(m.quando)}${m.idade != null ? ` (há ${m.idade >= 60 ? Math.floor(m.idade / 60) + ' h ' + (m.idade % 60) + ' min' : m.idade + ' min'})` : ''}` : ''}</div>
+    <div class="sub">${m.quando ? `às ${hhmm(m.quando)}${doHist ? '' : m.idade != null ? ` (há ${m.idade >= 60 ? Math.floor(m.idade / 60) + ' h ' + (m.idade % 60) + ' min' : m.idade + ' min'})` : ''}` : ''}</div>
     <details class="tp-ler" ${e === proximas(localAtual(), 1)[0] ? 'open' : ''}><summary>Como ler este METAR</summary>
       <div class="tp-exp">${explicar(m.raw).map((x) => `<code>${esc(x.tok)}</code><span><b>${esc(x.nome)}:</b> ${esc(x.txt)}</span>`).join('')}</div>
       <div class="tp-int"><b>O que isso significa para o nosso voo</b><ul>${interpretar(m, e, localAtual()).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div></details>
@@ -294,10 +297,10 @@ const REDEMET_OLD = 'https://redemet.decea.mil.br/old/?i=produtos&p=consulta-de-
 // Últimas 24 h do aeródromo: uma linha por METAR, do mais novo para o mais velho, com a cor da referência da turma.
 function historico(e) {
   const h = dados.hist[e.icao]; if (!h || h.length < 2) return '';
-  const linha = (m) => `<tr class="tp-${m.c.n}" title="${esc(m.c.por)}"><td class="mono">${m.quando ? hhmm(m.quando) : ''}</td><td>${esc(ventoTxt(m.r.vento))}</td><td>${esc(visTxt(m.r.vis, m.r.cavok))}</td><td>${m.r.teto != null ? m.r.teto + ' ft' : m.r.cavok || m.r.semNuvens ? '—' : m.r.nuvens[0] ? '(' + m.r.nuvens[0].base + ' ' + m.r.nuvens[0].cob + ')' : '—'}</td><td>${esc(m.r.fen.join('; '))}</td><td>${m.r.temp != null ? m.r.temp + '/' + m.r.orv : ''}</td><td>${m.r.qnh || ''}</td></tr>`;
-  return `<details class="tp-ler"><summary>Últimas 24 h em ${e.icao} (${h.length} observações): como está ficando</summary>
+  const linha = (m, i) => `<tr class="tp-${m.c.n}${escolhido[e.icao] === i ? ' tp-sel' : ''}" title="${esc(m.c.por)}"><td class="mono"><button type="button" class="mini ${escolhido[e.icao] === i ? 'pri' : ''}" data-tp-sel="${e.icao}" data-tp-i="${i}" aria-label="Ver o METAR das ${m.quando ? hhmm(m.quando) : ''}">${m.quando ? hhmm(m.quando) : ''}</button></td><td>${esc(ventoTxt(m.r.vento))}</td><td>${esc(visTxt(m.r.vis, m.r.cavok))}</td><td>${m.r.teto != null ? m.r.teto + ' ft' : m.r.cavok || m.r.semNuvens ? '—' : m.r.nuvens[0] ? '(' + m.r.nuvens[0].base + ' ' + m.r.nuvens[0].cob + ')' : '—'}</td><td>${esc(m.r.fen.join('; '))}</td><td>${m.r.temp != null ? m.r.temp + '/' + m.r.orv : ''}</td><td>${m.r.qnh || ''}</td></tr>`;
+  return `<details class="tp-ler" ${escolhido[e.icao] != null ? 'open' : ''}><summary>Últimas 24 h em ${e.icao} (${h.length} observações): como está ficando</summary>
     <div class="tabela"><table class="tp-tab"><thead><tr><th>Hora</th><th>Vento</th><th>Visib.</th><th>Teto</th><th>Tempo</th><th>T/Td</th><th>QNH</th></tr></thead><tbody>${h.map(linha).join('')}</tbody></table></div>
-    <p class="sub">Leia de cima para baixo (o mais novo primeiro): teto subindo e vento firmando costumam vir juntos com a melhora. Histórico oficial, com dias anteriores: <a href="${REDEMET_OLD}" target="_blank" rel="noopener noreferrer">consulta de mensagens do REDEMET</a> (ICAO ${e.icao}).</p></details>`;
+    <p class="sub"><b>Toque na hora</b> para ver aquele METAR decodificado lá em cima (útil quando o instrutor pede o METAR de um horário). Ao fechar o app, volta ao atual. Leia de cima para baixo (o mais novo primeiro): teto subindo e vento firmando costumam vir juntos com a melhora. Histórico oficial, com dias anteriores: <a href="${REDEMET_OLD}" target="_blank" rel="noopener noreferrer">consulta de mensagens do REDEMET</a> (ICAO ${e.icao}).</p></details>`;
 }
 function cartaoTaf(e) {
   const t = dados.taf[e.icao];
@@ -337,7 +340,7 @@ export async function carregarTempo(render, forcar) {
   const l = localAtual(); local = l;
   if (carregando) return;
   if (!forcar && ultima && Date.now() - ultima < 5 * 6e4 && dados.local === l.nome) return;
-  carregando = true; dados = { metar: {}, taf: {}, hist: {}, prev: null, erro: {}, local: l.nome };
+  carregando = true; escolhido = {}; dados = { metar: {}, taf: {}, hist: {}, prev: null, erro: {}, local: l.nome };
   try {
   try { render(); } catch (e) { console.error(e); }
   const est = proximas(l);
@@ -365,6 +368,9 @@ export function ligarTempo(c, { toast, render }) {
     toast('Pedindo a posição…');
     navigator.geolocation.getCurrentPosition(async (p) => { const { latitude: lat, longitude: lon } = p.coords; ir({ nome: await nomeDe(lat, lon), lat, lon }); }, () => toast('Sem permissão para a posição. Digite o lugar.'), { timeout: 12000, maximumAge: 60000 });
   };
+  const verCartao = (icao) => document.querySelector(`[data-tp-card="${icao}"]`)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  c.querySelectorAll('[data-tp-sel]').forEach((b) => b.onclick = () => { const k = b.dataset.tpSel; escolhido[k] = escolhido[k] === +b.dataset.tpI ? null : +b.dataset.tpI; render(); if (escolhido[k] != null) verCartao(k); });
+  c.querySelectorAll('[data-tp-agora]').forEach((b) => b.onclick = () => { escolhido[b.dataset.tpAgora] = null; render(); });
   c.querySelector('#tpAtual').onclick = () => carregarTempo(render, true);
   c.querySelectorAll('[data-tp-dia]').forEach((b) => b.onclick = () => { dia = +b.dataset.tpDia; render(); });
   c.querySelector('[data-tp-noite]')?.addEventListener('click', () => { noite = !noite; render(); });
