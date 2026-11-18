@@ -669,7 +669,7 @@ function abrir() {
   // documentos dos voos do próprio piloto (aba DB e Ficha): para avisar no Início o que falta enviar
   parar.push(onSnapshot(collection(db, 'diario', user.uid, 'docs'), (s) => { meusDocs = s.docs.map((d) => ({ id: d.id, ...d.data() })); if (aba === 'inicio' && !digitandoPix()) render(); }, () => {}));
   parar.push(onSnapshot(collection(db, 'diario', user.uid, 'dias'), (s) => { meusDias = s.docs.map((d) => ({ iso: d.id, ...d.data() })); if (aba === 'inicio' && !digitandoPix() && !document.activeElement?.matches?.('#diaOutroTxt')) render(); }, () => {}));
-  parar.push(onSnapshot(collection(db, 'diario', user.uid, 'voos'), (s) => { meusVoos = s.docs.map((d) => ({ id: d.id, ...d.data() })); if (aba === 'inicio' && !digitandoPix()) render(); }, () => {}));
+  parar.push(onSnapshot(collection(db, 'diario', user.uid, 'voos'), (s) => { meusVoos = s.docs.map((d) => ({ id: d.id, ...d.data() })); contagem(); if (aba === 'inicio' && !digitandoPix()) render(); }, () => {}));
   parar.push(onSnapshot(collection(db, 'provas'), (s) => {
     notasProvas = s.docs.map((d) => ({ uid: d.id, ...d.data() }));
     if (aba === 'provas' && !emProva()) render();
@@ -697,7 +697,10 @@ function render() {
 }
 function contagem() {
   const dia = Math.floor((Date.parse(hoje()) - Date.parse('2026-11-03')) / 864e5) + 1;
-  $('#contagem').innerHTML = dia < 1 ? `<b>${1 - dia}</b><span>dia(s) para o curso</span>` : dia <= 59 ? `<b>${dia}º</b><span>dia de curso</span>` : '';
+  // dias efetivos de voo: datas diferentes com voo no Diário (ou dia marcado "voou") do próprio piloto
+  const voados = new Set([...meusVoos.map((v) => v.data), ...meusDias.filter((d) => d.voou).map((d) => d.iso)].filter(Boolean)).size;
+  const efet = voados ? `<span class="efet"><b>${voados}</b> ${voados === 1 ? 'dia efetivo de voo' : 'dias efetivos de voo'}</span>` : '';
+  $('#contagem').innerHTML = (dia < 1 ? `<b>${1 - dia}</b><span>dia(s) para o curso</span>` : dia <= 59 ? `<b>${dia}º</b><span>dia de curso</span>` : '') + (dia >= 1 ? efet : '');
 }
 function irPara(k) { aba = k; try { history.replaceState(null, '', '#' + k); } catch {} render(); window.scrollTo(0, 0); }
 // allow="microphone": a página de gastos deixa falar o gasto (reconhecimento de voz do navegador)

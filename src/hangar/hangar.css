@@ -304,3 +304,6 @@ div.pv-alt{display:flex;align-items:center;gap:6px;border-radius:10px}
 .pv-rev{padding:8px 0;border-bottom:1px solid var(--linha)}
 .pv-rev p{margin:6px 0}
 @media(max-width:520px){.cp-onde{margin-left:0}.cp-lin{flex-wrap:wrap}.cp-txt{flex-basis:calc(100% - 80px)}}
+
+.contagem .efet{display:block;margin-top:6px;font-size:12px;letter-spacing:.06em}
+.contagem .efet b{display:inline;font-size:16px}
