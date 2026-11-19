@@ -6,3 +6,6 @@ android/build
 .DS_Store
 android/local.properties
 assets-src
+
+.env
+.env.*
