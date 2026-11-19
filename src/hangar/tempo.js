@@ -245,7 +245,7 @@ function horas(prev) {
 
 // ---------- estado e tela ----------
 let escolhido = {}; // ICAO → índice do METAR do histórico escolhido pela turma (só na tela: ao fechar o app volta ao atual)
-let local = null, dados = { metar: {}, taf: {}, hist: {}, prev: null, erro: {} }, carregando = false, dia = 0, noite = false, ultima = null;
+let local = null, dados = { metar: {}, taf: {}, hist: {}, src: {}, srcTaf: {}, prev: null, erro: {} }, carregando = false, dia = 0, noite = false, ultima = null;
 const guardar = () => { try { localStorage.setItem(CHAVE, JSON.stringify(local)); } catch {} };
 const lembrado = () => { try { return JSON.parse(localStorage.getItem(CHAVE) || 'null'); } catch { return null; } };
 const porEstacao = (e) => ({ nome: `${e.nome} (${e.icao})`, lat: e.lat, lon: e.lon, elev: e.elev, icao: e.icao });
@@ -260,21 +260,33 @@ const CHAVE_RM = 'tempo-redemet-key';
 const chaveRm = () => { try { return localStorage.getItem(CHAVE_RM) || ''; } catch { return ''; } };
 let perg = { q: '', carregando: false, itens: null, msg: '' };
 const semAcento = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-async function metarRedemet(icao, key) {
-  const f = (d) => d.toISOString().slice(0, 13).replace(/[-T]/g, '');
-  const j = await json(`https://api-redemet.decea.mil.br/mensagens/metar/${icao}?api_key=${encodeURIComponent(key)}&data_ini=${f(new Date(Date.now() - 6 * 36e5))}&data_fim=${f(new Date())}`);
-  const achados = [];
-  const varre = (v) => { if (typeof v === 'string') { const m = /(?:METAR|SPECI)(?: COR)?\s+([A-Z]{4}\s+\d{6}Z[^=]*)/.exec(v); if (m) achados.push(m[1].trim()); } else if (v && typeof v === 'object') Object.values(v).forEach(varre); };
-  varre(j);
-  const ms = achados.map(lerMetar).filter((m) => m.icao === icao).sort((a, b) => (b.quando || 0) - (a.quando || 0));
+const FONTE_CHAVE = 'tempo-fonte';
+const fonteTempo = () => { try { return localStorage.getItem(FONTE_CHAVE) === 'redemet' && chaveRm() ? 'redemet' : 'vatsim'; } catch { return 'vatsim'; } };
+const RM = 'REDEMET (DECEA)', VT = 'VATSIM/NOAA';
+const dtRm = (d) => d.toISOString().slice(0, 13).replace(/[-T]/g, '');
+// Mensagens da REDEMET (METAR e SPECI, ou TAF) dos últimos `horas` h, em texto cru, achando qualquer string de mensagem na resposta.
+async function mensagensRedemet(tipo, icao, key, horas) {
+  const j = await json(`https://api-redemet.decea.mil.br/mensagens/${tipo}/${icao}?api_key=${encodeURIComponent(key)}&data_ini=${dtRm(new Date(Date.now() - horas * 36e5))}&data_fim=${dtRm(new Date())}`);
+  const re = tipo === 'taf' ? /TAF(?: AMD| COR| RTD)*\s+([A-Z]{4}\s+\d{6}Z[^=]*)/ : /(?:METAR|SPECI)(?: COR)?\s+([A-Z]{4}\s+\d{6}Z[^=]*)/, achados = [];
+  const varre = (v) => { if (typeof v === 'string') { const m = re.exec(v); if (m) achados.push(m[1].trim()); } else if (v && typeof v === 'object') Object.values(v).forEach(varre); };
+  varre(j); return achados;
+}
+// Lista de METAR/SPECI (do mais novo para o mais velho). Uma consulta traz o atual e a tendência.
+async function listaRedemet(icao, key, horas = 24) {
+  const ms = (await mensagensRedemet('metar', icao, key, horas)).map(lerMetar).filter((m) => m.icao === icao && m.quando).sort((a, b) => b.quando - a.quando);
   if (!ms.length) throw new Error('sem METAR na REDEMET');
-  return ms[0];
+  return ms;
+}
+const metarRedemet = async (icao, key) => (await listaRedemet(icao, key, 6))[0];
+async function tafRedemet(icao, key) {
+  const t = (await mensagensRedemet('taf', icao, key, 30)).map(lerTaf).filter((x) => x && x.emitido).sort((a, b) => b.emitido - a.emitido);
+  if (!t.length) throw new Error('sem TAF na REDEMET'); return t[0];
 }
 async function metaresDe(icaos) {
-  const key = chaveRm(), out = {};
-  if (key) await Promise.all(icaos.map((i) => metarRedemet(i, key).then((m) => { out[i] = { m, fonte: 'REDEMET (oficial)' }; }).catch(() => {})));
+  const key = fonteTempo() === 'redemet' ? chaveRm() : '', out = {};
+  if (key) await Promise.all(icaos.map((i) => metarRedemet(i, key).then((m) => { out[i] = { m, fonte: RM }; }).catch(() => {})));
   const falta = icaos.filter((i) => !out[i]);
-  if (falta.length) { const v = await buscarMetar(falta); falta.forEach((i) => { if (v[i]) out[i] = { m: v[i], fonte: 'VATSIM/NOAA' }; }); }
+  if (falta.length) { const v = await buscarMetar(falta); falta.forEach((i) => { if (v[i]) out[i] = { m: v[i], fonte: VT }; }); }
   return out;
 }
 const comDist = (ref, e) => ({ ...e, dist: km(ref, e), rumo: rumo(ref, e) });
@@ -330,7 +342,12 @@ function caixaPergunta() {
 export function telaTempo() {
   const l = localAtual(), est = proximas(l);
   const atalhos = ['SISY', 'SBBI', 'SBCT', 'SBJV', 'SBFL'].map((k) => ESTACOES.find((e) => e.icao === k));
+  const fo = fonteTempo();
   return `<div class="cab"><h2>Tempo para o voo</h2>${ultima ? `<span class="sub">atualizado ${hhmm(ultima)}</span>` : ''}</div>
+  <div class="chips" role="group" aria-label="Fonte do METAR e do TAF"><span class="sub">Fonte:</span>
+    <button type="button" class="chip" aria-pressed="${fo === 'vatsim'}" data-tp-fonte="vatsim">Padrão · VATSIM/NOAA</button>
+    <button type="button" class="chip" aria-pressed="${fo === 'redemet'}" data-tp-fonte="redemet">REDEMET · DECEA</button></div>
+  <p class="sub" style="font-size:12px">${fo === 'redemet' ? 'A REDEMET só é consultada quando você atualiza ou troca de lugar (cerca de 4 consultas de METAR e 2 de TAF por vez). Se ela falhar, cai na fonte padrão e o cartão avisa.' : chaveRm() ? 'Toque em REDEMET para usar a fonte oficial do DECEA (só consulta quando selecionada).' : 'Para usar a REDEMET, guarde a chave na caixa "Pergunte ao tempo" (Chave da API REDEMET).'}</p>
   <p class="intro">Na véspera, olhe a previsão de amanhã. Antes de sair, o METAR e o TAF de agora. Isto orienta o briefing; quem decide é o instrutor.</p>
   ${caixaPergunta()}
   <div class="caixa">
@@ -350,7 +367,7 @@ export function telaTempo() {
     ${tabelaPrevisao()}
     <p class="sub">Cores: <span class="selo ok">ok</span> dentro da referência da turma · <span class="selo al">atenção</span> vento 15–20 kt, visibilidade 5–8 km, chuva ou nuvens baixas · <span class="selo pe">abaixo</span> vento acima de 20 kt (rajadas 25), visibilidade abaixo de 5 km, trovoada ou nevoeiro. O modelo não informa o teto: confira nuvens no METAR e no TAF.</p></div>
   ${sites(l, est)}
-  <p class="sub">Fontes: METAR da VATSIM (espelho da rede NOAA), TAF do MET Norway, previsão da Open-Meteo (ECMWF/GFS), lugares do OpenStreetMap. Horários em hora de Brasília. ${lembrado() ? 'O último lugar fica guardado neste aparelho.' : ''}</p>`;
+  <p class="sub">Fontes: METAR da VATSIM (espelho da rede NOAA) ou da REDEMET/DECEA (você escolhe no topo), TAF do MET Norway ou da REDEMET, previsão da Open-Meteo (ECMWF/GFS), lugares do OpenStreetMap. Horários em hora de Brasília. ${lembrado() ? 'O último lugar fica guardado neste aparelho.' : ''}</p>`;
 }
 function sol() {
   const d = dados.prev?.daily; if (!d) return '';
@@ -366,6 +383,7 @@ function cartaoMetar(e) {
     ${doHist ? `<div class="tp-hora-escolhida"><b>Hora escolhida: ${m.quando ? hhmm(m.quando) : ''}</b> (não é o METAR atual) <button type="button" class="mini pri" data-tp-agora="${e.icao}">Voltar ao agora</button></div>` : ''}
     ${chips(m.r)}${m.c.por ? `<div class="sub">Motivo: ${esc(m.c.por)}</div>` : ''}
     <div class="mono tp-raw">${esc(m.raw)}</div>
+    <div class="sub" style="font-size:11px">Fonte: ${esc(dados.src[e.icao] || VT)}</div>
     <div class="sub">${m.quando ? `às ${hhmm(m.quando)} (${hhmmZ(m.quando)})${doHist ? '' : m.idade != null ? ` (há ${m.idade >= 60 ? Math.floor(m.idade / 60) + ' h ' + (m.idade % 60) + ' min' : m.idade + ' min'})` : ''}` : ''}</div>
     <details class="tp-ler" ${e === proximas(localAtual(), 1)[0] ? 'open' : ''}><summary>Como ler este METAR</summary>
       <div class="tp-exp">${explicar(m.raw).map((x) => `<code>${esc(x.tok)}</code><span><b>${esc(x.nome)}:</b> ${esc(x.txt)}</span>`).join('')}</div>
@@ -377,7 +395,7 @@ const REDEMET_OLD = 'https://redemet.decea.mil.br/old/?i=produtos&p=consulta-de-
 function historico(e) {
   const h = dados.hist[e.icao]; if (!h || h.length < 2) return '';
   const linha = (m, i) => `<tr class="tp-${m.c.n}${escolhido[e.icao] === i ? ' tp-sel' : ''}" title="${esc(m.c.por)}"><td class="mono"><button type="button" class="mini ${escolhido[e.icao] === i ? 'pri' : ''}" data-tp-sel="${e.icao}" data-tp-i="${i}" aria-label="Ver o METAR das ${m.quando ? hhmm(m.quando) : ''}">${m.quando ? hhmm(m.quando) : ''}</button></td><td>${esc(ventoTxt(m.r.vento))}</td><td>${esc(visTxt(m.r.vis, m.r.cavok))}</td><td>${m.r.teto != null ? m.r.teto + ' ft' : m.r.cavok || m.r.semNuvens ? '—' : m.r.nuvens[0] ? '(' + m.r.nuvens[0].base + ' ' + m.r.nuvens[0].cob + ')' : '—'}</td><td>${esc(m.r.fen.join('; '))}</td><td>${m.r.temp != null ? m.r.temp + '/' + m.r.orv : ''}</td><td>${m.r.qnh || ''}</td></tr>`;
-  return `<details class="tp-ler" ${escolhido[e.icao] != null ? 'open' : ''}><summary>Últimas 24 h em ${e.icao} (${h.length} observações): como está ficando</summary>
+  return `<details class="tp-ler" ${escolhido[e.icao] != null ? 'open' : ''}><summary>Últimas 24 h em ${e.icao} (${h.length} observações · fonte: ${esc(dados.src[e.icao] || 'MET Norway')}): como está ficando</summary>
     <div class="tabela"><table class="tp-tab"><thead><tr><th>Hora</th><th>Vento</th><th>Visib.</th><th>Teto</th><th>Tempo</th><th>T/Td</th><th>QNH</th></tr></thead><tbody>${h.map(linha).join('')}</tbody></table></div>
     <p class="sub"><b>Toque na hora</b> para ver aquele METAR decodificado lá em cima (útil quando o instrutor pede o METAR de um horário). Ao fechar o app, volta ao atual. Leia de cima para baixo (o mais novo primeiro): teto subindo e vento firmando costumam vir juntos com a melhora. Histórico oficial, com dias anteriores: <a href="${REDEMET_OLD}" target="_blank" rel="noopener noreferrer">consulta de mensagens do REDEMET</a> (ICAO ${e.icao}).</p></details>`;
 }
@@ -386,7 +404,7 @@ function cartaoTaf(e) {
   if (!t) return `<div class="tp-est"><b>${e.icao}</b> <span class="sub">${esc(e.nome)} · ${carregando ? 'buscando…' : 'sem TAF agora'}</span></div>`;
   return `<div class="tp-est"><div><b>${e.icao}</b> <span class="sub">${esc(e.nome)}${t.emitido ? ` · emitido ${hhmm(t.emitido)}` : ''}${t.de ? ` · válido ${diaHora(t.de)} → ${diaHora(t.ate)}` : ''}</span></div>
     ${t.grupos.map((g) => `<div class="tp-grupo"><div class="cab"><b class="sub">${esc(g.rot)}</b><span class="selo ${g.c.n}" title="${esc(g.c.por)}">${g.c.t}</span></div>${chips(g.r)}${g.extremos.length ? `<div class="sub">${esc(g.extremos.join(' · '))}</div>` : ''}</div>`).join('')}
-    <div class="mono tp-raw">${esc(t.raw)}</div></div>`;
+    <div class="mono tp-raw">${esc(t.raw)}</div><div class="sub" style="font-size:11px">Fonte: ${esc(dados.srcTaf[e.icao] || 'MET Norway')}</div></div>`;
 }
 const pontoCardeal = (g) => ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(g / 45) % 8];
 function tabelaPrevisao() {
@@ -419,14 +437,24 @@ export async function carregarTempo(render, forcar) {
   const l = localAtual(); local = l;
   if (carregando) return;
   if (!forcar && ultima && Date.now() - ultima < 5 * 6e4 && dados.local === l.nome) return;
-  carregando = true; escolhido = {}; dados = { metar: {}, taf: {}, hist: {}, prev: null, erro: {}, local: l.nome };
+  carregando = true; escolhido = {}; dados = { metar: {}, taf: {}, hist: {}, src: {}, srcTaf: {}, prev: null, erro: {}, local: l.nome };
   try {
   try { render(); } catch (e) { console.error(e); }
   const est = proximas(l);
+  const rm = fonteTempo() === 'redemet' ? chaveRm() : '', icaos = est.map((e) => e.icao), comTaf = est.filter((e) => e.taf).slice(0, 2).map((e) => e.icao);
   await Promise.all([
-    buscarMetar(est.map((e) => e.icao)).then((m) => { dados.metar = m; }).catch((e) => { dados.erro.metar = e.message; }),
-    buscarTaf(est.filter((e) => e.taf).slice(0, 2).map((e) => e.icao)).then((t) => { dados.taf = t; }).catch((e) => { dados.erro.taf = e.message; }),
-    buscarHistorico(est.slice(0, 2).map((e) => e.icao)).then((h) => { dados.hist = h; }).catch(() => {}),
+    (async () => { // METAR e histórico: com REDEMET, uma consulta de 24 h por aeródromo traz o atual e a tendência; o que falhar cai na fonte padrão
+      if (rm) await Promise.all(icaos.map((i, n) => listaRedemet(i, rm).then((ms) => { dados.metar[i] = ms[0]; dados.src[i] = RM; if (n < 2) dados.hist[i] = ms; }).catch(() => {})));
+      const falta = icaos.filter((i) => !dados.metar[i]);
+      if (falta.length) { try { const m = await buscarMetar(falta); falta.forEach((i) => { if (m[i]) { dados.metar[i] = m[i]; dados.src[i] = VT; } }); } catch (e) { dados.erro.metar = e.message; } }
+      const faltaH = icaos.slice(0, 2).filter((i) => !dados.hist[i]);
+      if (faltaH.length) { try { Object.assign(dados.hist, await buscarHistorico(faltaH)); } catch {} }
+    })(),
+    (async () => {
+      if (rm) await Promise.all(comTaf.map((i) => tafRedemet(i, rm).then((t) => { dados.taf[i] = t; dados.srcTaf[i] = RM; }).catch(() => {})));
+      const falta = comTaf.filter((i) => !dados.taf[i]);
+      if (falta.length) { try { const t = await buscarTaf(falta); falta.forEach((i) => { if (t[i]) { dados.taf[i] = t[i]; dados.srcTaf[i] = 'MET Norway'; } }); } catch (e) { dados.erro.taf = e.message; } }
+    })(),
     buscarPrevisao(l.lat, l.lon).then((p) => { dados.prev = p; }).catch((e) => { dados.erro.prev = e.message; }),
   ]);
   ultima = new Date();
@@ -462,6 +490,13 @@ export function ligarTempo(c, { toast, render }) {
   });
   c.querySelector('#tpChaveForm').onsubmit = (e) => { e.preventDefault(); const v = c.querySelector('#tpChave').value.trim(); if (!v) return; try { localStorage.setItem(CHAVE_RM, v); toast('Chave guardada neste aparelho.'); } catch { toast('Não deu para guardar a chave.'); } render(); };
   c.querySelector('#tpChaveTira')?.addEventListener('click', () => { try { localStorage.removeItem(CHAVE_RM); } catch {} toast('Chave removida.'); render(); });
+  c.querySelectorAll('[data-tp-fonte]').forEach((b) => b.onclick = () => {
+    const f = b.dataset.tpFonte;
+    if (f === 'redemet' && !chaveRm()) { toast('Primeiro guarde a chave da REDEMET (caixa "Pergunte ao tempo" › Chave da API REDEMET).'); return; }
+    if (f === fonteTempo()) return;
+    try { localStorage.setItem(FONTE_CHAVE, f); } catch {}
+    ultima = null; carregarTempo(render, true);
+  });
   c.querySelector('#tpAtual').onclick = () => carregarTempo(render, true);
   c.querySelectorAll('[data-tp-dia]').forEach((b) => b.onclick = () => { dia = +b.dataset.tpDia; render(); });
   c.querySelector('[data-tp-noite]')?.addEventListener('click', () => { noite = !noite; render(); });
@@ -473,6 +508,6 @@ export async function resumoInicio(el) {
   const l = localAtual(), e = proximas(l, 1)[0]; if (!e || !el) return;
   try {
     const m = (await buscarMetar([e.icao]))[e.icao]; if (!m) return;
-    el.innerHTML = `<span class="selo ${m.c.n}">${m.c.t}</span> <b>${e.icao}</b> ${hhmm(m.quando)} · ${esc(ventoTxt(m.r.vento))} · ${esc(visTxt(m.r.vis, m.r.cavok))} · ${m.r.teto != null ? 'teto ' + m.r.teto + ' ft' : 'sem teto'}${m.r.fen.length ? ' · ' + esc(m.r.fen.join('; ')) : ''}${m.c.por ? ` <span class="sub">(${esc(m.c.por)})</span>` : ''}`;
+    el.innerHTML = `<span class="selo ${m.c.n}">${m.c.t}</span> <b>${e.icao}</b> ${hhmm(m.quando)} · ${esc(ventoTxt(m.r.vento))} · ${esc(visTxt(m.r.vis, m.r.cavok))} · ${m.r.teto != null ? 'teto ' + m.r.teto + ' ft' : 'sem teto'}${m.r.fen.length ? ' · ' + esc(m.r.fen.join('; ')) : ''}${m.c.por ? ` <span class="sub">(${esc(m.c.por)})</span>` : ''} <span class="sub" style="font-size:11px">· fonte: VATSIM/NOAA</span>`;
   } catch { el.innerHTML = '<span class="sub">METAR indisponível agora.</span>'; }
 }
