@@ -351,3 +351,4 @@ div.pv-alt{display:flex;align-items:center;gap:6px;border-radius:10px}
 .cv-teclas .cv-igual{grid-column:1/-1;background:var(--c-lar);color:#1A1410;font-weight:700;box-shadow:0 2px 0 #b84a04}
 @media(max-width:520px){.cv-par{grid-template-columns:minmax(0,1fr)}.cv-seta{display:none}.cv-abas .chip{font-size:14px;letter-spacing:.04em}.cv-visor .cv-res b{font-size:38px}}
 .cv-visor .cv-res .sub{font-size:14px;color:var(--c-tx3);text-shadow:none}
+.cv-abas .chip{justify-content:center;text-align:center}
