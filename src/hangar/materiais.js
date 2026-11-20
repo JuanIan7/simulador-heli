@@ -23,4 +23,6 @@ export const DRIVE = {
   eacarsn: '1BnaLKO_XfiHJCZV_WF0mqEZrbEq8NLBy', eacarpoh27: '1_D7ArL8q_eQT9y9uY_Lr-JjHu5SYC5yc',
   eacarmanobras: '1E6x1tGcqdQqYQ7nhvFqILHxYpG-VgclS', eacarpeso: '1eZmxWIIRKJ9w61YlXc24pZIgWrmcgXV8',
   contrato: '15raXJdxqUUoZW1_TFB4WudgYSnGp1uWx', edital: '1d_i_ROJSnXy6GegcepS4AJKkFcsABnNi',
+  // EACAR, 20/11/2026
+  eacaraprox: '1nEE4ODCXve6M6jWFQjs7RYcjX8ElZlaC',
 };
