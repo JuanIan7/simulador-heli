@@ -358,3 +358,4 @@ div.pv-alt{display:flex;align-items:center;gap:6px;border-radius:10px}
 .cv-abas .chip[aria-pressed="true"]{background:transparent;color:var(--c-lar)}
 .cv-abas .chip[aria-pressed="true"] .cv-dial{border-color:var(--c-lar);color:var(--c-lar);box-shadow:inset 0 2px 8px rgba(0,0,0,.55),0 0 16px rgba(255,138,61,.28)}
 .cv-abas .chip[aria-pressed="true"] .cv-dial::before{background:repeating-conic-gradient(from -1.5deg,var(--c-lar) 0 3deg,transparent 3deg 15deg);opacity:.9}
+.cv-cartao .cv-abas .chip{border:0;padding:4px 2px;background:transparent}
