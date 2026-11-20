@@ -21,6 +21,7 @@ import { telaContrato } from './contrato.js';
 import { telaFotos, ligarFotos } from './fotos.js';
 import { telaGoa, ligarGoa, prepararSemVoo } from './goaficha.js';
 import { telaTempo, ligarTempo, resumoInicio } from './tempo.js';
+import { montarConversor } from './conversor.js';
 import { limpar, limparNome, linkSeguro, ligarMascaras } from '../entrada.js';
 
 const app = initializeApp(FIREBASE_CONFIG), auth = getAuth(app), db = getFirestore(app);
@@ -774,6 +775,7 @@ inicio(){
     ${alertaAcertos(calcular(gastos), membro.nome, membros)}
     ${membro.pix && !trocandoPix ? `<p class="sub">Sua chave Pix: <b>${esc(membro.pix)}</b> <button class="mini" data-pix-trocar>Trocar</button></p>` : ''}</div>
   <div class="caixa"><div class="cab"><div class="rotulo">Tempo agora</div><button class="mini" data-ir="tempo">METAR, TAF e previsão</button></div><div id="tpInicio" class="sub">buscando o METAR…</div></div>
+  <div id="cvSlot"></div>
   ${ckCartao()}<div class="grade">
     <div class="caixa destaque"><div class="rotulo">Olá, ${esc(membro.nome)}</div><h3>Seu estudo: ${f} de ${IDS.length} itens</h3><div class="barra"><i style="width:${f/IDS.length*100}%"></i></div>
       <p class="sub">Comandos, aerodinâmica, limites e emergências do R22, tráfego e fonia; depois, o Esquilo. Marque cada item ao terminar.</p>
@@ -1010,6 +1012,7 @@ const LIGAR = {
     c.querySelectorAll('[data-ir]').forEach(b => b.addEventListener('click', (e) => { e.preventDefault(); irPara(b.dataset.ir); })); ckAbrir(c);
     $('#novOk')?.addEventListener('click', () => { novMarcar(); render(); });
     ligarPix(c, { db, uid: user.uid, quem: membro.nome, gastos: () => gastos, toast, depois: (v, trocar) => { if (v) membro.pix = v; trocandoPix = !!trocar; render(); } });
+    montarConversor($('#cvSlot'));
     resumoInicio($('#tpInicio'));
     LIGAR.linkTurma();
     c.querySelectorAll('[data-dia]').forEach((b) => b.onclick = () => {
