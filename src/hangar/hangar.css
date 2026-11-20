@@ -313,6 +313,7 @@ div.pv-alt{display:flex;align-items:center;gap:6px;border-radius:10px}
 .tp-tab .mini{min-width:56px}
 .cv-cartao{display:flex;flex-direction:column;gap:10px}
 .cv-cat{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.cv-cat[hidden],.cv-painel[hidden],.cv-tm[hidden]{display:none}
 .cv-par,.cv-lin{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;align-items:end}
 .cv-lin{grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));align-items:end}
 .cv-seta{color:var(--laranja-esc);font-size:18px;padding-bottom:10px}
