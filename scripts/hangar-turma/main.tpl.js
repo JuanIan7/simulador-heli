@@ -215,7 +215,7 @@ function abrir() {
     if (aba === 'provas' && !emProva()) render();
   }, () => {}));
   // Dúvidas: as minhas, as perguntas frequentes e (só para o Juan) as que esperam resposta
-  const redDuv = () => { if (aba === 'duvidas' && !digitandoDuvidas()) render(); else if (aba !== 'duvidas') pontoAbas(); };
+  const redDuv = () => { if (aba === 'duvidas' && !digitandoDuvidas()) render(); else pontoAbas(); };
   parar.push(onSnapshot(query(collection(db, 'duvidas'), where('uid', '==', user.uid)), (s) => { minhasDuvidas = s.docs.map((d) => ({ id: d.id, ...d.data() })); errDuvidas = ''; redDuv(); },
     (e) => { errDuvidas = e.code === 'permission-denied' ? 'A aba Dúvidas está sendo ativada no banco. Volte daqui a pouco.' : 'Não deu para ler as dúvidas (' + (e.code || e.message) + ').'; if (aba === 'duvidas') render(); }));
   parar.push(onSnapshot(collection(db, 'faq'), (s) => { faqDuvidas = s.docs.map((d) => ({ id: d.id, ...d.data() })); redDuv(); }, () => {}));

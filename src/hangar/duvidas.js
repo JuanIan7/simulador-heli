@@ -17,6 +17,25 @@ const MODELOS_RESPOSTA = [['gemini-3.5-flash-lite', 20000], ['gemini-3.8-flash',
 const EXEMPLOS = ['Qual a velocidade de planeio na autorrotação?', 'O que fazer se acender a luz de baixa RPM?', 'Como calculo o peso e balanceamento?', 'Quantas horas de voo o contrato prevê?'];
 const NOMES_FONTE = { 'manual-de-manobras': 'Manual de Manobras da EACAR', 'poh-r22': 'POH do R22 (tradução da EACAR)', 'peso-e-balanceamento': 'Guia de Peso e Balanceamento (PR-HNE)' };
 
+// Mapa do site, para as dúvidas de "onde fica tal coisa" (assunto › aba)
+const GUIA_HANGAR = `Onde fica cada coisa no Hangar da Turma (assunto › aba):
+Hoje › Início: resumo do dia, novidades e atalhos; é onde se marca se voou no dia.
+Hoje › Form do GOA: o formulário diário do GOA, que pode ser preenchido pela foto da ficha de avaliação.
+Hoje › Tempo: METAR e TAF, nascer e pôr do sol com a hora Zulu, e a caixa "Pergunte ao tempo".
+Hoje › Conversões: conversor de unidades, calculadora de tempo e calculadora comum.
+Voo › Diário de voo: é onde se lança cada voo (data, horas, missão, instrutor). Só o próprio piloto vê os seus voos.
+Voo › Checklists: pré-voo, acionamento, corte, emergências, limites e fonia de SISY, para marcar item por item.
+Voo › FIP: as missões e manobras do curso.
+Voo › Treino: decodificador de METAR, Go ou No-Go e fonia.
+Estudo › Estudo: cronograma de estudo, onde cada um marca o próprio progresso.
+Estudo › Provas: questões para treinar e o ranking da turma.
+Estudo › Revisão R22: resumo da aeronave e os avisos de segurança.
+Estudo › Materiais: os PDFs do curso, numa pasta do Google Drive da turma.
+Turma › Dúvidas: esta conversa, as suas dúvidas e as perguntas frequentes.
+Turma › Contrato: o que o contrato do curso prevê (horas, prazos, deveres da escola e nossos).
+Turma › Gastos: despesas divididas pela turma. Turma › Compras: lista de compras. Turma › Acessos e rotas: como chegar.
+Pessoal › Anotações: anotações da turma. Pessoal › Fotos e vídeos: registros do curso.`;
+
 let vista = 'perguntar', ctxAtual = null, chatEl = null, ocupado = false;
 let conversa = [];              // [{ de: 'eu'|'bot', texto, fontes, id, sabe, estado }]
 let base = null, basePromessa = null, baseDocs = [];
@@ -115,7 +134,7 @@ async function indiceAtual(ctx) {
   if (indice && chave === indiceChave) return indice;
   let hangar = []; try { hangar = trechosDoHangar(ctx.conteudo()); } catch { /* segue só com os manuais */ }
   const perguntas = faq.map((f) => ({ rot: 'Perguntas frequentes (resposta do Juan)', tit: f.pergunta, txt: `${f.pergunta}\n${f.resposta}`, peso: 1.6 }));
-  indice = montarIndice([...perguntas, ...hangar, ...manuais]); indiceChave = chave;
+  indice = montarIndice([...perguntas, { rot: 'mapa do Hangar', tit: 'onde fica lançar registrar aba site Hangar', txt: GUIA_HANGAR, peso: 1.2 }, ...hangar, ...manuais]); indiceChave = chave;
   return indice;
 }
 
