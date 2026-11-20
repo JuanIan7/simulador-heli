@@ -47,7 +47,7 @@ function formatar(t) {
   let h = '', lista = false;
   for (const l of linhas) {
     const m = l.match(/^\s*(?:[-•*]|\d+[.)])\s+(.*)$/);
-    if (m) { if (!lista) { h += '<ul>'; lista = true; } h += `<li>${m[1]}</li>`; continue; }
+    if (m) { if (!lista) { h += '<ul>'; lista = true; } h += `<li>${m[1].replace(/^\d+[.)]\s+/, '')}</li>`; continue; }
     if (lista) { h += '</ul>'; lista = false; }
     if (l.trim()) h += `<p>${l}</p>`;
   }
