@@ -233,7 +233,7 @@ ${dicas.length ? `Instrutores que este aluno já teve (use para reconhecer a let
 // pedido sem token ("401 App Check token is invalid"). Só liga na primeira leitura de ficha; só funciona no domínio do site.
 const CHAVE_SITE_RECAPTCHA = '6LcEeCEuAAAAAAsNebP5ijs3X8xT0K-fnKN_JblW';
 let appCheckPronto = false;
-async function ligarAppCheck(app) {
+export async function ligarAppCheck(app) {
   if (appCheckPronto) return;
   const { initializeAppCheck, ReCaptchaEnterpriseProvider } = await import('firebase/app-check');
   initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(CHAVE_SITE_RECAPTCHA), isTokenAutoRefreshEnabled: true });

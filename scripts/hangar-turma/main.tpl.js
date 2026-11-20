@@ -7,7 +7,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
 import { entrarGoogle, navegadorRuim, avisoNavegador, ligarAviso } from '../entrar-google.js';
-import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, collection, onSnapshot, serverTimestamp, arrayUnion, deleteField } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, collection, onSnapshot, serverTimestamp, arrayUnion, deleteField, query, where } from 'firebase/firestore';
 import { FIREBASE_CONFIG, ADMINS } from '../firebase-config.js';
 import { FONIA, ALFABETO, NUMEROS, PALAVRAS_PADRAO, TRANSPONDER } from '../data/fonia.js';
 import { METAR } from '../data/quiz-teoria.js';
@@ -22,6 +22,7 @@ import { telaFotos, ligarFotos } from './fotos.js';
 import { telaGoa, ligarGoa, prepararSemVoo } from './goaficha.js';
 import { telaTempo, ligarTempo, resumoInicio } from './tempo.js';
 import { montarConversor } from './conversor.js';
+import { telaDuvidas, ligarDuvidas, digitandoDuvidas, pontoDuvidas } from './duvidas.js';
 import { limpar, limparNome, linkSeguro, ligarMascaras } from '../entrada.js';
 
 const app = initializeApp(FIREBASE_CONFIG), auth = getAuth(app), db = getFirestore(app);
@@ -43,6 +44,7 @@ const NOVIDADES = /*@NOVIDADES@*/;
 // Turma (20/11/2026): material novo só da turma + regra dos 3 dias. No Início aparece só o que chegou há até 3 dias;
 // depois o item fica apenas na aba Materiais, como os outros. (Fica no modelo, então sobrevive ao gerar.py.)
 const NOVIDADES_TURMA = [
+  { id: 'duvidas-2026-11-20', data: '2026-11-20', titulo: 'Aba Dúvidas: pergunte ao atendente', desc: 'Ele responde com os manuais da turma e diz de onde tirou. O que não souber vai para o Juan.', aba: 'duvidas' },
   { id: 'eacaraprox-2026-11-20', data: '2026-11-20', titulo: 'Procedimento de aproximação normal (R22), da EACAR', desc: 'Novo material da escola para a aproximação normal.', aba: 'materiais', arq: 'eacaraprox' },
 ];
 const NOVO_DIAS = 3;
@@ -88,19 +90,19 @@ const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTi
 function toast(t){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2400); }
 const pdf = (k, rot) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_blank" rel="noopener">📄 ${esc(rot)}</a>` : `<span class="sub">📄 ${esc(rot)}</span>`;
 
-const ABAS = [['inicio','Início'],['goa','Form do GOA'],['tempo','Tempo'],['conversoes','Conversões'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['contrato','Contrato'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['fotos','Fotos e vídeos'],['fip','FIP'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
+const ABAS = [['inicio','Início'],['goa','Form do GOA'],['tempo','Tempo'],['conversoes','Conversões'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['contrato','Contrato'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['fotos','Fotos e vídeos'],['fip','FIP'],['diario','Diário de voo'],['acessos','Acessos e rotas'],['duvidas','Dúvidas']];
 // Importação de voos pelo link hangar.html#importar=<JSON em base64url> (o mesmo do Diário): abre a aba Diário já com a tela de conferência.
 // Fica guardado na sessão para sobreviver ao login (que recarrega a página).
 const lerImportar = () => { try { return sessionStorage.getItem('hangar-importar') || ''; } catch { return ''; } };
 let importarHash = /^#importar=/.test(location.hash) ? location.hash : lerImportar();
 if (importarHash) { try { sessionStorage.setItem('hangar-importar', importarHash); history.replaceState(null, '', location.pathname + location.search + '#diario'); } catch {} }
 // Abas em dois níveis: 5 assuntos, cada um com suas abas (as 18 abas continuam as mesmas)
-const GRUPOS = [['Hoje', ['inicio','goa','tempo','conversoes']], ['Voo', ['diario','checklists','fip','treino']], ['Estudo', ['estudo','provas','revisao','materiais']], ['Turma', ['contrato','gastos','compras','acessos']], ['Pessoal', ['anotacoes','fotos']]];
+const GRUPOS = [['Hoje', ['inicio','goa','tempo','conversoes']], ['Voo', ['diario','checklists','fip','treino']], ['Estudo', ['estudo','provas','revisao','materiais']], ['Turma', ['duvidas','contrato','gastos','compras','acessos']], ['Pessoal', ['anotacoes','fotos']]];
 const NOME_ABA = Object.fromEntries(ABAS);
 const grupoDe = (k) => Math.max(0, GRUPOS.findIndex((g) => g[1].includes(k)));
 const ultimoDoGrupo = {};
 let aba = importarHash ? 'diario' : (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
-let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], compras = [], errCompras = '', anotacoes = [], errAnotacoes = '', notasProvas = [], meusDocs = [], meusVoos = [], meusDias = [], diaOutro = '', parar = [], trocandoPix = false;
+let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], compras = [], errCompras = '', anotacoes = [], errAnotacoes = '', minhasDuvidas = [], faqDuvidas = [], pendDuvidas = null, errDuvidas = '', notasProvas = [], meusDocs = [], meusVoos = [], meusDias = [], diaOutro = '', parar = [], trocandoPix = false;
 
 // ---------- conteúdo ----------
 const CRONO = [
@@ -136,7 +138,7 @@ if (daUrl) { try { localStorage.setItem(CHAVE_CODIGO, daUrl); } catch {} history
 const codigoGuardado = () => { try { return localStorage.getItem(CHAVE_CODIGO); } catch { return null; } };
 
 onAuthStateChanged(auth, async (u) => {
-  user = u; parar.forEach((f) => f()); parar = []; membro = null; grupo = null; membros = []; gastos = [];
+  user = u; parar.forEach((f) => f()); parar = []; membro = null; grupo = null; membros = []; gastos = []; minhasDuvidas = []; faqDuvidas = []; pendDuvidas = null; errDuvidas = '';
   conta();
   if (!u) return telaLogin();
   try { const s = await getDoc(doc(db, 'gastosMembros', u.uid)); membro = s.exists() ? s.data() : null; }
@@ -212,6 +214,12 @@ function abrir() {
     notasProvas = s.docs.map((d) => ({ uid: d.id, ...d.data() }));
     if (aba === 'provas' && !emProva()) render();
   }, () => {}));
+  // Dúvidas: as minhas, as perguntas frequentes e (só para o Juan) as que esperam resposta
+  const redDuv = () => { if (aba === 'duvidas' && !digitandoDuvidas()) render(); else if (aba !== 'duvidas') pontoAbas(); };
+  parar.push(onSnapshot(query(collection(db, 'duvidas'), where('uid', '==', user.uid)), (s) => { minhasDuvidas = s.docs.map((d) => ({ id: d.id, ...d.data() })); errDuvidas = ''; redDuv(); },
+    (e) => { errDuvidas = e.code === 'permission-denied' ? 'A aba Dúvidas está sendo ativada no banco. Volte daqui a pouco.' : 'Não deu para ler as dúvidas (' + (e.code || e.message) + ').'; if (aba === 'duvidas') render(); }));
+  parar.push(onSnapshot(collection(db, 'faq'), (s) => { faqDuvidas = s.docs.map((d) => ({ id: d.id, ...d.data() })); redDuv(); }, () => {}));
+  parar.push(onSnapshot(query(collection(db, 'duvidas'), where('status', '==', 'aguardando')), (s) => { pendDuvidas = s.docs.map((d) => ({ id: d.id, ...d.data() })); redDuv(); }, () => { pendDuvidas = null; }));
   parar.push(onSnapshot(collection(db, 'anotacoes'), (s) => {
     anotacoes = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.em?.seconds || 9e9) - (a.em?.seconds || 9e9)); errAnotacoes = '';
     if (aba === 'anotacoes' && !digitandoAnotacoes()) render();
@@ -222,18 +230,32 @@ function abrir() {
   }, () => {}));
 }
 
+// O que o atendente de dúvidas conhece do próprio Hangar: o texto que estas abas desenham, mais todos os checklists.
+function conteudoParaDuvidas() {
+  const out = [];
+  for (const k of ['estudo', 'checklists', 'revisao', 'fip', 'contrato', 'acessos', 'materiais']) { try { out.push({ aba: NOME_ABA[k], html: TELAS[k]() }); } catch {} }
+  try { CHECK.forEach((c) => out.push({ aba: 'Checklists', tit: c.nome, txt: c.grupos.map(([t, its]) => `${t}: ${its.map(([a, b]) => `${a} (${b})`).join('; ')}`).join('\n') })); } catch {}
+  return out;
+}
+
 // ---------- telas ----------
 function render() {
-  const nNovas = novNovas().length;
   ultimoDoGrupo[grupoDe(aba)] = aba;
-  $('#abas').innerHTML = `<div class="nv1" role="tablist" aria-label="Assuntos">${GRUPOS.map(([n, ks], i) => `<button role="tab" aria-selected="${i === grupoDe(aba)}" data-grupo="${i}">${n}<small>${ks.length} ${ks.length === 1 ? 'aba' : 'abas'}</small>${i === 0 && nNovas ? '<span class="novo-ponto" aria-label="material novo"></span>' : ''}</button>`).join('')}</div>
-    <div class="nv2" role="tablist" aria-label="Abas">${GRUPOS[grupoDe(aba)][1].map((k) => `<button class="aba" role="tab" aria-selected="${k === aba}" data-aba="${k}">${NOME_ABA[k]}${k === 'inicio' && nNovas ? '<span class="novo-ponto" aria-label="material novo"></span>' : ''}</button>`).join('')}</div>`;
+  pontoAbas();
   const c = $('#conteudo'), y = window.scrollY;
   c.innerHTML = `<section data-painel="${aba}">${(TELAS[aba]||TELAS.inicio)()}</section>`;
   ligarMascaras(c); (LIGAR[aba]||(()=>{}))(c);
   // o link de importação vale uma vez: o iframe do Diário já recebeu o hash
   if (aba === 'diario' && importarHash) { importarHash = ''; try { sessionStorage.removeItem('hangar-importar'); } catch {} }
   contagem(); window.scrollTo(0, y);
+}
+const estDuvidas = () => ({ minhas: minhasDuvidas, faq: faqDuvidas, pendentes: pendDuvidas, erro: errDuvidas });
+// barra de assuntos e abas; o ponto vermelho marca material novo (Início) e resposta ou dúvida nova (Dúvidas)
+function pontoAbas() {
+  const nNovas = novNovas().length, nDuv = pontoDuvidas(estDuvidas()), gDuv = grupoDe('duvidas');
+  const ponto = (rot) => `<span class="novo-ponto" aria-label="${rot}"></span>`;
+  $('#abas').innerHTML = `<div class="nv1" role="tablist" aria-label="Assuntos">${GRUPOS.map(([n, ks], i) => `<button role="tab" aria-selected="${i === grupoDe(aba)}" data-grupo="${i}">${n}<small>${ks.length} ${ks.length === 1 ? 'aba' : 'abas'}</small>${i === 0 && nNovas ? ponto('material novo') : ''}${i === gDuv && nDuv ? ponto('dúvida nova') : ''}</button>`).join('')}</div>
+    <div class="nv2" role="tablist" aria-label="Abas">${GRUPOS[grupoDe(aba)][1].map((k) => `<button class="aba" role="tab" aria-selected="${k === aba}" data-aba="${k}">${NOME_ABA[k]}${k === 'inicio' && nNovas ? ponto('material novo') : ''}${k === 'duvidas' && nDuv ? ponto('dúvida nova') : ''}</button>`).join('')}</div>`;
 }
 function contagem() {
   const dia = Math.floor((Date.parse(hoje()) - Date.parse('2026-11-03')) / 864e5) + 1;
@@ -319,7 +341,7 @@ inicio(){
       <p class="sub">Comandos, aerodinâmica, limites e emergências do R22, tráfego e fonia; depois, o Esquilo. Marque cada item ao terminar.</p>
       <div class="linha-acao"><button class="pri" data-ir="estudo">Abrir o cronograma</button><button data-ir="revisao">Revisão R22</button></div></div>
     <div class="caixa"><div class="rotulo">Atalhos</div><div class="linha-acao">
-      <button class="pri" data-ir="diario">📒 Lançar voo</button><button data-ir="fip">🎯 FIP do curso</button><button data-ir="tempo">🌤️ Tempo</button><button data-ir="gastos">💸 Lançar gasto</button><button data-ir="compras">🛒 Lista de compras${compras.filter((x) => !x.feito).length ? ` (${compras.filter((x) => !x.feito).length})` : ''}</button><button data-ir="provas">✍️ Provas (${totalQuestoes()} questões)</button><button data-ir="anotacoes">📝 Anotações${anotacoes.filter((x) => !x.feito).length ? ` (${anotacoes.filter((x) => !x.feito).length})` : ''}</button><button data-ir="fotos">📸 Fotos e vídeos</button><button data-ir="treino">🎧 Fonia e METAR</button><button data-ir="materiais">📄 Materiais</button><a class="btn" href="${SIMULADOR}" target="_blank" rel="noopener">🚁 Simulador</a></div></div>
+      <button class="pri" data-ir="diario">📒 Lançar voo</button><button data-ir="fip">🎯 FIP do curso</button><button data-ir="tempo">🌤️ Tempo</button><button data-ir="gastos">💸 Lançar gasto</button><button data-ir="compras">🛒 Lista de compras${compras.filter((x) => !x.feito).length ? ` (${compras.filter((x) => !x.feito).length})` : ''}</button><button data-ir="provas">✍️ Provas (${totalQuestoes()} questões)</button><button data-ir="anotacoes">📝 Anotações${anotacoes.filter((x) => !x.feito).length ? ` (${anotacoes.filter((x) => !x.feito).length})` : ''}</button><button data-ir="fotos">📸 Fotos e vídeos</button><button data-ir="duvidas">❓ Tirar dúvida</button><button data-ir="treino">🎧 Fonia e METAR</button><button data-ir="materiais">📄 Materiais</button><a class="btn" href="${SIMULADOR}" target="_blank" rel="noopener">🚁 Simulador</a></div></div>
   </div>
   <div class="grade">
     <div class="caixa"><div class="rotulo">A turma</div>
@@ -337,6 +359,7 @@ tempo(){ return telaTempo(); },
 conversoes(){ return `<div class="cab"><h2>Conversões e calculadoras</h2></div><div id="cvSlot"></div>`; },
 compras(){ return telaCompras(compras, errCompras); },
 anotacoes(){ return telaAnotacoes(anotacoes, errAnotacoes); },
+duvidas(){ return telaDuvidas(estDuvidas()); },
 contrato(){ return telaContrato(ARQ); },
 fotos(){ return telaFotos(); },
 goa(){ return telaGoa(meusVoos); },
@@ -451,6 +474,7 @@ const LIGAR = {
     render: () => { if (aba === 'goa') render(); } }); },
   anotacoes(c){ ligarAnotacoes(c, { db, user: () => user, membro: () => membro, anotacoes: () => anotacoes, toast, render: () => { if (aba === 'anotacoes') render(); } }); },
   conversoes(c){ montarConversor(c.querySelector('#cvSlot')); },
+  duvidas(c){ ligarDuvidas(c, { db, app, user: () => user, membro: () => membro, minhas: () => minhasDuvidas, faq: () => faqDuvidas, pendentes: () => pendDuvidas, conteudo: conteudoParaDuvidas, toast, render: () => { if (aba === 'duvidas') render(); } }); },
   tempo(c){ ligarTempo(c, { decodificarMetar, toast, render: () => { if (aba === 'tempo') render(); } }); },
   // botão do link da turma (fica no Início; vale para qualquer tela que o tenha)
   linkTurma(){ const bt = $('#btLink'); if (!bt) return; bt.onclick = () => { const link = $('#lkTurma').value;
