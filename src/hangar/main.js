@@ -336,6 +336,18 @@ const NOVIDADES = {
   }
  ]
 };
+// Turma (20/11/2026): material novo só da turma + regra dos 3 dias. No Início aparece só o que chegou há até 3 dias;
+// depois o item fica apenas na aba Materiais, como os outros. (Fica no modelo, então sobrevive ao gerar.py.)
+const NOVIDADES_TURMA = [
+  { id: 'eacaraprox-2026-11-20', data: '2026-11-20', titulo: 'Procedimento de aproximação normal (R22), da EACAR', desc: 'Novo material da escola para a aproximação normal.', aba: 'materiais', arq: 'eacaraprox' },
+];
+const NOVO_DIAS = 3;
+NOVIDADES.itens = [...NOVIDADES_TURMA, ...(NOVIDADES.itens || [])]
+  .filter((i) => {
+    if (!i.data) return false;
+    const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }); // AAAA-MM-DD em Brasília
+    return Math.round((Date.parse(hoje) - Date.parse(i.data)) / 864e5) <= NOVO_DIAS; // até 3 dias corridos
+  });
 // ---------- novidades ----------
 // Material novo chegando: pisca no Início de quem ainda não viu. O "já vi" é por aparelho (localStorage).
 const novVistas = () => { try { return new Set(JSON.parse(localStorage.getItem('nov-vistas') || '[]')); } catch { return new Set(); } };
@@ -880,11 +892,9 @@ treino(){
 },
 materiais(){
   const ess = [['r22poh','POH R22 (Robinson, fev/2024)'],['r22br','R22: Suplemento Brasileiro do POH'],['delanir','Delanir: apostila PPH/PCH (aluno)'],['resumao','Resumão Piloto Privado'],['ica1004','ICA 100-4: regras para helicópteros (DECEA)'],['ica10012','ICA 100-12: regras do ar (DECEA)'],['mca10016','MCA 100-16: fraseologia (DECEA, 2025)'],['codmet','Códigos meteorológicos (METAR, TAF)'],['planovoo','Plano de voo'],['rbac67','RBAC 67: certificado médico (CMA)'],['faa6','FAA Helicopter Flying Handbook, cap. 6: peso e balanceamento'],['faa7','FAA Helicopter Flying Handbook, cap. 7: desempenho'],['is141','IS 141-007: programas de instrução (ANAC)']];
-  const eacar = [['eacarpre','Checklist pré-voo externo R22'],['eacaracio','Checklist de acionamento e corte R22'],['eacaremerg','Procedimentos de emergência R22'],['eacarproc','Manual de Procedimentos Operacionais (manobras, para alunos)'],['eacarman','Manual de Manobras R22 (Otavio Rosa e Rudi Barlem), edição anterior'],['eacarpoh','POH R22: tradução para alunos (EACAR, 2026), edição anterior'],['eacarfonia','Roteiro de fonia do circuito SISY']];
+  const eacar = [['eacarsn','Safety Notices da Robinson em português (EACAR): 19 avisos ilustrados'],['eacarpoh27','POH R22 Beta II 2026/2027: tradução da EACAR'],['eacarmanobras','Manual de Manobras da EACAR, edição revisada (126 págs.)'],['eacarpeso','Peso e balanceamento do PR-HNE, passo a passo'],['eacarpre','Checklist pré-voo externo R22'],['eacaracio','Checklist de acionamento e corte R22'],['eacaremerg','Procedimentos de emergência R22'],['eacarproc','Manual de Procedimentos Operacionais (manobras, para alunos)'],['eacarman','Manual de Manobras R22 (Otavio Rosa e Rudi Barlem), edição anterior'],['eacarpoh','POH R22: tradução para alunos (EACAR, 2026), edição anterior'],['eacarfonia','Roteiro de fonia do circuito SISY'],['eacaraprox','Procedimento de aproximação normal (R22)']];
   const extras = (s) => mats.filter((m) => m.secao === s).map((m) => `<span class="mat-turma"><a href="${esc(linkSeguro(m.link) || '#')}" target="_blank" rel="noopener noreferrer">📎 ${esc(m.titulo)}</a>${m.autor === user.uid ? `<button class="mini fantasma" data-matdel="${esc(m.id)}" aria-label="Tirar ${esc(m.titulo)}">×</button>` : ''}<span class="sub">${esc(m.nome || '')}</span></span>`).join('');
   return `<h2>Materiais</h2><p class="intro">Os PDFs ficam numa pasta do Google Drive compartilhada com a turma. Se o Drive pedir acesso, toque em "Solicitar acesso" com a mesma conta Google que você usa aqui. O que alguém da turma acrescentar aparece direto na seção escolhida.</p>
-  <div class="caixa destaque"><div class="cab"><h3>Chegou em 12/11: material novo da EACAR</h3><span class="selo pe">NOVO</span></div><div class="links">${pdf('eacarsn','Safety Notices da Robinson em português (EACAR): 19 avisos ilustrados')}${pdf('eacarpoh27','POH R22 Beta II 2026/2027: tradução da EACAR')}${pdf('eacarmanobras','Manual de Manobras da EACAR, edição revisada (126 págs.)')}${pdf('eacarpeso','Peso e balanceamento do PR-HNE, passo a passo')}</div>
-    <p class="sub">Substituem as edições anteriores do POH e do Manual de Manobras, que continuam em "Material da EACAR" para comparar. Se o arquivo abrir pedindo acesso, toque em "Solicitar acesso" com a conta que você usa aqui.</p></div>
   <div class="caixa destaque"><h3>Documentos do curso</h3><div class="links">${pdf('contrato','Contrato 089/2026 (CBMERJ x EACAR), assinado')}${pdf('edital','Edital 34 da SENASP e anexos: Termo de Referência, ETP e IMR')}</div>
     <p class="sub">O resumo do que a escola deve fazer, o que é nosso e os prazos está na aba <a href="#contrato" data-ir="contrato">Contrato</a>.</p></div>
   <div class="caixa destaque"><h3>Material da EACAR</h3><div class="links">${eacar.map(([k,t])=>pdf(k,t)).join('')}${extras('eacar')}</div>
