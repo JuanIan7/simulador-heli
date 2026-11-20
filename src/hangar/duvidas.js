@@ -242,18 +242,19 @@ function bolha(m, i) {
   else if (m.enviada) acao = `<div class="dv-nota ok">Enviada para o Juan. A resposta aparece em <button class="dv-link" data-dv-vista="minhas">Minhas dúvidas</button>, com um ponto vermelho na aba.</div>`;
   else if (m.sabe) acao = `<div class="dv-acoes">${m.util ? '<span class="selo ok">Que bom que resolveu</span>' : `<button class="mini" data-dv-util="${i}">👍 Resolveu</button>`}<button class="mini fantasma" data-dv-juan="${i}">Não resolveu: perguntar ao Juan</button></div>`;
   else acao = `<div class="dv-nota"><span>Quer que o Juan responda? A pergunta vai para ele e a resposta volta só para você.</span><button class="pri" data-dv-juan="${i}">Enviar para o Juan</button></div>`;
-  return `<div class="dv-msg dv-bot"><div class="dv-bolha">${formatar(m.texto)}${fontes}</div>${acao}</div>`;
+  return `<div class="dv-msg dv-bot"><div class="dv-bolha"><div class="dv-quem"><span class="dv-ia">IA</span>Resposta gerada por IA</div>${formatar(m.texto)}${fontes}</div>${acao}</div>`;
 }
 function desenhar() {
   if (!chatEl) return;
   const log = chatEl.querySelector('.dv-log');
-  log.innerHTML = conversa.length ? conversa.map(bolha).join('') : `<div class="dv-vazio"><b>Pergunte sobre o curso ou sobre o Hangar.</b><span>Eu procuro no Manual de Manobras, no POH do R22, no guia de Peso e Balanceamento, nos checklists e nas abas do Hangar, e digo de onde tirei. Se eu não souber, você manda a pergunta para o Juan.</span><div class="chips">${EXEMPLOS.map((e) => `<button type="button" class="chip" data-dv-ex="${esc(e)}">${esc(e)}</button>`).join('')}</div></div>`;
+  log.innerHTML = conversa.length ? conversa.map(bolha).join('') : `<div class="dv-vazio"><b>Pergunte sobre o curso ou sobre o Hangar.</b><span>Sou um atendente de inteligência artificial. Procuro no Manual de Manobras, no POH do R22, no guia de Peso e Balanceamento, nos checklists e nas abas do Hangar, e digo de onde tirei. Se eu não resolver, você manda a pergunta para o Juan, que responde pessoalmente.</span><div class="chips">${EXEMPLOS.map((e) => `<button type="button" class="chip" data-dv-ex="${esc(e)}">${esc(e)}</button>`).join('')}</div></div>`;
   log.scrollTop = log.scrollHeight;
   chatEl.querySelector('#dvEnviar').disabled = ocupado;
 }
 function montarChat() {
   const el = document.createElement('div'); el.className = 'caixa dv-chat';
-  el.innerHTML = `<div class="dv-log" role="log" aria-live="polite"></div>
+  el.innerHTML = `<p class="dv-ia-faixa"><span class="dv-ia">IA</span><span>As respostas desta conversa são <b>geradas por inteligência artificial</b> e podem errar. Se a IA não resolver, você envia a pergunta para o Juan e recebe uma <b>resposta pessoal</b>.</span></p>
+    <div class="dv-log" role="log" aria-live="polite"></div>
     <form class="dv-form" id="dvForm"><textarea id="dvTexto" rows="1" maxlength="600" placeholder="Escreva a sua dúvida" aria-label="Sua dúvida" autocomplete="off"></textarea><button class="pri" id="dvEnviar" type="submit">Enviar</button></form>
     <p class="sub dv-aviso">Material de estudo: quem decide é o instrutor. As perguntas ficam guardadas para melhorar as respostas e o Juan pode vê-las; nas Perguntas frequentes nunca aparece o nome de quem perguntou.</p>`;
   const campo = el.querySelector('#dvTexto');
@@ -277,21 +278,21 @@ function montarChat() {
 }
 
 // ---------- telas ----------
-const SELO = { ia: ['la', 'Respondida pelo atendente'], aguardando: ['al', 'Aguardando o Juan'], respondida: ['ok', 'Respondida pelo Juan'] };
+const SELO = { ia: ['la', 'Respondida pela IA'], aguardando: ['al', 'Aguardando o Juan'], respondida: ['ok', 'Respondida pelo Juan'] };
 function cartaoMinha(d) {
   const [cl, rot] = SELO[d.status] || SELO.ia, nova = d.status === 'respondida' && d.lida === false;
   return `<div class="caixa dv-item${nova ? ' destaque' : ''}">
     <div class="cab"><span class="selo ${cl}">${rot}</span><span class="sub">${quando(d.em)}${nova ? ' · <b>resposta nova</b>' : ''}</span></div>
     <p class="dv-perg">${esc(d.pergunta)}</p>
-    ${d.status === 'respondida' ? `<div class="dv-juan"><div class="rotulo">Resposta do Juan</div>${formatar(d.resposta)}</div>` : ''}
-    ${d.respostaIA ? `<details${d.status === 'respondida' ? '' : ' open'}><summary>O que o atendente respondeu</summary>${formatar(d.respostaIA)}${d.fontes?.length ? `<div class="dv-fontes"><span>Fontes:</span> ${d.fontes.map(esc).join(' · ')}</div>` : ''}</details>` : ''}
+    ${d.status === 'respondida' ? `<div class="dv-juan"><div class="rotulo">Resposta pessoal do Juan</div>${formatar(d.resposta)}</div>` : ''}
+    ${d.respostaIA ? `<details${d.status === 'respondida' ? '' : ' open'}><summary>O que a IA respondeu</summary>${formatar(d.respostaIA)}${d.fontes?.length ? `<div class="dv-fontes"><span>Fontes:</span> ${d.fontes.map(esc).join(' · ')}</div>` : ''}</details>` : ''}
     <div class="linha-acao">${d.status === 'ia' ? `<button class="mini" data-dv-pedir="${d.id}">Perguntar ao Juan</button>` : ''}<button class="mini fantasma" data-dv-apagar="${d.id}">Apagar</button></div></div>`;
 }
 function cartaoPendente(d) {
   return `<div class="caixa dv-item" data-dv-pend="${d.id}">
     <div class="cab"><b>${esc(d.nome || 'Alguém da turma')}</b><span class="sub">${quando(d.pedidaEm || d.em)}</span></div>
     <p class="dv-perg">${esc(d.pergunta)}</p>
-    ${d.respostaIA ? `<details><summary>O que o atendente respondeu</summary>${formatar(d.respostaIA)}</details>` : '<p class="sub">O atendente não respondeu.</p>'}
+    ${d.respostaIA ? `<details><summary>O que a IA respondeu</summary>${formatar(d.respostaIA)}</details>` : '<p class="sub">A IA não respondeu.</p>'}
     <label class="dv-rot">Sua resposta<textarea rows="4" maxlength="4000" data-dv-resp></textarea></label>
     <label class="dv-marca"><input type="checkbox" data-dv-faq checked> Publicar nas Perguntas frequentes (sem o nome)</label>
     <label class="dv-rot">Pergunta como vai aparecer<input maxlength="300" data-dv-pfaq value="${esc(d.pergunta.slice(0, 300))}"></label>
@@ -311,7 +312,7 @@ export function telaDuvidas(est) {
     corpo = l.length ? l.map(cartaoMinha).join('') : '<div class="caixa"><p class="sub">Você ainda não perguntou nada. As suas perguntas e as respostas ficam aqui, e só você vê.</p></div>';
   } else if (vista === 'faq') {
     const l = [...est.faq].sort((a, b) => (b.em?.seconds || 9e9) - (a.em?.seconds || 9e9));
-    corpo = `<div class="caixa"><input id="dvBusca" type="search" placeholder="Procurar nas perguntas frequentes" aria-label="Procurar nas perguntas frequentes" autocomplete="off">
+    corpo = `<div class="caixa"><p class="sub dv-faq-nota">Respostas pessoais do Juan, não da IA.</p><input id="dvBusca" type="search" placeholder="Procurar nas perguntas frequentes" aria-label="Procurar nas perguntas frequentes" autocomplete="off">
       <div id="dvFaqLista">${l.length ? l.map((f) => `<details class="dv-faq" data-txt="${esc(norm(f.pergunta + ' ' + f.resposta))}"><summary>${esc(f.pergunta)}</summary><div class="dv-faq-r">${formatar(f.resposta)}${admin ? `<div class="linha-acao"><button class="mini fantasma" data-dv-faqdel="${f.id}">Tirar das frequentes</button></div>` : ''}</div></details>`).join('') : '<p class="sub">Ainda não há perguntas frequentes. Elas nascem das dúvidas que o Juan responde, sempre sem o nome de quem perguntou.</p>'}</div>
       <p class="sub" id="dvFaqVazio" hidden>Nada com esse termo. Pergunte ao atendente na primeira aba.</p></div>
       ${admin ? `<div class="caixa"><h3>Nova pergunta frequente</h3><label class="dv-rot">Pergunta<input id="dvNovaP" maxlength="300"></label><label class="dv-rot">Resposta<textarea id="dvNovaR" rows="4" maxlength="4000"></textarea></label><div class="linha-acao"><button class="pri" id="dvNovaB">Publicar</button></div></div>` : ''}`;
