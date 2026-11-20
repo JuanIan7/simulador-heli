@@ -3,10 +3,10 @@
 // para o site continuar leve. Vídeo novo: subir na pasta do Drive e acrescentar uma linha em TUTORIAIS (o mais novo aparece primeiro).
 export const TUTORIAIS_PASTA = '1MiDfnPVzufwQsT3R8PUkgxX0mLFs9UMs';
 export const TUTORIAIS = [
-  { id: 'apresentacao-2026-11-20', data: '2026-11-20', dur: '3 min 34 s', drive: '1Zw5lKKYGydzBVInLPJLeQ1mFD4z4ezUz',
+  { id: 'apresentacao-2026-11-20', data: '2026-11-20', dur: '3 min 56 s', drive: '1Zw5lKKYGydzBVInLPJLeQ1mFD4z4ezUz',
     titulo: 'Como funciona o Hangar e o que tem de novo',
-    desc: 'Um passeio pelo Hangar inteiro, com legenda: como navegar, Tempo, Conversões e calculadoras, Checklists, Treino, Estudo, Materiais e o botão Dúvidas, com o atendente de inteligência artificial.',
-    topicos: ['Navegação pelos cinco assuntos', 'Tempo para o voo e Conversões', 'Checklists, Treino, Estudo e Materiais', 'Dúvidas: resposta da IA e resposta pessoal do Juan'] },
+    desc: 'Um passeio pelo Hangar inteiro, com legenda: como navegar, Tempo, Conversões, a calculadora científica, Checklists, Treino, Estudo, Materiais, o botão Dúvidas, com o atendente de inteligência artificial, e esta aba de Tutoriais.',
+    topicos: ['Navegação pelos cinco assuntos', 'Tempo para o voo, Conversões e calculadora científica', 'Checklists, Treino, Estudo e Materiais', 'Dúvidas: resposta da IA e resposta pessoal do Juan'] },
 ];
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
