@@ -493,7 +493,7 @@ const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTi
 function toast(t){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2400); }
 const pdf = (k, rot) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_blank" rel="noopener">📄 ${esc(rot)}</a>` : `<span class="sub">📄 ${esc(rot)}</span>`;
 
-const ABAS = [['inicio','Início'],['goa','Form do GOA'],['tempo','Tempo'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['contrato','Contrato'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['fotos','Fotos e vídeos'],['fip','FIP'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
+const ABAS = [['inicio','Início'],['goa','Form do GOA'],['tempo','Tempo'],['conversoes','Conversões'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['contrato','Contrato'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['fotos','Fotos e vídeos'],['fip','FIP'],['diario','Diário de voo'],['acessos','Acessos e rotas']];
 // Importação de voos pelo link hangar.html#importar=<JSON em base64url> (o mesmo do Diário): abre a aba Diário já com a tela de conferência.
 // Fica guardado na sessão para sobreviver ao login (que recarrega a página).
 const lerImportar = () => { try { return sessionStorage.getItem('hangar-importar') || ''; } catch { return ''; } };
@@ -787,7 +787,6 @@ inicio(){
     ${alertaAcertos(calcular(gastos), membro.nome, membros)}
     ${membro.pix && !trocandoPix ? `<p class="sub">Sua chave Pix: <b>${esc(membro.pix)}</b> <button class="mini" data-pix-trocar>Trocar</button></p>` : ''}</div>
   <div class="caixa"><div class="cab"><div class="rotulo">Tempo agora</div><button class="mini" data-ir="tempo">METAR, TAF e previsão</button></div><div id="tpInicio" class="sub">buscando o METAR…</div></div>
-  <div id="cvSlot"></div>
   ${ckCartao()}<div class="grade">
     <div class="caixa destaque"><div class="rotulo">Olá, ${esc(membro.nome)}</div><h3>Seu estudo: ${f} de ${IDS.length} itens</h3><div class="barra"><i style="width:${f/IDS.length*100}%"></i></div>
       <p class="sub">Comandos, aerodinâmica, limites e emergências do R22, tráfego e fonia; depois, o Esquilo. Marque cada item ao terminar.</p>
@@ -808,6 +807,7 @@ inicio(){
   </div>`;
 },
 tempo(){ return telaTempo(); },
+conversoes(){ return `<div class="cab"><h2>Conversões e calculadoras</h2></div><div id="cvSlot"></div>`; },
 compras(){ return telaCompras(compras, errCompras); },
 anotacoes(){ return telaAnotacoes(anotacoes, errAnotacoes); },
 contrato(){ return telaContrato(ARQ); },
@@ -1022,7 +1022,6 @@ const LIGAR = {
     c.querySelectorAll('[data-ir]').forEach(b => b.addEventListener('click', (e) => { e.preventDefault(); irPara(b.dataset.ir); })); ckAbrir(c);
     $('#novOk')?.addEventListener('click', () => { novMarcar(); render(); });
     ligarPix(c, { db, uid: user.uid, quem: membro.nome, gastos: () => gastos, toast, depois: (v, trocar) => { if (v) membro.pix = v; trocandoPix = !!trocar; render(); } });
-    montarConversor($('#cvSlot'));
     resumoInicio($('#tpInicio'));
     LIGAR.linkTurma();
     c.querySelectorAll('[data-dia]').forEach((b) => b.onclick = () => {
@@ -1049,6 +1048,7 @@ const LIGAR = {
       return id; },
     render: () => { if (aba === 'goa') render(); } }); },
   anotacoes(c){ ligarAnotacoes(c, { db, user: () => user, membro: () => membro, anotacoes: () => anotacoes, toast, render: () => { if (aba === 'anotacoes') render(); } }); },
+  conversoes(c){ montarConversor(c.querySelector('#cvSlot')); },
   tempo(c){ ligarTempo(c, { decodificarMetar, toast, render: () => { if (aba === 'tempo') render(); } }); },
   // botão do link da turma (fica no Início; vale para qualquer tela que o tenha)
   linkTurma(){ const bt = $('#btLink'); if (!bt) return; bt.onclick = () => { const link = $('#lkTurma').value;

@@ -1,4 +1,4 @@
-// Cartão "Conversões e calculadoras" da tela Início do Hangar da Turma: conversões de aviação (as dos POH do R22 e do R44/R66 e as de uso diário),
+// Aba "Conversões" do Hangar da Turma (cartão "Conversões e calculadoras"): conversões de aviação (as dos POH do R22 e do R44/R66 e as de uso diário),
 // calculadora de tempo (horas de voo, horários, tempo por distância e velocidade) e calculadora comum.
 // O cartão é montado uma vez e reaproveitado a cada vez que o Início é redesenhado, para não apagar o que a pessoa digitou.
 
@@ -73,8 +73,7 @@ function html() {
   const teclas = ['C', '(', ')', '⌫', '7', '8', '9', '÷', '4', '5', '6', '×', '1', '2', '3', '−', '0', ',', '%', '+'];
   const calc = `<div class="cv-calc"><input id="ccE" class="mono" autocomplete="off" inputmode="none" placeholder="Digite ou use as teclas" aria-label="Expressão"><p class="cv-res" id="ccR">&nbsp;</p>
     <div class="cv-teclas">${teclas.map((k) => `<button type="button" data-k="${k}" class="${'÷×−+'.includes(k) ? 'cv-op' : ''}">${k}</button>`).join('')}<button type="button" class="pri cv-igual" data-k="=">=</button></div></div>`;
-  return `<div class="cab"><div class="rotulo">Conversões e calculadoras</div></div>
-    <div class="chips cv-abas" role="tablist"><button type="button" class="chip" data-aba="conv" aria-pressed="true">🔁 Conversões</button><button type="button" class="chip" data-aba="tempo" aria-pressed="false">⏱️ Tempo</button><button type="button" class="chip" data-aba="calc" aria-pressed="false">🧮 Calculadora</button></div>
+  return `<div class="chips cv-abas" role="tablist"><button type="button" class="chip" data-aba="conv" aria-pressed="true">🔁 Conversões</button><button type="button" class="chip" data-aba="tempo" aria-pressed="false">⏱️ Tempo</button><button type="button" class="chip" data-aba="calc" aria-pressed="false">🧮 Calculadora</button></div>
     <div class="cv-painel" data-aba="conv"><div class="chips">${CATEGORIAS.map(([n], c) => `<button type="button" class="chip" data-catb="${c}" aria-pressed="${c === 0}">${n}</button>`).join('')}</div>${conv}
       <p class="sub">Digite em qualquer lado: o outro se atualiza na hora. Fatores dos POH do R22 e do R44/R66 e do uso diário de aviação.</p></div>
     <div class="cv-painel" data-aba="tempo" hidden>${tempo}</div>
@@ -121,5 +120,5 @@ function montar() {
   return el;
 }
 
-// Coloca o cartão (sempre o mesmo elemento) no espaço reservado do Início.
+// Coloca o cartão (sempre o mesmo elemento) no espaço reservado da aba.
 export function montarConversor(slot) { if (!slot) return; cartao ||= montar(); slot.replaceWith(cartao); }
