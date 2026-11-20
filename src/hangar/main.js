@@ -340,7 +340,7 @@ const NOVIDADES = {
 // Turma (20/11/2026): material novo só da turma + regra dos 3 dias. No Início aparece só o que chegou há até 3 dias;
 // depois o item fica apenas na aba Materiais, como os outros. (Fica no modelo, então sobrevive ao gerar.py.)
 const NOVIDADES_TURMA = [
-  { id: 'duvidas-2026-11-20', data: '2026-11-20', titulo: 'Aba Dúvidas: pergunte ao atendente', desc: 'Ele responde com os manuais da turma e diz de onde tirou. O que não souber vai para o Juan.', aba: 'duvidas' },
+  { id: 'duvidas-2026-11-20', data: '2026-11-20', titulo: 'Dúvidas: pergunte ao atendente', desc: 'Ele responde com os manuais da turma e diz de onde tirou. O que não souber vai para o Juan.', aba: 'duvidas' },
   { id: 'eacaraprox-2026-11-20', data: '2026-11-20', titulo: 'Procedimento de aproximação normal (R22), da EACAR', desc: 'Novo material da escola para a aproximação normal.', aba: 'materiais', arq: 'eacaraprox' },
 ];
 const NOVO_DIAS = 3;
@@ -502,9 +502,10 @@ const lerImportar = () => { try { return sessionStorage.getItem('hangar-importar
 let importarHash = /^#importar=/.test(location.hash) ? location.hash : lerImportar();
 if (importarHash) { try { sessionStorage.setItem('hangar-importar', importarHash); history.replaceState(null, '', location.pathname + location.search + '#diario'); } catch {} }
 // Abas em dois níveis: 5 assuntos, cada um com suas abas (as 18 abas continuam as mesmas)
-const GRUPOS = [['Hoje', ['inicio','goa','tempo','conversoes']], ['Voo', ['diario','checklists','fip','treino']], ['Estudo', ['estudo','provas','revisao','materiais']], ['Turma', ['duvidas','contrato','gastos','compras','acessos']], ['Pessoal', ['anotacoes','fotos']]];
+const GRUPOS = [['Hoje', ['inicio','goa','tempo','conversoes']], ['Voo', ['diario','checklists','fip','treino']], ['Estudo', ['estudo','provas','revisao','materiais']], ['Turma', ['contrato','gastos','compras','acessos']], ['Pessoal', ['anotacoes','fotos']]];
 const NOME_ABA = Object.fromEntries(ABAS);
-const grupoDe = (k) => Math.max(0, GRUPOS.findIndex((g) => g[1].includes(k)));
+// Dúvidas não pertence a nenhum assunto: tem botão próprio ao lado de Pessoal (grupo -1)
+const grupoDe = (k) => k === 'duvidas' ? -1 : Math.max(0, GRUPOS.findIndex((g) => g[1].includes(k)));
 const ultimoDoGrupo = {};
 let aba = importarHash ? 'diario' : (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
 let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], compras = [], errCompras = '', anotacoes = [], errAnotacoes = '', minhasDuvidas = [], faqDuvidas = [], pendDuvidas = null, errDuvidas = '', notasProvas = [], meusDocs = [], meusVoos = [], meusDias = [], diaOutro = '', parar = [], trocandoPix = false;
@@ -720,7 +721,7 @@ function conteudoParaDuvidas() {
 
 // ---------- telas ----------
 function render() {
-  ultimoDoGrupo[grupoDe(aba)] = aba;
+  if (grupoDe(aba) >= 0) ultimoDoGrupo[grupoDe(aba)] = aba;
   pontoAbas();
   const c = $('#conteudo'), y = window.scrollY;
   c.innerHTML = `<section data-painel="${aba}">${(TELAS[aba]||TELAS.inicio)()}</section>`;
@@ -732,10 +733,10 @@ function render() {
 const estDuvidas = () => ({ minhas: minhasDuvidas, faq: faqDuvidas, pendentes: pendDuvidas, erro: errDuvidas });
 // barra de assuntos e abas; o ponto vermelho marca material novo (Início) e resposta ou dúvida nova (Dúvidas)
 function pontoAbas() {
-  const nNovas = novNovas().length, nDuv = pontoDuvidas(estDuvidas()), gDuv = grupoDe('duvidas');
+  const nNovas = novNovas().length, nDuv = pontoDuvidas(estDuvidas()), g = grupoDe(aba);
   const ponto = (rot) => `<span class="novo-ponto" aria-label="${rot}"></span>`;
-  $('#abas').innerHTML = `<div class="nv1" role="tablist" aria-label="Assuntos">${GRUPOS.map(([n, ks], i) => `<button role="tab" aria-selected="${i === grupoDe(aba)}" data-grupo="${i}">${n}<small>${ks.length} ${ks.length === 1 ? 'aba' : 'abas'}</small>${i === 0 && nNovas ? ponto('material novo') : ''}${i === gDuv && nDuv ? ponto('dúvida nova') : ''}</button>`).join('')}</div>
-    <div class="nv2" role="tablist" aria-label="Abas">${GRUPOS[grupoDe(aba)][1].map((k) => `<button class="aba" role="tab" aria-selected="${k === aba}" data-aba="${k}">${NOME_ABA[k]}${k === 'inicio' && nNovas ? ponto('material novo') : ''}${k === 'duvidas' && nDuv ? ponto('dúvida nova') : ''}</button>`).join('')}</div>`;
+  $('#abas').innerHTML = `<div class="nv1" role="tablist" aria-label="Assuntos">${GRUPOS.map(([n, ks], i) => `<button role="tab" aria-selected="${i === g}" data-grupo="${i}">${n}<small>${ks.length} ${ks.length === 1 ? 'aba' : 'abas'}</small>${i === 0 && nNovas ? ponto('material novo') : ''}</button>`).join('')}<button class="nv-duv" role="tab" aria-selected="${g < 0}" data-aba="duvidas"><i aria-hidden="true">?</i>Dúvidas${nDuv ? ponto('dúvida nova') : ''}</button></div>
+    ${g < 0 ? '' : `<div class="nv2" role="tablist" aria-label="Abas">${GRUPOS[g][1].map((k) => `<button class="aba" role="tab" aria-selected="${k === aba}" data-aba="${k}">${NOME_ABA[k]}${k === 'inicio' && nNovas ? ponto('material novo') : ''}</button>`).join('')}</div>`}`;
 }
 function contagem() {
   const dia = Math.floor((Date.parse(hoje()) - Date.parse('2026-11-03')) / 864e5) + 1;

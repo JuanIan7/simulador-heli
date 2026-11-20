@@ -31,7 +31,7 @@ Estudo › Estudo: cronograma de estudo, onde cada um marca o próprio progresso
 Estudo › Provas: questões para treinar e o ranking da turma.
 Estudo › Revisão R22: resumo da aeronave e os avisos de segurança.
 Estudo › Materiais: os PDFs do curso, numa pasta do Google Drive da turma.
-Turma › Dúvidas: esta conversa, as suas dúvidas e as perguntas frequentes.
+Dúvidas (botão laranja com "?" ao lado de Pessoal): esta conversa, as suas dúvidas e as perguntas frequentes.
 Turma › Contrato: o que o contrato do curso prevê (horas, prazos, deveres da escola e nossos).
 Turma › Gastos: despesas divididas pela turma. Turma › Compras: lista de compras. Turma › Acessos e rotas: como chegar.
 Pessoal › Anotações: anotações da turma. Pessoal › Fotos e vídeos: registros do curso.`;
