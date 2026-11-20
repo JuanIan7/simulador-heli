@@ -33,7 +33,7 @@ Estudo › Revisão R22: resumo da aeronave e os avisos de segurança.
 Estudo › Materiais: os PDFs do curso, numa pasta do Google Drive da turma.
 Dúvidas (botão laranja com "?" ao lado de Pessoal): esta conversa, as suas dúvidas e as perguntas frequentes.
 Turma › Contrato: o que o contrato do curso prevê (horas, prazos, deveres da escola e nossos).
-Turma › Gastos: despesas divididas pela turma. Turma › Compras: lista de compras. Turma › Acessos e rotas: como chegar.
+Turma › Gastos: despesas divididas pela turma. Turma › Compras: lista de compras. Turma › Acessos e rotas: como chegar. Turma › Tutoriais: vídeos que mostram como usar o Hangar (abrem no Google Drive).
 Pessoal › Anotações: anotações da turma. Pessoal › Fotos e vídeos: registros do curso.`;
 
 let vista = 'perguntar', ctxAtual = null, chatEl = null, ocupado = false;

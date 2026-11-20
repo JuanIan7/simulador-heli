@@ -1,5 +1,5 @@
 // Aba "Conversões" do Hangar da Turma (cartão "Conversões e calculadoras"): conversões de aviação (as dos POH do R22 e do R44/R66 e as de uso diário),
-// calculadora de tempo (horas de voo, horários, tempo por distância e velocidade) e calculadora comum.
+// calculadora de tempo (horas de voo, horários, tempo por distância e velocidade) e calculadora científica.
 // O cartão é montado uma vez e reaproveitado a cada vez que o Início é redesenhado, para não apagar o que a pessoa digitou.
 
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -40,17 +40,54 @@ const CATEGORIAS = [
   ['Coordenadas', [coord]],
 ];
 
-// ---------- avaliador da calculadora (sem eval) ----------
-function avaliar(src) {
+// ---------- avaliador da calculadora científica (sem eval) ----------
+// Aceita + − × ÷, parênteses, %, potência (^), fatorial (!), raiz (√ ∛), π, e, Ans, multiplicação implícita ("2π", "3(4+1)")
+// e as funções sin cos tan asin acos atan log ln abs (também "sen", "tg" e "raiz"). opt.graus: ângulos em graus; opt.ans: último resultado.
+const FUNCOES = { sin: 1, cos: 1, tan: 1, asin: 1, acos: 1, atan: 1, log: 1, ln: 1, abs: 1, sqrt: 1 };
+const APELIDO = { sen: 'sin', tg: 'tan', asen: 'asin', atg: 'atan', raiz: 'sqrt' };
+const limpo = (x) => (Math.abs(x) < 1e-13 ? 0 : x);
+function fatorial(n) { if (!Number.isInteger(n) || n < 0 || n > 170) return NaN; let r = 1; for (let k = 2; k <= n; k++) r *= k; return r; }
+function avaliar(src, opt = {}) {
   const t = String(src).replace(/\s+/g, '').replace(/,/g, '.').replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-');
   if (!t) return null;
+  const rad = opt.graus === false ? 1 : Math.PI / 180;
+  const aplicar = (f, x) => {
+    if (f === 'sin') return limpo(Math.sin(x * rad));
+    if (f === 'cos') return limpo(Math.cos(x * rad));
+    if (f === 'tan') { const c = limpo(Math.cos(x * rad)); return c === 0 ? NaN : limpo(Math.sin(x * rad)) / c; }
+    if (f === 'asin') return Math.asin(x) / rad;
+    if (f === 'acos') return Math.acos(x) / rad;
+    if (f === 'atan') return Math.atan(x) / rad;
+    if (f === 'log') return Math.log10(x);
+    if (f === 'ln') return Math.log(x);
+    if (f === 'abs') return Math.abs(x);
+    return Math.sqrt(x);
+  };
   let i = 0; const peek = () => t[i];
   const expr = () => { let v = termo(); while (peek() === '+' || peek() === '-') { const o = t[i++], r = termo(); v = o === '+' ? v + r : v - r; } return v; };
-  const termo = () => { let v = fator(); while (peek() === '*' || peek() === '/') { const o = t[i++], r = fator(); v = o === '*' ? v * r : v / r; } return v; };
-  const fator = () => { let v = unario(); while (peek() === '%') { i++; v /= 100; } return v; };
-  const unario = () => { if (peek() === '-') { i++; return -unario(); } if (peek() === '+') { i++; return unario(); } return prim(); };
+  const termo = () => { let v = unario();
+    for (;;) {
+      if (peek() === '*' || peek() === '/') { const o = t[i++], r = unario(); v = o === '*' ? v * r : v / r; }
+      else if (peek() !== undefined && /[0-9.(a-zA-Zπ√∛]/.test(peek())) v *= potencia();   // multiplicação implícita
+      else return v;
+    } };
+  const unario = () => { if (peek() === '-') { i++; return -unario(); } if (peek() === '+') { i++; return unario(); } return potencia(); };
+  const potencia = () => { const b = posfixo(); if (peek() === '^') { i++; return Math.pow(b, unario()); } return b; };
+  const posfixo = () => { let v = prim(); for (;;) { if (peek() === '%') { i++; v /= 100; } else if (peek() === '!') { i++; v = fatorial(v); } else return v; } };
   const prim = () => {
     if (peek() === '(') { i++; const v = expr(); if (peek() !== ')') throw new Error('x'); i++; return v; }
+    if (peek() === '√') { i++; return Math.sqrt(prim()); }
+    if (peek() === '∛') { i++; return Math.cbrt(prim()); }
+    if (peek() === 'π') { i++; return Math.PI; }
+    const n = /^[a-zA-Z]+/.exec(t.slice(i));
+    if (n) {
+      const bruto = n[0].toLowerCase(), nome = APELIDO[bruto] || bruto; i += n[0].length;
+      if (nome === 'pi') return Math.PI;
+      if (nome === 'e') return Math.E;
+      if (nome === 'ans') { if (opt.ans == null) throw new Error('x'); return opt.ans; }
+      if (!FUNCOES[nome] || peek() !== '(') throw new Error('x');
+      i++; const v = expr(); if (peek() !== ')') throw new Error('x'); i++; return aplicar(nome, v);
+    }
     const m = /^(\d+\.?\d*|\.\d+)/.exec(t.slice(i)); if (!m) throw new Error('x'); i += m[0].length; return parseFloat(m[0]);
   };
   const v = expr(); if (i !== t.length) throw new Error('x'); return v;
@@ -71,7 +108,12 @@ function html() {
     <div class="cv-tm" data-p="nav" hidden><div class="cv-lin">${campo('tnD', 'Distância (NM)', '45')}${campo('tnV', 'Velocidade (kt)', '85')}${campo('tnC', 'Consumo por hora (opcional)', '38')}</div><p class="cv-res" id="tnR"></p></div>
     <div class="cv-tm" data-p="dec" hidden><div class="cv-lin">${campo('tdA', 'Horas e minutos', '1:35')}<b class="cv-seta" aria-hidden="true">⇄</b>${campo('tdB', 'Horas decimais', '1,58')}</div></div>`;
   const teclas = ['C', '(', ')', '⌫', '7', '8', '9', '÷', '4', '5', '6', '×', '1', '2', '3', '−', '0', ',', '%', '+'];
+  // teclas científicas: [rótulo, o que entra na conta, rótulo na 2ª função, o que entra na 2ª função]
+  const sci = [['sin', 'sin(', 'sin⁻¹', 'asin('], ['cos', 'cos(', 'cos⁻¹', 'acos('], ['tan', 'tan(', 'tan⁻¹', 'atan('],
+    ['x²', '^2', 'x³', '^3'], ['xʸ', '^'], ['√', '√(', '∛', '∛('], ['π', 'π'], ['e', 'e'],
+    ['x!', '!'], ['log', 'log(', '10ˣ', '10^('], ['ln', 'ln(', 'eˣ', 'e^('], ['×10ˣ', '×10^('], ['Ans', 'Ans']];
   const calc = `<div class="cv-calc"><div class="cv-visor"><input id="ccE" class="mono" autocomplete="off" inputmode="none" placeholder="Digite ou use as teclas" aria-label="Expressão"><p class="cv-res" id="ccR">&nbsp;</p></div>
+    <div class="cv-sci"><button type="button" class="cv-modo" id="ccAng" aria-label="Unidade dos ângulos">DEG</button><button type="button" class="cv-modo" id="cc2" aria-pressed="false" aria-label="Segunda função">2ª</button>${sci.map(([r, k, r2, k2]) => `<button type="button" data-k="${k}" data-r="${r}"${k2 ? ` data-k2="${k2}" data-r2="${r2}"` : ''}>${r}</button>`).join('')}</div>
     <div class="cv-teclas">${teclas.map((k) => `<button type="button" data-k="${k}" class="${'÷×−+'.includes(k) ? 'cv-op' : 'C()⌫%'.includes(k) ? 'cv-fn' : ''}">${k}</button>`).join('')}<button type="button" class="pri cv-igual" data-k="=">=</button></div></div>`;
   return `<div class="chips cv-abas" role="tablist"><button type="button" class="chip" data-aba="conv" aria-pressed="true"><span class="cv-dial"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h13l-3-3M20 15H7l3 3"/></svg></span><span class="cv-rot">Conversões</span></button><button type="button" class="chip" data-aba="tempo" aria-pressed="false"><span class="cv-dial"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg></span><span class="cv-rot">Tempo</span></button><button type="button" class="chip" data-aba="calc" aria-pressed="false"><span class="cv-dial"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/></svg></span><span class="cv-rot">Calculadora</span></button></div>
     <div class="cv-painel" data-aba="conv"><div class="chips">${CATEGORIAS.map(([n], c) => `<button type="button" class="chip" data-catb="${c}" aria-pressed="${c === 0}">${n}</button>`).join('')}</div>${conv}
@@ -109,14 +151,21 @@ function montar() {
   ['tnD', 'tnV', 'tnC'].forEach((id) => $('#' + id).oninput = nav);
   $('#tdA').oninput = () => { const m = dur($('#tdA').value); $('#tdB').value = m == null ? '' : fmtN(m / 60, 4); };
   $('#tdB').oninput = () => { const x = parseN($('#tdB').value); $('#tdA').value = x == null ? '' : hmTxt(Math.round(x * 60)); };
-  // calculadora comum
-  const E = $('#ccE'), R = $('#ccR');
-  const vivo = () => { if (!E.value.trim()) { R.innerHTML = '&nbsp;'; return; } try { const x = avaliar(E.value); R.innerHTML = x == null ? '&nbsp;' : Number.isFinite(x) ? `= <b>${fmtN(x, 12)}</b>` : '<span class="sub">não dá (divisão por zero)</span>'; } catch { R.innerHTML = '<span class="sub">…</span>'; } };
+  // calculadora científica
+  const E = $('#ccE'), R = $('#ccR'), ANG = $('#ccAng'), SEG = $('#cc2');
+  let graus = true, ans = null, segunda = false;
+  const conta = () => avaliar(E.value, { graus, ans });
+  const vivo = () => { if (!E.value.trim()) { R.innerHTML = '&nbsp;'; return; } try { const x = conta(); R.innerHTML = x == null ? '&nbsp;' : Number.isFinite(x) ? `= <b>${fmtN(x, 12)}</b>` : '<span class="sub">não dá: conta sem resultado</span>'; } catch { R.innerHTML = '<span class="sub">…</span>'; } };
   E.oninput = vivo;
   E.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); igual(); } };
-  const igual = () => { try { const x = avaliar(E.value); if (x != null && Number.isFinite(x)) { E.value = fmtN(x, 12); vivo(); } } catch {} };
-  el.querySelectorAll('[data-k]').forEach((b) => b.onclick = () => { const k = b.dataset.k;
-    if (k === 'C') E.value = ''; else if (k === '⌫') E.value = E.value.slice(0, -1); else if (k === '=') return igual(); else E.value += k; vivo(); });
+  const igual = () => { try { const x = conta(); if (x != null && Number.isFinite(x)) { ans = x; E.value = fmtN(x, 12); vivo(); } } catch {} };
+  const segundaFuncao = (liga) => { segunda = liga; SEG.setAttribute('aria-pressed', liga);
+    el.querySelectorAll('.cv-sci [data-k2]').forEach((b) => { b.textContent = liga ? b.dataset.r2 : b.dataset.r; }); };
+  ANG.onclick = () => { graus = !graus; ANG.textContent = graus ? 'DEG' : 'RAD'; vivo(); };
+  SEG.onclick = () => segundaFuncao(!segunda);
+  el.querySelectorAll('[data-k]').forEach((b) => b.onclick = () => { const k = segunda && b.dataset.k2 ? b.dataset.k2 : b.dataset.k;
+    if (k === 'C') E.value = ''; else if (k === '⌫') E.value = E.value.slice(0, -1); else if (k === '=') return igual(); else E.value += k;
+    if (segunda) segundaFuncao(false); vivo(); });
   return el;
 }
 

@@ -16,3 +16,7 @@
 .nv1 .nv-duv[aria-selected="true"]::after{display:none}
 .nv1 .nv-duv .novo-ponto{top:-3px;right:-2px;margin:0;width:12px;height:12px;border:2px solid var(--painel)}
 @media(max-width:520px){.nv1 .nv-duv{flex-direction:column;gap:2px;margin:5px 0 5px 4px;padding:5px 8px 4px;border-radius:14px;font-size:12px;letter-spacing:.02em}.nv1 .nv-duv i{width:22px;height:22px;font-size:16px}.nv1 button small{display:none}.nv1 button{font-size:14px;letter-spacing:.03em;padding-block:11px 9px}.nv2{gap:5px}.nv2 .aba{padding:5px 11px;font-size:14px}}
+/* Aba Tutoriais (20/11/2026) */
+.tut h3{margin:0}
+.tut p{margin:0}
+.tut-top{margin:0;padding-left:20px;color:var(--tinta2)}

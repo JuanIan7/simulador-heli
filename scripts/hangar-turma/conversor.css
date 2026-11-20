@@ -46,3 +46,10 @@
 .cv-abas .chip[aria-pressed="true"] .cv-dial{border-color:var(--c-lar);color:var(--c-lar);box-shadow:inset 0 2px 8px rgba(0,0,0,.55),0 0 16px rgba(255,138,61,.28)}
 .cv-abas .chip[aria-pressed="true"] .cv-dial::before{background:repeating-conic-gradient(from -1.5deg,var(--c-lar) 0 3deg,transparent 3deg 15deg);opacity:.9}
 .cv-cartao .cv-abas .chip{border:0;padding:4px 2px;background:transparent}
+/* Calculadora científica (20/11/2026): fileira de funções acima do teclado numérico */
+.cv-sci{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.cv-sci button{display:grid;place-items:center;height:42px;min-height:0;padding:0;line-height:1;font:500 15px var(--mono);border:0;border-radius:9px;background:var(--c-tecla2);color:var(--c-tx2);box-shadow:0 2px 0 #0f0c0a}
+.cv-sci button:active{transform:translateY(1px);box-shadow:0 1px 0 #0f0c0a}
+.cv-sci .cv-modo{background:transparent;border:1px solid var(--c-linha);color:var(--c-lar);font-weight:700;box-shadow:none}
+.cv-sci .cv-modo[aria-pressed="true"]{background:var(--c-lar);color:#1A1410;border-color:var(--c-lar)}
+@media(max-width:520px){.cv-sci{gap:5px}.cv-sci button{height:40px;font-size:14px}}
