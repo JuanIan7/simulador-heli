@@ -71,9 +71,9 @@ function html() {
     <div class="cv-tm" data-p="nav" hidden><div class="cv-lin">${campo('tnD', 'Distância (NM)', '45')}${campo('tnV', 'Velocidade (kt)', '85')}${campo('tnC', 'Consumo por hora (opcional)', '38')}</div><p class="cv-res" id="tnR"></p></div>
     <div class="cv-tm" data-p="dec" hidden><div class="cv-lin">${campo('tdA', 'Horas e minutos', '1:35')}<b class="cv-seta" aria-hidden="true">⇄</b>${campo('tdB', 'Horas decimais', '1,58')}</div></div>`;
   const teclas = ['C', '(', ')', '⌫', '7', '8', '9', '÷', '4', '5', '6', '×', '1', '2', '3', '−', '0', ',', '%', '+'];
-  const calc = `<div class="cv-calc"><input id="ccE" class="mono" autocomplete="off" inputmode="none" placeholder="Digite ou use as teclas" aria-label="Expressão"><p class="cv-res" id="ccR">&nbsp;</p>
-    <div class="cv-teclas">${teclas.map((k) => `<button type="button" data-k="${k}" class="${'÷×−+'.includes(k) ? 'cv-op' : ''}">${k}</button>`).join('')}<button type="button" class="pri cv-igual" data-k="=">=</button></div></div>`;
-  return `<div class="chips cv-abas" role="tablist"><button type="button" class="chip" data-aba="conv" aria-pressed="true">🔁 Conversões</button><button type="button" class="chip" data-aba="tempo" aria-pressed="false">⏱️ Tempo</button><button type="button" class="chip" data-aba="calc" aria-pressed="false">🧮 Calculadora</button></div>
+  const calc = `<div class="cv-calc"><div class="cv-visor"><input id="ccE" class="mono" autocomplete="off" inputmode="none" placeholder="Digite ou use as teclas" aria-label="Expressão"><p class="cv-res" id="ccR">&nbsp;</p></div>
+    <div class="cv-teclas">${teclas.map((k) => `<button type="button" data-k="${k}" class="${'÷×−+'.includes(k) ? 'cv-op' : 'C()⌫%'.includes(k) ? 'cv-fn' : ''}">${k}</button>`).join('')}<button type="button" class="pri cv-igual" data-k="=">=</button></div></div>`;
+  return `<div class="chips cv-abas" role="tablist"><button type="button" class="chip" data-aba="conv" aria-pressed="true">Conversões</button><button type="button" class="chip" data-aba="tempo" aria-pressed="false">Tempo</button><button type="button" class="chip" data-aba="calc" aria-pressed="false">Calculadora</button></div>
     <div class="cv-painel" data-aba="conv"><div class="chips">${CATEGORIAS.map(([n], c) => `<button type="button" class="chip" data-catb="${c}" aria-pressed="${c === 0}">${n}</button>`).join('')}</div>${conv}
       <p class="sub">Digite em qualquer lado: o outro se atualiza na hora. Fatores dos POH do R22 e do R44/R66 e do uso diário de aviação.</p></div>
     <div class="cv-painel" data-aba="tempo" hidden>${tempo}</div>
@@ -82,7 +82,7 @@ function html() {
 
 let cartao = null;
 function montar() {
-  const el = document.createElement('div'); el.className = 'caixa cv-cartao'; el.innerHTML = html();
+  const el = document.createElement('div'); el.className = 'cv-cartao'; el.innerHTML = html();
   const $ = (s) => el.querySelector(s);
   // abas e categorias
   el.querySelectorAll('[data-aba].chip').forEach((b) => b.onclick = () => { el.querySelectorAll('[data-aba].chip').forEach((x) => x.setAttribute('aria-pressed', x === b)); el.querySelectorAll('.cv-painel').forEach((p) => { p.hidden = p.dataset.aba !== b.dataset.aba; }); });
