@@ -132,7 +132,7 @@ service cloud.firestore {
     // Dúvidas da turma (aba Dúvidas): cada um pergunta ao atendente (IA) e só ele vê a própria conversa.
     // O que o atendente não souber fica "aguardando": o Juan responde (pelo site ou pela Claudia, que entra como "atendente").
     // O atendente é uma conta própria (e-mail e senha), só com acesso a estas três coleções; o uid entra aqui depois de criada.
-    function atendente() { return logado() && request.auth.uid == 'ATENDENTE_UID_PENDENTE'; }
+    function atendente() { return logado() && request.auth.uid == 'oFUVSQQJqlU1ps81F2pfx2Hp6Ng2'; }
     match /duvidas/{id} {
       allow read: if (logado() && resource.data.uid == request.auth.uid) || admin() || atendente();
       allow create: if membroGastos() && request.resource.data.uid == request.auth.uid
