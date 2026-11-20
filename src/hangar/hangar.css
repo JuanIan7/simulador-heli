@@ -316,10 +316,6 @@ div.pv-alt{display:flex;align-items:center;gap:6px;border-radius:10px}
   background:var(--c-fundo);color:var(--c-tx);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:16px;min-width:0;box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 10px 30px -14px rgba(27,23,20,.55)}
 .cv-cartao .sub{color:var(--c-tx3)}
 .cv-cartao b{color:inherit}
-.cv-abas{flex-wrap:nowrap;gap:0;border-bottom:1px solid var(--c-linha)}
-.cv-abas .chip{flex:1;position:relative;border:0;border-radius:0;background:transparent;color:var(--c-tx3);padding:9px 4px 12px;min-height:0;font:700 16px var(--display);letter-spacing:.08em;text-transform:uppercase}
-.cv-abas .chip[aria-pressed="true"]{background:transparent;color:var(--c-lar)}
-.cv-abas .chip[aria-pressed="true"]::after{content:"";position:absolute;left:18%;right:18%;bottom:-1px;height:2px;background:var(--c-lar)}
 .cv-painel{display:flex;flex-direction:column;gap:14px}
 .cv-painel[hidden],.cv-cat[hidden],.cv-tm[hidden]{display:none}
 .cv-cartao .chips .chip{border:1px solid var(--c-linha);background:transparent;color:var(--c-tx2);padding:6px 12px;min-height:0;line-height:1}
@@ -349,6 +345,16 @@ div.pv-alt{display:flex;align-items:center;gap:6px;border-radius:10px}
 .cv-teclas .cv-op{background:var(--c-tecla2);color:var(--c-lar);font-weight:700}
 .cv-teclas .cv-fn{color:var(--c-tx3)}
 .cv-teclas .cv-igual{grid-column:1/-1;background:var(--c-lar);color:#1A1410;font-weight:700;box-shadow:0 2px 0 #b84a04}
-@media(max-width:520px){.cv-par{grid-template-columns:minmax(0,1fr)}.cv-seta{display:none}.cv-abas .chip{font-size:14px;letter-spacing:.04em}.cv-visor .cv-res b{font-size:38px}}
+@media(max-width:520px){.cv-par{grid-template-columns:minmax(0,1fr)}.cv-seta{display:none}.cv-dial{width:68px;height:68px}.cv-dial svg{width:26px;height:26px}.cv-rot{font-size:14px!important;letter-spacing:.05em!important}.cv-visor .cv-res b{font-size:38px}}
 .cv-visor .cv-res .sub{font-size:14px;color:var(--c-tx3);text-shadow:none}
-.cv-abas .chip{justify-content:center;text-align:center}
+
+/* três mostradores principais (instrumentos de painel) */
+.cv-abas{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:2px 0 6px}
+.cv-abas .chip{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:9px;border:0;border-radius:12px;background:transparent;color:var(--c-tx3);padding:4px 2px;min-height:0;text-align:center}
+.cv-dial{position:relative;display:grid;place-items:center;width:84px;height:84px;border-radius:50%;background:radial-gradient(circle at 50% 35%,#1d1814,var(--c-visor) 70%);border:2px solid var(--c-linha);box-shadow:inset 0 2px 8px rgba(0,0,0,.55),0 2px 0 #0f0c0a;color:var(--c-tx2);transition:border-color .15s,color .15s,box-shadow .15s}
+.cv-dial::before{content:"";position:absolute;inset:5px;border-radius:50%;background:repeating-conic-gradient(from -1.5deg,var(--c-tx3) 0 3deg,transparent 3deg 15deg);-webkit-mask:radial-gradient(circle,transparent 63%,#000 65%);mask:radial-gradient(circle,transparent 63%,#000 65%);opacity:.55}
+.cv-dial svg{width:32px;height:32px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.cv-rot{font:700 16px var(--display);letter-spacing:.08em;text-transform:uppercase}
+.cv-abas .chip[aria-pressed="true"]{background:transparent;color:var(--c-lar)}
+.cv-abas .chip[aria-pressed="true"] .cv-dial{border-color:var(--c-lar);color:var(--c-lar);box-shadow:inset 0 2px 8px rgba(0,0,0,.55),0 0 16px rgba(255,138,61,.28)}
+.cv-abas .chip[aria-pressed="true"] .cv-dial::before{background:repeating-conic-gradient(from -1.5deg,var(--c-lar) 0 3deg,transparent 3deg 15deg);opacity:.9}
