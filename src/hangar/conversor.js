@@ -4,7 +4,8 @@
 
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = (n) => String(n).padStart(2, '0');
-const fmtN = (v, casas = 6) => { if (!Number.isFinite(v)) return ''; return String(Number(v.toPrecision(casas))).replace('.', ','); };
+// Sem `casas`: até 4 casas decimais (valores a partir de 1) ou 5 algarismos significativos (valores pequenos). Com `casas`: algarismos significativos.
+const fmtN = (v, casas) => { if (!Number.isFinite(v)) return ''; const r = casas ? Number(v.toPrecision(casas)) : Math.abs(v) >= 1 ? Number(v.toFixed(4)) : Number(v.toPrecision(5)); return String(r).replace('.', ','); };
 const parseN = (t) => { const s = String(t ?? '').trim().replace(/\s/g, '').replace('−', '-').replace(',', '.'); if (s === '' || s === '-' || s === '.') return null; const x = Number(s); return Number.isFinite(x) ? x : null; };
 
 // Par de unidades: ab(textoA) → textoB e ba(textoB) → textoA.
