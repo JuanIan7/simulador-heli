@@ -19,6 +19,7 @@ css += "\n.quadro{width:100%;border:0;display:block;min-height:70vh;background:t
 css += "\n.contagem .efet{display:block;margin-top:6px;font-size:12px;letter-spacing:.06em}\n.contagem .efet b{display:inline;font-size:16px}\n"
 css += "\n.tp-hora-escolhida{background:var(--alerta-claro,#fff4d6);border:1.5px solid var(--alerta);border-radius:10px;padding:8px 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}\n.tp-tab tr.tp-sel td{background:rgba(255,106,0,.12)}\n.tp-tab .mini{min-width:56px}\n"
 css += (Path(__file__).parent / "conversor.css").read_text(encoding="utf-8")
+css += (Path(__file__).parent / "abas.css").read_text(encoding="utf-8")
 (sim / "src/hangar/hangar.css").write_text(css.strip() + "\n", encoding="utf-8")
 
 revisao = bloco("revisao(){", "treino(){")

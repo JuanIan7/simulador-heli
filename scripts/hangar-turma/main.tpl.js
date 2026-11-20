@@ -94,6 +94,11 @@ const ABAS = [['inicio','Início'],['goa','Form do GOA'],['tempo','Tempo'],['con
 const lerImportar = () => { try { return sessionStorage.getItem('hangar-importar') || ''; } catch { return ''; } };
 let importarHash = /^#importar=/.test(location.hash) ? location.hash : lerImportar();
 if (importarHash) { try { sessionStorage.setItem('hangar-importar', importarHash); history.replaceState(null, '', location.pathname + location.search + '#diario'); } catch {} }
+// Abas em dois níveis: 5 assuntos, cada um com suas abas (as 18 abas continuam as mesmas)
+const GRUPOS = [['Hoje', ['inicio','goa','tempo','conversoes']], ['Voo', ['diario','checklists','fip','treino']], ['Estudo', ['estudo','provas','revisao','materiais']], ['Turma', ['contrato','gastos','compras','acessos']], ['Pessoal', ['anotacoes','fotos']]];
+const NOME_ABA = Object.fromEntries(ABAS);
+const grupoDe = (k) => Math.max(0, GRUPOS.findIndex((g) => g[1].includes(k)));
+const ultimoDoGrupo = {};
 let aba = importarHash ? 'diario' : (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
 let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], compras = [], errCompras = '', anotacoes = [], errAnotacoes = '', notasProvas = [], meusDocs = [], meusVoos = [], meusDias = [], diaOutro = '', parar = [], trocandoPix = false;
 
@@ -220,7 +225,9 @@ function abrir() {
 // ---------- telas ----------
 function render() {
   const nNovas = novNovas().length;
-  $('#abas').innerHTML = ABAS.map(([k,t]) => `<button class="aba" role="tab" aria-selected="${k===aba}" data-aba="${k}">${t}${k === 'inicio' && nNovas ? '<span class="novo-ponto" aria-label="material novo"></span>' : ''}</button>`).join('');
+  ultimoDoGrupo[grupoDe(aba)] = aba;
+  $('#abas').innerHTML = `<div class="nv1" role="tablist" aria-label="Assuntos">${GRUPOS.map(([n, ks], i) => `<button role="tab" aria-selected="${i === grupoDe(aba)}" data-grupo="${i}">${n}<small>${ks.length} ${ks.length === 1 ? 'aba' : 'abas'}</small>${i === 0 && nNovas ? '<span class="novo-ponto" aria-label="material novo"></span>' : ''}</button>`).join('')}</div>
+    <div class="nv2" role="tablist" aria-label="Abas">${GRUPOS[grupoDe(aba)][1].map((k) => `<button class="aba" role="tab" aria-selected="${k === aba}" data-aba="${k}">${NOME_ABA[k]}${k === 'inicio' && nNovas ? '<span class="novo-ponto" aria-label="material novo"></span>' : ''}</button>`).join('')}</div>`;
   const c = $('#conteudo'), y = window.scrollY;
   c.innerHTML = `<section data-painel="${aba}">${(TELAS[aba]||TELAS.inicio)()}</section>`;
   ligarMascaras(c); (LIGAR[aba]||(()=>{}))(c);
@@ -470,7 +477,7 @@ const LIGAR = {
   },
 };
 
-document.getElementById('abas').addEventListener('click', (e) => { const b = e.target.closest('[data-aba]'); if (b && membro) irPara(b.dataset.aba); });
+document.getElementById('abas').addEventListener('click', (e) => { const g = e.target.closest('[data-grupo]'); if (g && membro) { const i = +g.dataset.grupo; irPara(ultimoDoGrupo[i] || GRUPOS[i][1][0]); return; } const b = e.target.closest('[data-aba]'); if (b && membro) irPara(b.dataset.aba); });
 window.addEventListener('hashchange', () => { const h = location.hash.slice(1);
   if (/^importar=/.test(h)) { importarHash = '#' + h; try { sessionStorage.setItem('hangar-importar', importarHash); history.replaceState(null, '', location.pathname + location.search + '#diario'); } catch {} if (membro) { aba = 'diario'; render(); } return; } if (membro && ABAS.some(a=>a[0]===h) && h !== aba) { aba = h; render(); } });
 // As páginas de gastos e diário, abertas aqui dentro, avisam a altura para o quadro crescer junto.

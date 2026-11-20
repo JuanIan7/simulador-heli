@@ -1,0 +1,12 @@
+/* Navegação em dois níveis (aprovada em 20/11/2026): 5 assuntos em cima, as abas do assunto embaixo */
+.abas-in{display:block;overflow:visible;padding-block:0}
+.nv1{display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
+.nv1 button{position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;border:0;background:transparent;border-radius:0;padding:12px 4px 10px;min-height:0;font:700 17px var(--display);letter-spacing:.07em;text-transform:uppercase;color:var(--tinta3)}
+.nv1 button small{font:600 11px var(--corpo);letter-spacing:0;text-transform:none;color:var(--tinta3)}
+.nv1 button[aria-selected="true"]{color:var(--laranja-esc)}
+.nv1 button[aria-selected="true"]::after{content:"";position:absolute;left:12%;right:12%;bottom:0;height:3px;background:var(--laranja);border-radius:3px 3px 0 0}
+.nv1 .novo-ponto{position:absolute;top:10px;right:calc(50% - 38px)}
+.nv2{display:flex;flex-wrap:wrap;gap:6px;padding:10px 0 12px;border-top:1px solid var(--linha)}
+.nv2 .aba{border:1.5px solid var(--linha);padding:5px 13px;min-height:36px;font-size:14.5px}
+.nv2 .aba[aria-selected="true"]{border-color:var(--laranja)}
+@media(max-width:520px){.nv1 button small{display:none}.nv1 button{font-size:14px;letter-spacing:.03em;padding-block:11px 9px}.nv2{gap:5px}.nv2 .aba{padding:5px 11px;font-size:14px}}
