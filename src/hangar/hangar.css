@@ -422,3 +422,4 @@ div.pv-alt{display:flex;align-items:center;gap:6px;border-radius:10px}
 .dv-base{display:flex;flex-direction:column;gap:6px}
 .dv-base-l{display:flex;justify-content:space-between;gap:10px;align-items:center;border-top:1px solid var(--linha);padding-top:6px}
 #dvBaseArq{width:auto;flex:1;min-width:0}
+.dv-pensando span{margin-left:6px;font-size:13.5px;color:var(--tinta3)}

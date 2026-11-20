@@ -13,7 +13,7 @@ const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const limpa = (t, n) => String(t ?? '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, n);
 const LIMITE_DIA = 40; // perguntas por pessoa por dia (a cota do Gemini é gratuita e dividida pela turma)
 const MODELO_BUSCA = [['gemini-3.5-flash-lite', 15000]];
-const MODELOS_RESPOSTA = [['gemini-3.8-flash', 25000], ['gemini-3.5-flash-lite', 25000]];
+const MODELOS_RESPOSTA = [['gemini-3.5-flash-lite', 20000], ['gemini-3.8-flash', 30000]]; // o 3.8 levou mais de 25 s no teste de 20/11; fica de reserva
 const EXEMPLOS = ['Qual a velocidade de planeio na autorrotação?', 'O que fazer se acender a luz de baixa RPM?', 'Como calculo o peso e balanceamento?', 'Quantas horas de voo o contrato prevê?'];
 const NOMES_FONTE = { 'manual-de-manobras': 'Manual de Manobras da EACAR', 'poh-r22': 'POH do R22 (tradução da EACAR)', 'peso-e-balanceamento': 'Guia de Peso e Balanceamento (PR-HNE)' };
 
@@ -142,7 +142,9 @@ Receba a conversa e a última mensagem do aluno e devolva só este JSON:
 {"tipo":"duvida" | "cumprimento" | "fora",
  "pergunta":"a última mensagem reescrita como pergunta completa, entendível sem a conversa",
  "termos":["8 a 14 palavras ou expressões curtas para procurar nos manuais: os termos técnicos da pergunta, sinônimos, a grafia usada em manuais (ex.: autorrotação, auto-rotação, RPM do rotor, coletivo, cíclico, Vne, efeito solo, peso bruto) e o nome em inglês quando existir"]}
-"cumprimento": oi, obrigado, tchau e parecidos. "fora": nada a ver com o curso, helicóptero, aviação, meteorologia aeronáutica, o contrato do curso, a turma ou o uso do site. Na dúvida, use "duvida".`;
+"cumprimento": oi, obrigado, tchau e parecidos.
+"duvida": tudo que um aluno do curso pode querer saber, inclusive a escola (EACAR: secretaria, contato, endereço, horários, instrutores, aeronaves), a logística do curso (viagem, hospedagem, alimentação, cidade), provas, documentos, exame médico, contrato, a turma e o uso do site. Mesmo que você ache que os manuais não trazem a resposta, é "duvida".
+"fora": só o que claramente não tem relação com o curso nem com aviação (futebol, política, receita, programação, tarefa de outra matéria). Na dúvida, use "duvida".`;
 const SIS_RESPOSTA = `Você é o atendente de dúvidas do Hangar da Turma, o site da turma do curso de Piloto Privado de Helicóptero (PPH) no Robinson R22, da escola EACAR, em Piraquara/PR. Quem pergunta é um aluno da turma.
 
 Regras:
@@ -169,7 +171,7 @@ function explicarErro(e) {
 const doDia = (lista) => { const h = new Date(); h.setHours(0, 0, 0, 0); return lista.filter((d) => !d.em?.seconds || d.em.seconds * 1000 >= h.getTime()).length; };
 
 async function responder(ctx, texto) {
-  const eu = { de: 'eu', texto }, bot = { de: 'bot', estado: 'pensando' };
+  const eu = { de: 'eu', texto }, bot = { de: 'bot', estado: 'pensando', fase: 'Entendendo a pergunta' };
   const historico = conversa.filter((m) => m.texto && m.estado !== 'pensando').slice(-6).map((m) => `${m.de === 'eu' ? 'Aluno' : 'Atendente'}: ${m.texto.slice(0, 500)}`).join('\n');
   conversa.push(eu, bot); desenhar();
   const fechar = (campos) => { Object.assign(bot, { estado: 'pronto' }, campos); desenhar(); };
@@ -177,7 +179,8 @@ async function responder(ctx, texto) {
   let prep = { tipo: 'duvida', pergunta: texto, termos: [] };
   try { const r = await gerar(ctx.app, MODELO_BUSCA, SIS_BUSCA, `${historico ? 'CONVERSA:\n' + historico + '\n\n' : ''}ÚLTIMA MENSAGEM DO ALUNO: ${texto}`); if (r && typeof r === 'object') prep = { tipo: r.tipo || 'duvida', pergunta: String(r.pergunta || texto), termos: Array.isArray(r.termos) ? r.termos.map(String).slice(0, 16) : [] }; } catch { /* segue com a pergunta crua */ }
   if (prep.tipo === 'cumprimento') return fechar({ texto: 'Estou por aqui. É só mandar a dúvida do curso ou do Hangar.', leve: true });
-  if (prep.tipo === 'fora') return fechar({ texto: 'Isso foge do meu assunto. Eu respondo dúvidas do curso de PPH no R22 e do uso do Hangar.', leve: true });
+  if (prep.tipo === 'fora') return fechar({ texto: 'Isso foge do meu assunto. Eu respondo dúvidas do curso de PPH no R22 e do uso do Hangar.', fora: true, pergunta: texto });
+  bot.fase = 'Lendo os materiais'; desenhar();
   let trechos = [];
   try { const ind = await indiceAtual(ctx); trechos = buscar(ind, `${texto} ${prep.pergunta} ${prep.termos.join(' ')}`, 8); } catch { /* sem base */ }
   let total = 0; trechos = trechos.filter((t) => (total += t.txt.length) <= 12000);
@@ -211,10 +214,11 @@ async function pedirAoJuan(ctx, m) {
 // ---------- conversa (elemento montado uma vez: o que foi digitado não se perde quando a tela redesenha) ----------
 function bolha(m, i) {
   if (m.de === 'eu') return `<div class="dv-msg dv-eu"><div class="dv-bolha">${esc(m.texto)}</div></div>`;
-  if (m.estado === 'pensando') return `<div class="dv-msg dv-bot"><div class="dv-bolha dv-pensando" aria-label="Procurando nos materiais"><i></i><i></i><i></i></div></div>`;
+  if (m.estado === 'pensando') return `<div class="dv-msg dv-bot"><div class="dv-bolha dv-pensando"><i></i><i></i><i></i><span>${esc(m.fase || 'Procurando')}</span></div></div>`;
   const fontes = m.fontes?.length ? `<div class="dv-fontes"><span>Fontes:</span> ${m.fontes.map(esc).join(' · ')}</div>` : '';
   let acao = '';
   if (m.leve) acao = '';
+  else if (m.fora && !m.enviada) acao = `<div class="dv-acoes"><button class="mini fantasma" data-dv-juan="${i}">É sobre o curso: perguntar ao Juan</button></div>`;
   else if (m.enviada) acao = `<div class="dv-nota ok">Enviada para o Juan. A resposta aparece em <button class="dv-link" data-dv-vista="minhas">Minhas dúvidas</button>, com um ponto vermelho na aba.</div>`;
   else if (m.sabe) acao = `<div class="dv-acoes">${m.util ? '<span class="selo ok">Que bom que resolveu</span>' : `<button class="mini" data-dv-util="${i}">👍 Resolveu</button>`}<button class="mini fantasma" data-dv-juan="${i}">Não resolveu: perguntar ao Juan</button></div>`;
   else acao = `<div class="dv-nota"><span>Quer que o Juan responda? A pergunta vai para ele e a resposta volta só para você.</span><button class="pri" data-dv-juan="${i}">Enviar para o Juan</button></div>`;
