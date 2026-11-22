@@ -375,6 +375,7 @@ def cmd_provas(_):
     for p in listar("provas"):
         notas = p.get("notas") or {}
         r.append((sum((notas.get(i) or {}).get("melhor") or 0 for i in PROVAS) / len(PROVAS), p.get("nome", "?"), notas))
+    if not r: return print("Ninguém fez prova ainda.")
     for i, (m, nome, notas) in enumerate(sorted(r, key=lambda x: -x[0]), 1):
         print(f"{i}º {nome}: média {m:.0f}" + (" · " + ", ".join(f"{k} {(notas.get(k) or {}).get('melhor', 0)}" for k in PROVAS if k in notas) if nome == EU else ""))
 
