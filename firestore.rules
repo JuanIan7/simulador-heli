@@ -10,6 +10,11 @@ service cloud.firestore {
         && request.auth.token.email in ['juanhanzi@gmail.com'];
     }
     function dono(uid) { return logado() && request.auth.uid == uid; }
+    // Claudia (assistente do Juan): conta própria de e-mail e senha, sem poder de administrador. Age em nome do Juan no Hangar:
+    // usa o que é da turma e o diário de voo DELE. O diário dos colegas continua fechado (nem o Juan vê).
+    function atendente() { return logado() && request.auth.uid == 'oFUVSQQJqlU1ps81F2pfx2Hp6Ng2'; }
+    function doJuan(uid) { return dono(uid) || (atendente() && uid == 'KtVVvExuZLgxQOlpjwOAATudY6z1'); }
+    function daTurma() { return atendente() || membroGastos() || admin(); }
     // texto opcional com limite de tamanho (o app já limpa; aqui é a trava do servidor)
     function txt(d, k, max) { return !(k in d) || (d[k] is string && d[k].size() <= max); }
     function dataIso(v) { return v is string && v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'); }
@@ -25,40 +30,40 @@ service cloud.firestore {
     match /privado/{uid} {
       allow read, write: if dono(uid) || admin();
     }
-    // Diário de voo: cada piloto só lê e grava o próprio (nem o desenvolvedor vê).
+    // Diário de voo: cada piloto só lê e grava o próprio (nem o desenvolvedor vê). A Claudia alcança só o do Juan.
     match /diario/{uid} {
-      allow read: if dono(uid);
-      allow delete: if dono(uid);
-      allow create, update: if dono(uid) && txt(request.resource.data, 'nome', 80)
+      allow read: if doJuan(uid);
+      allow delete: if doJuan(uid);
+      allow create, update: if doJuan(uid) && txt(request.resource.data, 'nome', 80)
         && txt(request.resource.data, 'canac', 6) && txt(request.resource.data, 'matricula', 8) && txt(request.resource.data, 'origem', 4);
       match /voos/{voo} {
-        allow read, delete: if dono(uid);
-        allow create, update: if dono(uid) && dataIso(request.resource.data.data)
+        allow read, delete: if doJuan(uid);
+        allow create, update: if doJuan(uid) && dataIso(request.resource.data.data)
           && txt(request.resource.data, 'matricula', 8) && txt(request.resource.data, 'origem', 4) && txt(request.resource.data, 'destino', 4)
           && txt(request.resource.data, 'instrutor', 80) && txt(request.resource.data, 'obs', 2000)
           && txt(request.resource.data, 'missao', 40) && txt(request.resource.data, 'parecer', 600);
       }
       // "Voou hoje?": um registro por dia (voou ou o motivo de não ter voado). Só o dono.
       match /dias/{dia} {
-        allow read, delete: if dono(uid);
-        allow create, update: if dono(uid) && dia.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && request.resource.data.voou is bool
+        allow read, delete: if doJuan(uid);
+        allow create, update: if doJuan(uid) && dia.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && request.resource.data.voou is bool
           && request.resource.data.motivo in ['', 'chuva', 'vento', 'fds', 'outro'] && txt(request.resource.data, 'outro', 60);
       }
       // Formulário diário do GOA: um registro por dia marcado como preenchido (o formulário não dá aviso de recebimento). Só o dono.
       match /goa/{dia} {
-        allow read, delete: if dono(uid);
-        allow create, update: if dono(uid) && dia.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && request.resource.data.enviado is bool;
+        allow read, delete: if doJuan(uid);
+        allow create, update: if doJuan(uid) && dia.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && request.resource.data.enviado is bool;
       }
       // Documentos do voo (foto/PDF do Diário de Bordo e da Ficha de Avaliação), em partes de até 700 mil caracteres.
       match /docs/{d} {
-        allow read, delete: if dono(uid);
-        allow create, update: if dono(uid) && request.resource.data.tipo in ['db', 'ficha']
+        allow read, delete: if doJuan(uid);
+        allow create, update: if doJuan(uid) && request.resource.data.tipo in ['db', 'ficha']
           && request.resource.data.voo is string && request.resource.data.voo.size() <= 80
           && txt(request.resource.data, 'nome', 120) && txt(request.resource.data, 'mime', 40)
           && request.resource.data.partes is int && request.resource.data.partes >= 1 && request.resource.data.partes <= 16;
         match /partes/{n} {
-          allow read, delete: if dono(uid);
-          allow create, update: if dono(uid) && request.resource.data.b64 is string && request.resource.data.b64.size() <= 700000;
+          allow read, delete: if doJuan(uid);
+          allow create, update: if doJuan(uid) && request.resource.data.b64 is string && request.resource.data.b64.size() <= 700000;
         }
       }
     }
@@ -81,7 +86,7 @@ service cloud.firestore {
       allow delete: if admin() || (logado() && resource.data.uid == request.auth.uid);
     }
     match /gastosMembros/{uid} {
-      allow read: if membroGastos() || dono(uid) || admin();
+      allow read: if daTurma() || dono(uid);
       // só entra com um nome reservado para a própria conta (o app grava os dois juntos)
       allow create: if dono(uid) && request.resource.data.nome is string
         && request.resource.data.nome.size() >= 2 && request.resource.data.nome.size() <= 24
@@ -94,19 +99,19 @@ service cloud.firestore {
     }
     // Materiais acrescentados pela turma: todos os membros leem e acrescentam; cada um tira o que pôs.
     match /materiais/{id} {
-      allow read: if membroGastos() || admin();
-      allow create: if (membroGastos() || admin())
-        && request.resource.data.autor == request.auth.uid
+      allow read: if daTurma();
+      allow create: if daTurma()
+        && (request.resource.data.autor == request.auth.uid || (atendente() && request.resource.data.autor == 'KtVVvExuZLgxQOlpjwOAATudY6z1'))
         && request.resource.data.titulo is string && request.resource.data.titulo.size() >= 2 && request.resource.data.titulo.size() <= 120
         && request.resource.data.link is string && request.resource.data.link.matches('https://.+') && request.resource.data.link.size() <= 1000
         && request.resource.data.secao in ['eacar', 'essenciais', 'sn', 'esquilo', 'outros'];
       allow update: if admin();
-      allow delete: if admin() || (membroGastos() && resource.data.autor == request.auth.uid);
+      allow delete: if admin() || atendente() || (membroGastos() && resource.data.autor == request.auth.uid);
     }
     // Lista de compras da turma: os membros leem, põem, marcam como comprado e tiram.
     match /compras/{id} {
-      allow read, delete: if membroGastos() || admin();
-      allow create, update: if (membroGastos() || admin())
+      allow read, delete: if daTurma();
+      allow create, update: if daTurma()
         && request.resource.data.item is string && request.resource.data.item.size() >= 2 && request.resource.data.item.size() <= 80
         && txt(request.resource.data, 'qtd', 30) && txt(request.resource.data, 'nome', 24) && txt(request.resource.data, 'feitoPor', 24)
         && request.resource.data.cat in ['mercado', 'casa', 'higiene', 'roupa', 'curso', 'outros']
@@ -114,8 +119,8 @@ service cloud.firestore {
     }
     // Anotações da turma (o que fazer, lugar para ir, tarefa): os membros leem, anotam, marcam como feito e apagam.
     match /anotacoes/{id} {
-      allow read, delete: if membroGastos() || admin();
-      allow create, update: if (membroGastos() || admin())
+      allow read, delete: if daTurma();
+      allow create, update: if daTurma()
         && request.resource.data.texto is string && request.resource.data.texto.size() >= 2 && request.resource.data.texto.size() <= 300
         && txt(request.resource.data, 'quando', 40) && txt(request.resource.data, 'nome', 24) && txt(request.resource.data, 'feitoPor', 24)
         && request.resource.data.tipo in ['fazer', 'lugar', 'tarefa', 'ideia', 'outros']
@@ -123,7 +128,7 @@ service cloud.firestore {
     }
     // Provas da turma: cada um grava só as próprias notas; todos os membros leem (ranking).
     match /provas/{uid} {
-      allow read: if membroGastos() || admin();
+      allow read: if daTurma();
       allow create, update: if dono(uid) && (membroGastos() || admin())
         && request.resource.data.nome is string && request.resource.data.nome.size() >= 2 && request.resource.data.nome.size() <= 24
         && request.resource.data.notas is map && request.resource.data.notas.size() <= 30;
@@ -131,8 +136,6 @@ service cloud.firestore {
     }
     // Dúvidas da turma (aba Dúvidas): cada um pergunta ao atendente (IA) e só ele vê a própria conversa.
     // O que o atendente não souber fica "aguardando": o Juan responde (pelo site ou pela Claudia, que entra como "atendente").
-    // O atendente é uma conta própria (e-mail e senha), só com acesso a estas três coleções; o uid entra aqui depois de criada.
-    function atendente() { return logado() && request.auth.uid == 'oFUVSQQJqlU1ps81F2pfx2Hp6Ng2'; }
     match /duvidas/{id} {
       allow read: if (logado() && resource.data.uid == request.auth.uid) || admin() || atendente();
       allow create: if membroGastos() && request.resource.data.uid == request.auth.uid
@@ -166,8 +169,8 @@ service cloud.firestore {
       allow write: if admin();
     }
     match /gastos/{id} {
-      allow read, delete: if membroGastos() || admin();
-      allow create, update: if (membroGastos() || admin())
+      allow read, delete: if daTurma();
+      allow create, update: if daTurma()
         && request.resource.data.valor is int && request.resource.data.valor > 0
         && request.resource.data.valor <= 10000000 && dataIso(request.resource.data.data)
         && request.resource.data.descricao is string && request.resource.data.descricao.size() <= 80
