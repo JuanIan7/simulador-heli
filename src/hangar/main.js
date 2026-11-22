@@ -13,6 +13,7 @@ import { FONIA, ALFABETO, NUMEROS, PALAVRAS_PADRAO, TRANSPONDER } from '../data/
 import { METAR } from '../data/quiz-teoria.js';
 import { DRIVE_PASTA, DRIVE } from './materiais.js';
 import { telaTutoriais } from './tutoriais.js';
+import { cartaoHoras, ligarHoras, sincronizarHoras } from './horas.js';
 import { nomesOcupados, opcoesNomes, entrarComNome, erroNome } from '../gastos/nomes.js';
 import { calcular, caixaPix, alertaAcertos, ligarPix, digitandoPix } from '../gastos/contas.js';
 import { telaCompras, ligarCompras, digitandoCompras } from './compras.js';
@@ -510,6 +511,8 @@ const NOME_ABA = Object.fromEntries(ABAS);
 const grupoDe = (k) => k === 'duvidas' ? -1 : Math.max(0, GRUPOS.findIndex((g) => g[1].includes(k)));
 const ultimoDoGrupo = {};
 let aba = importarHash ? 'diario' : (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
+let horasTurma = null, voosProntos = false, horasProntas = false;   // ranking de horas: total de quem entrou; voosProntos = diário lido do servidor
+const syncHoras = () => sincronizarHoras({ db, uid: user?.uid, nome: membro?.nome, voos: meusVoos, pronto: voosProntos && horasProntas, lista: horasTurma });
 let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], compras = [], errCompras = '', anotacoes = [], errAnotacoes = '', minhasDuvidas = [], faqDuvidas = [], pendDuvidas = null, errDuvidas = '', notasProvas = [], meusDocs = [], meusVoos = [], meusDias = [], diaOutro = '', parar = [], trocandoPix = false;
 
 // ---------- conteúdo ----------
@@ -621,7 +624,7 @@ if (daUrl) { try { localStorage.setItem(CHAVE_CODIGO, daUrl); } catch {} history
 const codigoGuardado = () => { try { return localStorage.getItem(CHAVE_CODIGO); } catch { return null; } };
 
 onAuthStateChanged(auth, async (u) => {
-  user = u; parar.forEach((f) => f()); parar = []; membro = null; grupo = null; membros = []; gastos = []; minhasDuvidas = []; faqDuvidas = []; pendDuvidas = null; errDuvidas = '';
+  user = u; parar.forEach((f) => f()); parar = []; membro = null; grupo = null; membros = []; horasTurma = null; voosProntos = false; horasProntas = false; gastos = []; minhasDuvidas = []; faqDuvidas = []; pendDuvidas = null; errDuvidas = '';
   conta();
   if (!u) return telaLogin();
   try { const s = await getDoc(doc(db, 'gastosMembros', u.uid)); membro = s.exists() ? s.data() : null; }
@@ -692,7 +695,8 @@ function abrir() {
   // documentos dos voos do próprio piloto (aba DB e Ficha): para avisar no Início o que falta enviar
   parar.push(onSnapshot(collection(db, 'diario', user.uid, 'docs'), (s) => { meusDocs = s.docs.map((d) => ({ id: d.id, ...d.data() })); if (aba === 'inicio' && !digitandoPix()) render(); }, () => {}));
   parar.push(onSnapshot(collection(db, 'diario', user.uid, 'dias'), (s) => { meusDias = s.docs.map((d) => ({ iso: d.id, ...d.data() })); if (aba === 'inicio' && !digitandoPix() && !document.activeElement?.matches?.('#diaOutroTxt')) render(); }, () => {}));
-  parar.push(onSnapshot(collection(db, 'diario', user.uid, 'voos'), (s) => { meusVoos = s.docs.map((d) => ({ id: d.id, ...d.data() })); contagem(); if (aba === 'inicio' && !digitandoPix()) render(); }, () => {}));
+  parar.push(onSnapshot(collection(db, 'diario', user.uid, 'voos'), { includeMetadataChanges: true }, (s) => { meusVoos = s.docs.map((d) => ({ id: d.id, ...d.data() })); if (!s.metadata.fromCache) voosProntos = true; syncHoras(); if (!s.docChanges().length) return; contagem(); if (aba === 'inicio' && !digitandoPix()) render(); }, () => {}));
+  parar.push(onSnapshot(collection(db, 'horasTurma'), { includeMetadataChanges: true }, (s) => { const antes = horasTurma; horasTurma = s.docs.map((d) => ({ uid: d.id, ...d.data() })); if (!s.metadata.fromCache) horasProntas = true; syncHoras(); if ((!antes || s.docChanges().length) && aba === 'inicio' && !digitandoPix()) render(); }, () => { horasTurma = null; horasProntas = false; if (aba === 'inicio' && !digitandoPix()) render(); }));
   parar.push(onSnapshot(collection(db, 'provas'), (s) => {
     notasProvas = s.docs.map((d) => ({ uid: d.id, ...d.data() }));
     if (aba === 'provas' && !emProva()) render();
@@ -818,7 +822,8 @@ inicio(){
   <div class="caixa"><div class="cab"><div class="rotulo">Seus acertos da turma</div><button class="mini" data-ir="gastos">Ver os gastos</button></div>
     ${alertaAcertos(calcular(gastos), membro.nome, membros)}
     ${membro.pix && !trocandoPix ? `<p class="sub">Sua chave Pix: <b>${esc(membro.pix)}</b> <button class="mini" data-pix-trocar>Trocar</button></p>` : ''}</div>
-  <div class="caixa"><div class="cab"><div class="rotulo">Tempo agora</div><button class="mini" data-ir="tempo">METAR, TAF e previsão</button></div><div id="tpInicio" class="sub">buscando o METAR…</div></div>
+  <div class="grade hr-grade"><div class="caixa"><div class="cab"><div class="rotulo">Tempo agora</div><button class="mini" data-ir="tempo">METAR, TAF e previsão</button></div><div id="tpInicio" class="sub">buscando o METAR…</div></div>
+  ${cartaoHoras({ lista: horasTurma, uid: user.uid, membros })}</div>
   ${ckCartao()}<div class="grade">
     <div class="caixa destaque"><div class="rotulo">Olá, ${esc(membro.nome)}</div><h3>Seu estudo: ${f} de ${IDS.length} itens</h3><div class="barra"><i style="width:${f/IDS.length*100}%"></i></div>
       <p class="sub">Comandos, aerodinâmica, limites e emergências do R22, tráfego e fonia; depois, o Esquilo. Marque cada item ao terminar.</p>
@@ -946,7 +951,7 @@ materiais(){
   <div class="caixa"><h3>Pasta completa</h3><div class="links">${DRIVE_PASTA ? `<a class="pdf" href="https://drive.google.com/drive/folders/${DRIVE_PASTA}" target="_blank" rel="noopener">📁 Abrir a pasta no Google Drive</a>` : ''}<a href="${SIMULADOR}" target="_blank" rel="noopener">Simulador Heli (21 fases)</a></div></div>`;
 },
 gastos(){ return quadro('gastos.html', 'Gastos da turma'); },
-diario(){ return `<p class="sub">Só você vê os seus voos. <a href="fichas.html" target="_blank" rel="noopener">Arquivos antigos de DB e ficha</a> continuam guardados aí, caso você já tenha subido algum.</p>` + quadro('diario.html', 'Diário de voo', importarHash); },
+diario(){ return `<p class="sub">Só você vê os seus voos; a turma vê só o seu total de horas, no ranking do Início. <a href="fichas.html" target="_blank" rel="noopener">Arquivos antigos de DB e ficha</a> continuam guardados aí, caso você já tenha subido algum.</p>` + quadro('diario.html', 'Diário de voo', importarHash); },
 fip(){
   // o que cada um já cumpriu sai dos próprios voos: o código da missão vem nas observações
   const feitas = new Set();
@@ -1057,6 +1062,7 @@ const LIGAR = {
     $('#novOk')?.addEventListener('click', () => { novMarcar(); render(); });
     ligarPix(c, { db, uid: user.uid, quem: membro.nome, gastos: () => gastos, toast, depois: (v, trocar) => { if (v) membro.pix = v; trocandoPix = !!trocar; render(); } });
     resumoInicio($('#tpInicio'));
+    ligarHoras(c, { db, uid: user.uid, nome: membro.nome, voos: () => meusVoos, voosProntos: () => voosProntos, toast });
     LIGAR.linkTurma();
     c.querySelectorAll('[data-dia]').forEach((b) => b.onclick = () => {
       const iso = b.dataset.dia;

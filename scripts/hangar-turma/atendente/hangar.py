@@ -14,6 +14,7 @@ e o diário de voo DO JUAN. O diário dos colegas continua fechado: nem o Juan v
   hangar.py membros
   hangar.py materiais listar | por --titulo T --link https://... [--secao outros] | tirar X
   hangar.py provas
+  hangar.py ranking [entrar|sair]
   hangar.py voos    listar [--n 10] | horas | lancar --data D --destino SISY (--inicio HH:MM --fim HH:MM | --diurno H:MM) [...]
                     | civ X lancado | apagar X --confirmado
   hangar.py dia     listar | marcar AAAA-MM-DD voou|chuva|vento|fds|outro [--outro texto]
@@ -382,6 +383,30 @@ def cmd_provas(_):
 
 # ---------- diário de voo do Juan ----------
 BASE = f"diario/{JUAN_UID}"
+HORAS = f"horasTurma/{JUAN_UID}"
+
+
+def minutos_juan(): return sum((v.get("diurno") or 0) + (v.get("noturno") or 0) for v in listar(BASE + "/voos"))
+
+
+def sync_ranking():
+    """Se o Juan está no ranking, o total acompanha o voo lançado ou apagado aqui."""
+    m = minutos_juan()
+    try: atual = ler_doc(HORAS)
+    except RuntimeError as e:
+        if str(e).startswith("404") and m > 0: dh.fs("/" + HORAS, campos({"nome": EU, "minutos": m, "em": dh.agora()}), "PATCH")
+        return
+    if not atual.get("fora") and atual.get("minutos") != m: mudar(HORAS, {"minutos": m, "em": dh.agora()})
+
+
+def cmd_ranking(a):
+    if a.acao == "entrar":
+        m = minutos_juan(); dh.fs("/" + HORAS, campos({"nome": EU, "minutos": m, "em": dh.agora()}), "PATCH"); print(f"Juan no ranking com {hm(m)}.")
+        return
+    if a.acao == "sair":
+        dh.fs("/" + HORAS, campos({"nome": EU, "minutos": 0, "fora": True, "em": dh.agora()}), "PATCH"); print("Juan saiu do ranking."); return
+    l = sorted([h for h in listar("horasTurma") if not h.get("fora")], key=lambda h: -(h.get("minutos") or 0))
+    print("\n".join(f"{i}º {h.get('nome')}: {hm(h.get('minutos'))}" for i, h in enumerate(l, 1)) or "Ninguém entrou no ranking ainda.")
 
 
 def linha_voo(v):
@@ -427,14 +452,14 @@ def cmd_voos(a):
              "navegacao": duracao(a.nav), "capota": duracao(a.capota), "instrutor": limpa(a.instrutor, 80), "canacInstrutor": a.canac or "",
              "exercicios": ex, "obs": str(a.obs or "")[:2000], "civ": "nao", "atualizadoEm": dh.agora(), "criadoEm": dh.agora()}
         v["id"] = criar(BASE + "/voos", v, f"{data}-{ini.replace(':', '')}-{rand(4)}")
-        print("Voo lançado: " + linha_voo(v))
+        sync_ranking(); print("Voo lançado: " + linha_voo(v))
     elif a.acao == "civ":
         if a.valor not in CIV: sair(f"Situação inválida. Use: {', '.join(CIV)}.")
         v = achar(l, a.alvo); mudar(f"{BASE}/voos/{v['id']}", {"civ": a.valor, "atualizadoEm": dh.agora()}); print(f"CIV de {dbr(v.get('data'))}: {a.valor}")
     else:
         v = achar(l, a.alvo)
         if confirma(a, "Vai apagar do seu diário de voo: " + linha_voo(v)):
-            apagar(BASE + "/voos", v); print("Voo apagado (cópia guardada na lixeira da Claudia).")
+            apagar(BASE + "/voos", v); sync_ranking(); print("Voo apagado (cópia guardada na lixeira da Claudia).")
 
 
 def cmd_dia(a):
@@ -494,6 +519,7 @@ def main():
     s.add_parser("status").set_defaults(f=cmd_status)
     s.add_parser("membros").set_defaults(f=cmd_membros)
     s.add_parser("provas").set_defaults(f=cmd_provas)
+    x = s.add_parser("ranking"); x.add_argument("acao", nargs="?", choices=["entrar", "sair"]); x.set_defaults(f=cmd_ranking)
     x = s.add_parser("compras"); x.add_argument("acao", choices=["listar", "por", "comprei", "desfazer", "tirar"]); x.add_argument("itens", nargs="*")
     x.add_argument("--todos", action="store_true"); x.add_argument("--cat", default="mercado"); x.add_argument("--confirmado", action="store_true"); x.set_defaults(f=cmd_compras)
     x = s.add_parser("notas"); x.add_argument("acao", choices=["listar", "por", "feito", "desfazer", "tirar"]); x.add_argument("itens", nargs="*")

@@ -19,7 +19,7 @@ const NOMES_FONTE = { 'manual-de-manobras': 'Manual de Manobras da EACAR', 'poh-
 
 // Mapa do site, para as dúvidas de "onde fica tal coisa" (assunto › aba)
 const GUIA_HANGAR = `Onde fica cada coisa no Hangar da Turma (assunto › aba):
-Hoje › Início: resumo do dia, novidades e atalhos; é onde se marca se voou no dia.
+Hoje › Início: resumo do dia, novidades, atalhos e o ranking de horas de voo da turma (mostra só o total de cada um e acompanha o Diário); é onde se marca se voou no dia.
 Hoje › Form do GOA: o formulário diário do GOA, que pode ser preenchido pela foto da ficha de avaliação.
 Hoje › Tempo: METAR e TAF, nascer e pôr do sol com a hora Zulu, e a caixa "Pergunte ao tempo".
 Hoje › Conversões: conversor de unidades, calculadora de tempo e calculadora comum.

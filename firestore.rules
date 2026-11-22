@@ -168,6 +168,17 @@ service cloud.firestore {
       allow read: if membroGastos() || admin() || atendente();
       allow write: if admin();
     }
+    // Ranking de horas: só o TOTAL de cada piloto (quem quiser pode sair: fora = true). Os voos continuam em diario/{uid}, privados.
+    match /horasTurma/{uid} {
+      allow read: if daTurma();
+      allow create, update: if doJuan(uid)
+        && request.resource.data.keys().hasOnly(['nome', 'minutos', 'em', 'fora'])
+        && (!('fora' in request.resource.data) || request.resource.data.fora is bool)
+        && request.resource.data.minutos is int && request.resource.data.minutos >= 0 && request.resource.data.minutos <= 600000
+        && request.resource.data.em is timestamp
+        && request.resource.data.nome == get(/databases/$(db)/documents/gastosMembros/$(uid)).data.nome;
+      allow delete: if doJuan(uid) || admin();
+    }
     match /gastos/{id} {
       allow read, delete: if daTurma();
       allow create, update: if daTurma()
