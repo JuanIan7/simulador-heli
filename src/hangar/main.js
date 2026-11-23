@@ -511,8 +511,8 @@ const NOME_ABA = Object.fromEntries(ABAS);
 const grupoDe = (k) => k === 'duvidas' ? -1 : Math.max(0, GRUPOS.findIndex((g) => g[1].includes(k)));
 const ultimoDoGrupo = {};
 let aba = importarHash ? 'diario' : (location.hash || '').slice(1); if (!ABAS.some(a => a[0] === aba)) aba = 'inicio';
-let horasTurma = null, voosProntos = false, horasProntas = false;   // ranking de horas: total de quem entrou; voosProntos = diário lido do servidor
-const syncHoras = () => sincronizarHoras({ db, uid: user?.uid, nome: membro?.nome, voos: meusVoos, pronto: voosProntos && horasProntas, lista: horasTurma });
+let horasTurma = null, voosProntos = false, horasProntas = false, erroHoras = '';   // ranking de horas: total de quem entrou; voosProntos = diário lido do servidor
+const syncHoras = () => sincronizarHoras({ db, uid: user?.uid, nome: membro?.nome, voos: meusVoos, pronto: voosProntos && horasProntas, lista: horasTurma, aoFalhar: (e) => { if (erroHoras === e) return; erroHoras = e; if (aba === 'inicio' && !digitandoPix()) render(); } });
 let user = null, membro = null, grupo = null, membros = [], mats = [], gastos = [], compras = [], errCompras = '', anotacoes = [], errAnotacoes = '', minhasDuvidas = [], faqDuvidas = [], pendDuvidas = null, errDuvidas = '', notasProvas = [], meusDocs = [], meusVoos = [], meusDias = [], diaOutro = '', parar = [], trocandoPix = false;
 
 // ---------- conteúdo ----------
@@ -823,7 +823,7 @@ inicio(){
     ${alertaAcertos(calcular(gastos), membro.nome, membros)}
     ${membro.pix && !trocandoPix ? `<p class="sub">Sua chave Pix: <b>${esc(membro.pix)}</b> <button class="mini" data-pix-trocar>Trocar</button></p>` : ''}</div>
   <div class="grade hr-grade"><div class="caixa"><div class="cab"><div class="rotulo">Tempo agora</div><button class="mini" data-ir="tempo">METAR, TAF e previsão</button></div><div id="tpInicio" class="sub">buscando o METAR…</div></div>
-  ${cartaoHoras({ lista: horasTurma, uid: user.uid, membros })}</div>
+  ${cartaoHoras({ lista: horasTurma, uid: user.uid, membros, erro: erroHoras })}</div>
   ${ckCartao()}<div class="grade">
     <div class="caixa destaque"><div class="rotulo">Olá, ${esc(membro.nome)}</div><h3>Seu estudo: ${f} de ${IDS.length} itens</h3><div class="barra"><i style="width:${f/IDS.length*100}%"></i></div>
       <p class="sub">Comandos, aerodinâmica, limites e emergências do R22, tráfego e fonia; depois, o Esquilo. Marque cada item ao terminar.</p>

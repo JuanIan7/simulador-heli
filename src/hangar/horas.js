@@ -4,7 +4,7 @@
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-export const minutosDe = (voos) => (voos || []).reduce((t, v) => t + (Number(v.diurno) || 0) + (Number(v.noturno) || 0), 0);
+export const minutosDe = (voos) => Math.round((voos || []).reduce((t, v) => t + (Number(v.diurno) || 0) + (Number(v.noturno) || 0), 0));
 export const hhmm = (m) => `${Math.floor((m || 0) / 60)}:${String((m || 0) % 60).padStart(2, '0')}`;
 
 // Ordena do maior para o menor; quem empata fica na mesma posição.
@@ -15,7 +15,7 @@ export function montarRanking(lista) {
 }
 
 const nomes = (l) => l.map((h) => esc(h.nome)).join(', ');
-export function cartaoHoras({ lista, uid, membros }) {
+export function cartaoHoras({ lista, uid, membros, erro }) {
   if (!lista) return '';                       // ainda carregando, ou regras do banco ainda não publicadas
   const r = montarRanking(lista.filter((h) => !h.fora)), maior = r[0]?.minutos || 0, menor = r.length ? r[r.length - 1].minutos : 0, dentro = r.some((h) => h.uid === uid), saiu = lista.some((h) => h.uid === uid && h.fora);
   const fora = (membros || []).filter((m) => !lista.some((h) => h.uid === m.uid)).map((m) => m.nome).sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'));
@@ -26,6 +26,7 @@ export function cartaoHoras({ lista, uid, membros }) {
   return `<div class="caixa hr"><div class="cab"><div class="rotulo">Ranking de horas de voo</div><button class="mini" data-ir="diario">Lançar voo</button></div>
     ${r.length ? `<ol class="hr-lista">${linhas}</ol>` : '<p class="sub">Ninguém entrou no ranking ainda.</p>'}${resumo}
     ${fora.length ? `<p class="sub">Ainda sem horas aqui: ${fora.map(esc).join(', ')}. Aparece ao abrir o Hangar com um voo lançado.</p>` : ''}
+    ${erro ? `<p class="sub" style="color:var(--perigo)">Não consegui enviar as suas horas ao ranking (${esc(erro)}). Avise o Juan.</p>` : ''}
     ${dentro ? '<div class="hr-acao"><span class="sub">A turma vê só o total. Corrigiu o Diário, atualiza aqui.</span><button class="mini fantasma" data-hr-sair>Sair do ranking</button></div>'
       : saiu ? '<div class="hr-entrar"><p class="sub">Você saiu do ranking. A turma não vê as suas horas.</p><button class="mini pri" data-hr-entrar>Voltar ao ranking</button></div>'
       : '<p class="sub">Lance o seu primeiro voo no Diário para aparecer aqui.</p>'}</div>`;
@@ -36,10 +37,10 @@ export function precisaGravar(meu, nome, minutos) {
   if (!meu) return minutos > 0;
   return !meu.fora && (meu.minutos !== minutos || meu.nome !== nome);
 }
-export function sincronizarHoras({ db, uid, nome, voos, pronto, lista }) {
+export function sincronizarHoras({ db, uid, nome, voos, pronto, lista, aoFalhar }) {
   if (!pronto || !lista || !uid || !nome) return;
   const meu = lista.find((h) => h.uid === uid), minutos = minutosDe(voos);
-  if (precisaGravar(meu, nome, minutos)) setDoc(doc(db, 'horasTurma', uid), { nome, minutos, em: serverTimestamp() }).catch(() => {});
+  if (precisaGravar(meu, nome, minutos)) setDoc(doc(db, 'horasTurma', uid), { nome, minutos, em: serverTimestamp() }).catch((e) => aoFalhar?.(e.code || e.message));
 }
 
 export function ligarHoras(c, { db, uid, nome, voos, voosProntos, toast }) {
