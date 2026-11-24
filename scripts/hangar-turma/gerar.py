@@ -21,6 +21,7 @@ css += "\n.tp-hora-escolhida{background:var(--alerta-claro,#fff4d6);border:1.5px
 css += (Path(__file__).parent / "conversor.css").read_text(encoding="utf-8")
 css += (Path(__file__).parent / "abas.css").read_text(encoding="utf-8")
 css += (Path(__file__).parent / "duvidas.css").read_text(encoding="utf-8")
+css += (Path(__file__).parent / "navegacao.css").read_text(encoding="utf-8")
 (sim / "src/hangar/hangar.css").write_text(css.strip() + "\n", encoding="utf-8")
 
 revisao = bloco("revisao(){", "treino(){")

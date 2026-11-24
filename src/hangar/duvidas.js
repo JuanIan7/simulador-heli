@@ -25,6 +25,7 @@ Hoje › Tempo: METAR e TAF, nascer e pôr do sol com a hora Zulu, e a caixa "Pe
 Hoje › Conversões: conversor de unidades, calculadora de tempo e calculadora comum.
 Voo › Diário de voo: é onde se lança cada voo (data, horas, missão, instrutor). Só o próprio piloto vê os seus voos.
 Voo › Checklists: pré-voo, acionamento, corte, emergências, limites e fonia de SISY, para marcar item por item.
+Voo › Navegação visual: mapa com os pontos do levantamento do Juan Meira, pistas e cabeceiras (SISY 09/27, Clube dos 40 SSUL 03/21, Fazenda Bonacin SWYG 17/35, SBBI, SBCT), helipontos, proa magnética e distância a partir de SISY, rota de treino e arquivos GPX/KML.
 Voo › FIP: as missões e manobras do curso.
 Voo › Treino: decodificador de METAR, Go ou No-Go e fonia.
 Estudo › Estudo: cronograma de estudo, onde cada um marca o próprio progresso.

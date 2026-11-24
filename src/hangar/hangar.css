@@ -463,3 +463,58 @@ div.pv-alt{display:flex;align-items:center;gap:6px;border-radius:10px}
 .dv-quem{display:flex;align-items:center;gap:7px;margin-bottom:7px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--tinta3)}
 .dv-quem .dv-ia{font-size:11px;padding:0 6px}
 .dv-faq-nota{margin:0 0 8px}
+/* Aba Navegação visual (24/11/2026): mapa dos pontos do levantamento, proa e distância a partir de SISY */
+.nv-ctl{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.nv-grade{display:grid;gap:14px;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);align-items:start;margin-bottom:14px}
+.nv-mapa-caixa{padding:0;overflow:hidden;gap:0}
+.nv-mapa{height:min(62vh,560px);min-height:340px;background:var(--linha)}
+.nv-legenda{margin:0;padding:8px 14px}
+.nv-pt{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:6px;vertical-align:-1px;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+.nv-pt.t-levantamento{background:#E8600A}.nv-pt.t-referencia{background:#1B1714}.nv-pt.t-aerodromo,.nv-pt.t-heliponto{background:#1D7A46}
+.nv-ico{background:transparent;border:0}
+.nv-pino{position:absolute;left:-8px;top:-8px;width:16px;height:16px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.nv-pino.t-levantamento{background:#E8600A}.nv-pino.t-referencia{background:#1B1714}.nv-pino.t-aerodromo,.nv-pino.t-heliponto{background:#1D7A46}
+.nv-pino.t-heliponto::after{content:'H';position:absolute;inset:0;display:grid;place-items:center;font:800 10px/1 var(--corpo);color:#fff}
+.nv-cab{position:absolute;left:-13px;top:-9px;min-width:26px;height:18px;display:grid;place-items:center;padding:0 4px;border-radius:5px;background:#fff;color:#1B1714;font:800 12px/1 var(--mono);box-shadow:0 1px 4px rgba(0,0,0,.6);letter-spacing:.02em}
+.nv-longe .nv-cab,.nv-longe .nv-rot.t-heliponto{display:none}
+.nv-pino.sel{box-shadow:0 0 0 4px rgba(232,96,10,.45),0 1px 4px rgba(0,0,0,.5)}
+.nv-pino.ori{width:22px;height:22px;left:-11px;top:-11px;background:#fff;border:4px solid #E8600A}
+.nv-rot{position:absolute;left:12px;top:-9px;white-space:nowrap;font:700 12px var(--corpo);color:#fff;text-shadow:0 0 3px #000,0 0 3px #000,0 1px 2px #000;pointer-events:none}
+.nv-longe .nv-rot.t-referencia{display:none}
+.nv-rot.r-esq{left:auto;right:12px}.nv-rot.r-baixo{left:-30px;top:12px;width:60px;text-align:center}.nv-rot.r-cima{left:-30px;top:-28px;width:60px;text-align:center}
+.nv-dest h3{margin:2px 0 4px}
+.nv-nums{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}
+.nv-nums div{background:var(--chao);border-radius:10px;padding:8px 10px}
+.nv-nums small{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta3)}
+.nv-nums b{font:800 26px/1.1 var(--display);color:var(--laranja-esc);font-variant-numeric:tabular-nums}
+.nv-tab{width:100%;border-collapse:collapse;font-size:14.5px}
+.nv-tab th{text-align:left;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--tinta3);padding:6px 8px;border-bottom:1px solid var(--linha)}
+.nv-tab td{padding:8px;border-bottom:1px solid var(--linha);vertical-align:top}
+.nv-tab td.n,.nv-tab th.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.nv-tab tfoot td{border-bottom:0;background:var(--chao)}
+.nv-lista tr[data-nv-ir]{cursor:pointer}
+.nv-lista tr.sel td{background:var(--laranja-claro)}
+.nv-rolar{overflow-x:auto}
+.nv-rota{margin-bottom:14px}
+@media(max-width:760px){.nv-grade{grid-template-columns:minmax(0,1fr)}.nv-mapa{height:56vh}.nv-tab{font-size:13.5px}.nv-tab td,.nv-tab th{padding:6px 5px}.nv-lista td.sub{display:none}.nv-lista th:nth-child(3){display:none}}
+@media print{body.nv-imprimindo .faixa,body.nv-imprimindo .abas,body.nv-imprimindo .nv-ctl,body.nv-imprimindo .nv-grade,body.nv-imprimindo .rodape,body.nv-imprimindo .intro{display:none!important}body.nv-imprimindo .nv-rota{break-inside:avoid}}
+/* imagem de satélite do ponto: no cartão, na lista e na dica do mapa */
+.nv-figura{margin:10px 0 0;border-radius:10px;overflow:hidden;background:var(--linha)}
+.nv-figura img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}
+.nv-figura figcaption{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:5px 8px;font-size:11.5px;color:var(--tinta3)}
+.nv-figura a{font-weight:700;color:var(--laranja-esc);text-decoration:none}
+.nv-mini{width:96px;padding-right:0!important}
+.nv-mini img{display:block;width:96px;height:64px;object-fit:cover;border-radius:8px;background:var(--linha)}
+.nv-tip-caixa{padding:0;border:0;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.35);background:var(--painel);color:var(--tinta)}
+.nv-tip-caixa::before{display:none}
+.nv-tip{width:320px;display:flex;flex-direction:column;gap:2px;padding:10px 12px 10px;font-family:var(--corpo);white-space:normal}
+.nv-tip b{font:700 17px var(--display);letter-spacing:.02em;text-transform:uppercase}
+.nv-tip span{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--laranja-esc)}
+.nv-tip img{display:block;width:320px;height:180px;object-fit:cover;border-radius:8px;margin:6px 0 4px;background:var(--linha)}
+.nv-tip small{font-size:13px;color:var(--tinta2);line-height:1.35}
+@media(max-width:760px){.nv-mini,.nv-lista th:first-child{display:none}.nv-tip{width:240px}.nv-tip img{width:240px;height:135px}}
+.nv-pista{margin:8px 0 0;padding:8px 10px;background:var(--chao);border-radius:10px;font-size:14px}
+.nv-alerta{margin:6px 0 0;color:var(--perigo);font-size:13px}
+.nv-ir{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px}
+.nv-ir .rotulo{margin-right:4px}
+.nv-tip-cab{width:240px}
