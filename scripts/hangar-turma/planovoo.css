@@ -1,0 +1,54 @@
+
+/* ---------- aba Plano de voo (REH de Curitiba) ---------- */
+.pv2-grade{display:grid;gap:14px;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);align-items:start;margin-bottom:14px}
+.pv2-cfg{display:flex;flex-direction:column;gap:8px}
+.pv2-rota{display:flex;flex-wrap:wrap;gap:4px 2px;align-items:center;font-size:14px}
+.pv2-pt{display:inline-flex;align-items:center;gap:4px;font-weight:700}
+.pv2-pt i{font-style:normal;color:var(--tinta3);margin:0 2px}
+.pv2-pt.ad{color:#1D7A46}
+.pv2-modelos{display:flex;flex-direction:column;gap:6px}
+.pv2-modelos .mini{justify-content:flex-start;text-align:left;white-space:normal}
+.pv2-campos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.pv2-campos label{display:flex;flex-direction:column;gap:3px;font-size:12.5px;font-weight:600;color:var(--tinta2);min-width:0}
+.pv2-campos input,.pv2-campos select{width:100%;min-width:0}
+.pv2-tag{display:inline-block;padding:1px 8px;border-radius:999px;background:var(--c);color:#fff;font:700 11.5px/1.6 var(--corpo);letter-spacing:.05em}
+.pv2-conf{display:inline-block;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--alerta);background:var(--alerta-claro);border-radius:999px;padding:0 7px}
+.pv2-navlog{margin-bottom:14px}
+.pv2-navlog sup{color:var(--tinta3)}
+.pv2-duas{display:grid;gap:14px;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;margin-bottom:14px}
+.pv2-tipo{font-size:14.5px;background:var(--laranja-claro);border-radius:10px;padding:8px 12px;margin:0 0 8px}
+.pv2-campos-fpl td.mono{font-family:var(--mono);font-size:13px;overflow-wrap:anywhere}
+.pv2-msg{font-family:var(--mono);font-size:13px;line-height:1.5;background:var(--chao);border-radius:10px;padding:10px 12px;margin:4px 0 6px;white-space:pre-wrap;overflow-wrap:anywhere}
+.pv2-falas{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:10px}
+.pv2-falas li{padding-bottom:8px;border-bottom:1px solid var(--linha)}
+.pv2-falas li:last-child{border-bottom:0}
+.pv2-onde{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.pv2-org{font-size:12.5px;color:var(--laranja-esc);font-weight:700}
+.pv2-fala{margin:4px 0;font-size:14.5px;line-height:1.45;padding-left:10px;border-left:3px solid var(--laranja)}
+.pv2-falas .sub{margin:4px 0 0;font-size:12.5px}
+.pv2-treino{margin-bottom:14px}
+.pv2-sit{font-size:16px;margin:4px 0 8px}
+.pv2-resp{background:var(--ok-claro);border-radius:10px;padding:8px 12px}
+.pv2-resp p{margin:4px 0}
+.pv2-det{margin-bottom:10px}
+.pv2-det summary{cursor:pointer;list-style:none}
+.pv2-det summary::-webkit-details-marker{display:none}
+.pv2-det summary h3{display:inline;margin:0}
+.pv2-det summary::after{content:" ▾";color:var(--laranja-esc)}
+.pv2-det[open] summary::after{content:" ▴"}
+.pv2-det ul{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:5px;font-size:14.5px}
+.pv2-det p{font-size:14.5px}
+.pv2-dest{background:var(--laranja-claro);border-radius:10px;padding:8px 12px}
+.pv2-tri{display:inline-block;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid #1B1714;margin-right:4px;vertical-align:0}
+/* mapa */
+.pv2-pino{position:absolute;left:-7px;top:-9px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid #1B1714;filter:drop-shadow(0 0 1.5px #fff) drop-shadow(0 1px 2px rgba(0,0,0,.6));cursor:pointer}
+.pv2-pino.portao{border-bottom-color:#E8600A}
+.pv2-pino.t-ad{left:-8px;top:-8px;width:16px;height:16px;border:2.5px solid #fff;border-radius:50%;background:#1D7A46;filter:none;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.pv2-pino.t-vac{left:-7px;top:-7px;width:12px;height:12px;border:2px solid #fff;background:#E8600A;transform:rotate(45deg);filter:none;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.pv2-rot{left:10px;top:-10px;font-size:11.5px}
+.pv2-longe .pv2-rot.t-pos{display:none}
+.pv2-rotreh{position:absolute;left:-26px;top:-11px;width:52px;text-align:center;padding:1px 0;border-radius:6px;background:var(--c);color:#fff;font:800 11px/1.6 var(--corpo);letter-spacing:.06em;box-shadow:0 1px 4px rgba(0,0,0,.5);pointer-events:none}
+.pv2-num{position:absolute;left:-10px;top:-24px;min-width:20px;height:18px;display:grid;place-items:center;padding:0 3px;border-radius:9px;background:#E8600A;color:#fff;font:800 11px/1 var(--corpo);box-shadow:0 1px 3px rgba(0,0,0,.6)}
+@media(max-width:900px){.pv2-grade,.pv2-duas{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:520px){.pv2-campos{grid-template-columns:minmax(0,1fr)}}
+@media print{body.pv2-imprimindo .faixa,body.pv2-imprimindo .abas,body.pv2-imprimindo .pv2-grade,body.pv2-imprimindo .pv2-treino,body.pv2-imprimindo .pv2-det,body.pv2-imprimindo .rodape,body.pv2-imprimindo .intro,body.pv2-imprimindo .linha-acao{display:none!important}body.pv2-imprimindo .pv2-duas{grid-template-columns:minmax(0,1fr)}body.pv2-imprimindo .caixa{break-inside:avoid}}
