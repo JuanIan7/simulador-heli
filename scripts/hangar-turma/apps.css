@@ -1,0 +1,26 @@
+
+/* ---------- aba Apps de voo ---------- */
+.ap-roteiro{margin-bottom:14px}
+.ap-rot{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.ap-rot li{display:flex;gap:10px;align-items:flex-start;font-size:14.5px;line-height:1.45}
+.ap-ico{flex:none;font-size:22px;line-height:1.1}
+.ap-tenhoc{margin-bottom:14px}
+.ap-checks{display:flex;flex-wrap:wrap;gap:6px 14px}
+.ap-tenho{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600}
+.ap-tenho input{width:20px;min-height:20px}
+.ap-falta{margin:4px 0 0;font-size:14.5px}
+.ap-lista{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.ap-app summary{cursor:pointer;display:flex;align-items:center;gap:10px;list-style:none}
+.ap-app summary::-webkit-details-marker{display:none}
+.ap-tit{flex:1;min-width:0;display:flex;flex-direction:column}
+.ap-tit b{font-size:17px}
+.ap-tit .sub{font-size:12.5px}
+.ap-ok{font-size:12px;font-weight:800;color:var(--ok);background:var(--ok-claro);border-radius:999px;padding:2px 10px;white-space:nowrap}
+.ap-app p{margin:8px 0 0;font-size:14.5px}
+.ap-app h4{margin:10px 0 4px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--laranja-esc)}
+.ap-precos{display:grid;gap:6px;margin-top:8px}
+.ap-precos div{display:grid;grid-template-columns:minmax(120px,190px) minmax(0,1fr);gap:10px;font-size:14px;background:var(--chao);border-radius:10px;padding:7px 10px}
+.ap-passos,.ap-peg{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px;font-size:14.5px;line-height:1.45}
+@media(max-width:520px){.ap-precos div{grid-template-columns:minmax(0,1fr);gap:2px}}
+.ap-app summary::after{content:'▾';font-size:18px;color:var(--laranja-esc);transition:transform .2s;flex:none}
+.ap-app[open] summary::after{transform:rotate(180deg)}

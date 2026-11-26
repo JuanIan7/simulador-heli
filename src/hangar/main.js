@@ -16,6 +16,8 @@ import { telaTutoriais } from './tutoriais.js';
 import { cartaoHoras, ligarHoras, sincronizarHoras } from './horas.js';
 import { telaNavegacao, ligarNavegacao } from './navegacao.js';
 import { telaPlanoVoo, ligarPlanoVoo } from './planovoo.js';
+import { telaPesoBal, ligarPesoBal } from './pesobal.js';
+import { telaApps, ligarApps } from './apps.js';
 import { nomesOcupados, opcoesNomes, entrarComNome, erroNome } from '../gastos/nomes.js';
 import { calcular, caixaPix, alertaAcertos, ligarPix, digitandoPix } from '../gastos/contas.js';
 import { telaCompras, ligarCompras, digitandoCompras } from './compras.js';
@@ -344,6 +346,7 @@ const NOVIDADES = {
 // Turma (20/11/2026): material novo só da turma + regra dos 3 dias. No Início aparece só o que chegou há até 3 dias;
 // depois o item fica apenas na aba Materiais, como os outros. (Fica no modelo, então sobrevive ao gerar.py.)
 const NOVIDADES_TURMA = [
+  { id: 'pesobal-2026-11-26', data: '2026-11-26', titulo: 'Peso e balanceamento do R22 e do Esquilo, com os dois gráficos', desc: 'Em Voo › Peso e balanceamento: escolha R22 Beta II, AS350 B2, B3 ou H125, digite a carga e veja a ficha calculada e os gráficos longitudinal e lateral, com a explicação de cada um. Em Voo › Apps de voo: o passo a passo do FPL BR, NexAtlas, Beyond EFB, Tool in the Cockpit e AeroMet.', aba: 'pesobal' },
   { id: 'planovoo-2026-11-25', data: '2026-11-25', titulo: 'Plano de voo: navegação pelos corredores de helicóptero de Curitiba', desc: 'Em Voo › Plano de voo: monte a rota pelas REH (AIC N 34/23), veja o navlog, os campos do plano como no FPL BR e a fonia de cada trecho, e treine a fonia.', aba: 'planovoo' },
   { id: 'navegacao-2026-11-24', data: '2026-11-24', titulo: 'Navegação visual: mapa com os pontos do levantamento do Meira', desc: 'Em Voo › Navegação visual: pistas e cabeceiras, helipontos, referências, proa e distância a partir de SISY, rota de treino e arquivos GPX/KML.', aba: 'navegacao' },
   { id: 'tutoriais-2026-11-20', data: '2026-11-20', titulo: 'Tutoriais: vídeo mostrando como usar o Hangar', desc: 'Em Turma › Tutoriais. O primeiro vídeo passa por todas as telas, com legenda.', aba: 'tutoriais' },
@@ -502,14 +505,14 @@ const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTi
 function toast(t){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2400); }
 const pdf = (k, rot) => ARQ[k] ? `<a class="pdf" href="${esc(ARQ[k])}" target="_blank" rel="noopener">📄 ${esc(rot)}</a>` : `<span class="sub">📄 ${esc(rot)}</span>`;
 
-const ABAS = [['inicio','Início'],['goa','Form do GOA'],['tempo','Tempo'],['conversoes','Conversões'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['contrato','Contrato'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['fotos','Fotos e vídeos'],['fip','FIP'],['diario','Diário de voo'],['acessos','Acessos e rotas'],['duvidas','Dúvidas'],['tutoriais','Tutoriais'],['navegacao','Navegação visual'],['planovoo','Plano de voo']];
+const ABAS = [['inicio','Início'],['goa','Form do GOA'],['tempo','Tempo'],['conversoes','Conversões'],['checklists','Checklists'],['estudo','Estudo'],['provas','Provas'],['revisao','Revisão R22'],['treino','Treino'],['materiais','Materiais'],['contrato','Contrato'],['gastos','Gastos'],['compras','Compras'],['anotacoes','Anotações'],['fotos','Fotos e vídeos'],['fip','FIP'],['diario','Diário de voo'],['acessos','Acessos e rotas'],['duvidas','Dúvidas'],['tutoriais','Tutoriais'],['navegacao','Navegação visual'],['planovoo','Plano de voo'],['pesobal','Peso e balanceamento'],['apps','Apps de voo']];
 // Importação de voos pelo link hangar.html#importar=<JSON em base64url> (o mesmo do Diário): abre a aba Diário já com a tela de conferência.
 // Fica guardado na sessão para sobreviver ao login (que recarrega a página).
 const lerImportar = () => { try { return sessionStorage.getItem('hangar-importar') || ''; } catch { return ''; } };
 let importarHash = /^#importar=/.test(location.hash) ? location.hash : lerImportar();
 if (importarHash) { try { sessionStorage.setItem('hangar-importar', importarHash); history.replaceState(null, '', location.pathname + location.search + '#diario'); } catch {} }
 // Abas em dois níveis: 5 assuntos, cada um com suas abas (as 18 abas continuam as mesmas)
-const GRUPOS = [['Hoje', ['inicio','goa','tempo','conversoes']], ['Voo', ['diario','navegacao','planovoo','checklists','fip','treino']], ['Estudo', ['estudo','provas','revisao','materiais']], ['Turma', ['contrato','gastos','compras','acessos','tutoriais']], ['Pessoal', ['anotacoes','fotos']]];
+const GRUPOS = [['Hoje', ['inicio','goa','tempo','conversoes']], ['Voo', ['diario','navegacao','planovoo','pesobal','apps','checklists','fip','treino']], ['Estudo', ['estudo','provas','revisao','materiais']], ['Turma', ['contrato','gastos','compras','acessos','tutoriais']], ['Pessoal', ['anotacoes','fotos']]];
 const NOME_ABA = Object.fromEntries(ABAS);
 // Dúvidas não pertence a nenhum assunto: tem botão próprio ao lado de Pessoal (grupo -1)
 const grupoDe = (k) => k === 'duvidas' ? -1 : Math.max(0, GRUPOS.findIndex((g) => g[1].includes(k)));
@@ -724,7 +727,7 @@ function abrir() {
 // O que o atendente de dúvidas conhece do próprio Hangar: o texto que estas abas desenham, mais todos os checklists.
 function conteudoParaDuvidas() {
   const out = [];
-  for (const k of ['estudo', 'checklists', 'revisao', 'fip', 'contrato', 'acessos', 'materiais', 'tutoriais', 'navegacao', 'planovoo']) { try { out.push({ aba: NOME_ABA[k], html: TELAS[k]() }); } catch {} }
+  for (const k of ['estudo', 'checklists', 'revisao', 'fip', 'contrato', 'acessos', 'materiais', 'tutoriais', 'navegacao', 'planovoo', 'pesobal', 'apps']) { try { out.push({ aba: NOME_ABA[k], html: TELAS[k]() }); } catch {} }
   try { CHECK.forEach((c) => out.push({ aba: 'Checklists', tit: c.nome, txt: c.grupos.map(([t, its]) => `${t}: ${its.map(([a, b]) => `${a} (${b})`).join('; ')}`).join('\n') })); } catch {}
   return out;
 }
@@ -833,7 +836,7 @@ inicio(){
       <p class="sub">Comandos, aerodinâmica, limites e emergências do R22, tráfego e fonia; depois, o Esquilo. Marque cada item ao terminar.</p>
       <div class="linha-acao"><button class="pri" data-ir="estudo">Abrir o cronograma</button><button data-ir="revisao">Revisão R22</button></div></div>
     <div class="caixa"><div class="rotulo">Atalhos</div><div class="linha-acao">
-      <button class="pri" data-ir="diario">📒 Lançar voo</button><button data-ir="fip">🎯 FIP do curso</button><button data-ir="tempo">🌤️ Tempo</button><button data-ir="gastos">💸 Lançar gasto</button><button data-ir="compras">🛒 Lista de compras${compras.filter((x) => !x.feito).length ? ` (${compras.filter((x) => !x.feito).length})` : ''}</button><button data-ir="provas">✍️ Provas (${totalQuestoes()} questões)</button><button data-ir="anotacoes">📝 Anotações${anotacoes.filter((x) => !x.feito).length ? ` (${anotacoes.filter((x) => !x.feito).length})` : ''}</button><button data-ir="fotos">📸 Fotos e vídeos</button><button data-ir="duvidas">❓ Tirar dúvida</button><button data-ir="tutoriais">🎬 Tutoriais</button><button data-ir="navegacao">🧭 Navegação visual</button><button data-ir="planovoo">🗺️ Plano de voo</button><button data-ir="treino">🎧 Fonia e METAR</button><button data-ir="materiais">📄 Materiais</button><a class="btn" href="${SIMULADOR}" target="_blank" rel="noopener">🚁 Simulador</a></div></div>
+      <button class="pri" data-ir="diario">📒 Lançar voo</button><button data-ir="fip">🎯 FIP do curso</button><button data-ir="tempo">🌤️ Tempo</button><button data-ir="gastos">💸 Lançar gasto</button><button data-ir="compras">🛒 Lista de compras${compras.filter((x) => !x.feito).length ? ` (${compras.filter((x) => !x.feito).length})` : ''}</button><button data-ir="provas">✍️ Provas (${totalQuestoes()} questões)</button><button data-ir="anotacoes">📝 Anotações${anotacoes.filter((x) => !x.feito).length ? ` (${anotacoes.filter((x) => !x.feito).length})` : ''}</button><button data-ir="fotos">📸 Fotos e vídeos</button><button data-ir="duvidas">❓ Tirar dúvida</button><button data-ir="tutoriais">🎬 Tutoriais</button><button data-ir="navegacao">🧭 Navegação visual</button><button data-ir="planovoo">🗺️ Plano de voo</button><button data-ir="pesobal">⚖️ Peso e balanceamento</button><button data-ir="apps">📱 Apps de voo</button><button data-ir="treino">🎧 Fonia e METAR</button><button data-ir="materiais">📄 Materiais</button><a class="btn" href="${SIMULADOR}" target="_blank" rel="noopener">🚁 Simulador</a></div></div>
   </div>
   <div class="grade">
     <div class="caixa"><div class="rotulo">A turma</div>
@@ -855,6 +858,8 @@ duvidas(){ return telaDuvidas(estDuvidas()); },
 tutoriais(){ return telaTutoriais(); },
 navegacao(){ return telaNavegacao(); },
 planovoo(){ return telaPlanoVoo(); },
+pesobal(){ return telaPesoBal(); },
+apps(){ return telaApps(); },
 contrato(){ return telaContrato(ARQ); },
 fotos(){ return telaFotos(); },
 goa(){ return telaGoa(meusVoos); },
@@ -1097,6 +1102,8 @@ const LIGAR = {
   conversoes(c){ montarConversor(c.querySelector('#cvSlot')); },
   navegacao(c){ ligarNavegacao(c, { toast }); },
   planovoo(c){ ligarPlanoVoo(c, { toast }); },
+  pesobal(c){ ligarPesoBal(c, { toast }); },
+  apps(c){ ligarApps(c); },
   duvidas(c){ ligarDuvidas(c, { db, app, user: () => user, membro: () => membro, minhas: () => minhasDuvidas, faq: () => faqDuvidas, pendentes: () => pendDuvidas, conteudo: conteudoParaDuvidas, toast, render: () => { if (aba === 'duvidas') render(); } }); },
   tempo(c){ ligarTempo(c, { decodificarMetar, toast, render: () => { if (aba === 'tempo') render(); } }); },
   // botão do link da turma (fica no Início; vale para qualquer tela que o tenha)
