@@ -827,7 +827,7 @@ inicio(){
   const pix = caixaPix(membro, trocandoPix);
   return `${avisoNovo}${cartaoGoa()}${pix ? `<div class="caixa destaque">${pix}</div>` : ''}
   <div class="caixa"><div class="cab"><div class="rotulo">Seus acertos da turma</div><button class="mini" data-ir="gastos">Ver os gastos</button></div>
-    ${alertaAcertos(calcular(gastos), membro.nome, membros)}
+    ${alertaAcertos(calcular(gastos), membro.nome, membros, gastos)}
     ${membro.pix && !trocandoPix ? `<p class="sub">Sua chave Pix: <b>${esc(membro.pix)}</b> <button class="mini" data-pix-trocar>Trocar</button></p>` : ''}</div>
   <div class="grade hr-grade"><div class="caixa"><div class="cab"><div class="rotulo">Tempo agora</div><button class="mini" data-ir="tempo">METAR, TAF e previsão</button></div><div id="tpInicio" class="sub">buscando o METAR…</div></div>
   ${cartaoHoras({ lista: horasTurma, uid: user.uid, membros, erro: erroHoras })}</div>

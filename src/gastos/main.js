@@ -175,7 +175,9 @@ async function alternarInformado(id, nome) {
 
 async function alternarQuitado(id, nome) {
   const g = gastos.find((x) => x.id === id); if (!g) return;
-  const q = new Set(g.quitados || []); const pago = !q.has(nome); pago ? q.add(nome) : q.delete(nome);
+  const q = new Set(g.quitados || []); const pago = !q.has(nome);
+  if (!pago && !confirm(`Voltar "${g.descricao}" de ${nome} para pendente? (use se marcou como recebido por engano)`)) return;
+  pago ? q.add(nome) : q.delete(nome);
   try { await setDoc(doc(db, 'gastos', id), { quitados: [...q], quitadosEm: { [nome]: pago ? hojeContas() : deleteField() }, atualizadoPor: membro.nome, atualizadoEm: serverTimestamp() }, { merge: true }); toast(pago ? `${nome}: recebido, quitado` : `${nome}: voltou para pendente`); }
   catch (e) { toast('Não salvou: ' + (e.code || e.message)); }
 }
