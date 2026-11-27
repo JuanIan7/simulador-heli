@@ -55,7 +55,7 @@ export function porPessoa(eu, gastos) {
 const item = (x, acao) => `<li><span>${esc(x.g.descricao)} <span class="sub">${dCurta(x.g.data)}</span></span><b>${brl(x.v)}</b>${acao || ''}</li>`;
 function cartaoPessoa(o, eu, membros) {
   const pix = pixDe(membros, o.nome), aberto = o.meDeve.length || o.devo.length;
-  const saldo = o.saldo > 0 ? `<span class="selo lan">te deve ${brl(o.saldo)}</span>` : o.saldo < 0 ? `<span class="selo nao">você deve ${brl(-o.saldo)}</span>` : `<span class="selo cin">em dia</span>`;
+  const saldo = o.saldo > 0 ? `<span class="selo lan">saldo: te deve ${brl(o.saldo)}</span>` : o.saldo < 0 ? `<span class="selo nao">saldo: você deve ${brl(-o.saldo)}</span>` : `<span class="selo cin">em dia</span>`;
   const par = (de, para) => `${esc(de)}|${esc(para)}`;
   return `<details class="pessoa" ${aberto ? 'open' : ''}><summary><b>${esc(o.nome)}</b>${saldo}</summary>
     ${o.meDeve.length ? `<div class="bloco"><div class="rot nao">Falta te pagar · ${brl(soma(o.meDeve))}</div><ul>${o.meDeve.map((x) => item(x, `<button class="mini ${x.inf ? 'pri' : ''}" data-parte="${x.g.id}" data-nome="${esc(x.nome)}">${x.inf ? '💰 avisou · confirmar' : '✓ Recebi'}</button>`)).join('')}</ul></div>` : ''}
