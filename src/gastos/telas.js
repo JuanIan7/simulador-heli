@@ -55,16 +55,17 @@ export function porPessoa(eu, gastos) {
 const item = (x, acao) => `<li><span>${esc(x.g.descricao)} <span class="sub">${dCurta(x.g.data)}</span></span><b>${brl(x.v)}</b>${acao || ''}</li>`;
 function cartaoPessoa(o, eu, membros) {
   const pix = pixDe(membros, o.nome), aberto = o.meDeve.length || o.devo.length;
-  const saldo = o.saldo > 0 ? `<span class="selo lan">saldo: te deve ${brl(o.saldo)}</span>` : o.saldo < 0 ? `<span class="selo nao">saldo: você deve ${brl(-o.saldo)}</span>` : `<span class="selo cin">em dia</span>`;
+  const saldo = o.saldo > 0 ? `<span class="selo lan">acerto: te paga ${brl(o.saldo)}</span>` : o.saldo < 0 ? `<span class="selo nao">acerto: você paga ${brl(-o.saldo)}</span>` : `<span class="selo cin">em dia</span>`;
   const par = (de, para) => `${esc(de)}|${esc(para)}`;
   return `<details class="pessoa" ${aberto ? 'open' : ''}><summary><b>${esc(o.nome)}</b>${saldo}</summary>
-    ${o.meDeve.length ? `<div class="bloco"><div class="rot nao">Falta te pagar · ${brl(soma(o.meDeve))}</div><ul>${o.meDeve.map((x) => item(x, `<button class="mini ${x.inf ? 'pri' : ''}" data-parte="${x.g.id}" data-nome="${esc(x.nome)}">${x.inf ? '💰 avisou · confirmar' : '✓ Recebi'}</button>`)).join('')}</ul></div>` : ''}
+    ${o.meDeve.length && o.devo.length ? `<p class="sub conta-par">${esc(o.nome)} te deve <b>${brl(soma(o.meDeve))}</b> − você deve a ${esc(o.nome)} <b>${brl(soma(o.devo))}</b> = ${o.saldo > 0 ? `<b>${esc(o.nome)} te paga só ${brl(o.saldo)}</b>` : o.saldo < 0 ? `<b>você paga só ${brl(-o.saldo)}</b>` : '<b>ficam quites</b>'}</p>` : ''}
+    ${o.meDeve.length ? `<div class="bloco"><div class="rot nao">${esc(o.nome)} te deve · ${brl(soma(o.meDeve))}</div><ul>${o.meDeve.map((x) => item(x, `<button class="mini ${x.inf ? 'pri' : ''}" data-parte="${x.g.id}" data-nome="${esc(x.nome)}">${x.inf ? '💰 avisou · confirmar' : '✓ Recebi'}</button>`)).join('')}</ul></div>` : ''}
     ${o.pagou.length ? `<div class="bloco"><div class="rot ok">Já te pagou · ${brl(soma(o.pagou))}</div><ul>${o.pagou.map((x) => item(x, `<span class="sub">✓${quandoQuitou(x.g, x.nome)}</span><button class="mini" data-parte="${x.g.id}" data-nome="${esc(x.nome)}" title="Marcou por engano? Volta para pendente">↩</button>`)).join('')}</ul>${(() => { const d = o.pagou.map((x) => x.g.quitadosEm?.[x.nome]).filter(Boolean).sort().pop(); return d ? `<div class="linha-acao"><button class="mini" data-desquitar="${esc(o.nome)}|${esc(eu)}|${d}">↩ Desfazer o acerto de ${dCurta(d)}</button></div>` : ''; })()}</div>` : ''}
-    ${o.devo.length ? `<div class="bloco"><div class="rot nao">Você deve · ${brl(soma(o.devo))}</div><ul>${o.devo.map((x) => item(x, x.inf ? '<span class="sub">⏳ avisei</span>' : '')).join('')}</ul></div>` : ''}
+    ${o.devo.length ? `<div class="bloco"><div class="rot nao">Você deve a ${esc(o.nome)} · ${brl(soma(o.devo))}</div><ul>${o.devo.map((x) => item(x, x.inf ? '<span class="sub">⏳ avisei</span>' : '')).join('')}</ul></div>` : ''}
     ${o.paguei.length ? `<div class="bloco"><div class="rot ok">Você já pagou · ${brl(soma(o.paguei))}</div><ul>${o.paguei.map((x) => item(x, `<span class="sub">✓${quandoQuitou(x.g, eu)}</span>`)).join('')}</ul></div>` : ''}
     ${aberto ? `<div class="linha-acao">${o.saldo > 0 ? `<button class="mini" data-quitar="${par(o.nome, eu)}">✓ Recebi tudo (${brl(o.saldo)})</button>` : ''}
       ${o.saldo < 0 ? `${pix ? `<button class="mini pri" data-pix-copiar="${esc(pix)}">Copiar Pix de ${esc(o.nome)}</button>` : `<span class="sub">${esc(o.nome)} ainda não cadastrou o Pix</span>`}<button class="mini" data-informar="${par(eu, o.nome)}">✓ Já paguei ${brl(-o.saldo)}</button>` : ''}</div>
-      ${o.meDeve.length && o.devo.length ? `<p class="sub">Vocês dois se devem: compensando, ${o.saldo > 0 ? `${esc(o.nome)} te paga só a diferença` : `você paga só a diferença`}, ${brl(Math.abs(o.saldo))}.</p>` : ''}` : ''}
+` : ''}
   </details>`;
 }
 
