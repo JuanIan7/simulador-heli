@@ -57,7 +57,7 @@ export function resumir(tokens) {
     let m;
     if ((m = /^(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?(KT|MPS)$/.exec(t))) { const f = m[4] === 'MPS' ? 1.944 : 1; r.vento = { dir: m[1], vel: Math.round(+m[2] * f), raj: m[3] ? Math.round(+m[3] * f) : null }; }
     else if (t === 'CAVOK') { r.vis = 10000; r.cavok = true; }
-    else if (/^\d{4}$/.test(t) && !r.vis && r.vento) r.vis = +t;
+    else if (/^\d{4}$/.test(t) && r.vis == null) r.vis = +t;
     else if ((m = /^(\d+)SM$/.exec(t))) r.vis = Math.round(+m[1] * 1609);
     else if ((m = /^(FEW|SCT|BKN|OVC|VV)(\d{3})(CB|TCU)?$/.exec(t))) { const base = +m[2] * 100; r.nuvens.push({ cob: m[1], base, tipo: m[3] }); if (m[3] === 'CB') r.cb = true; if (['BKN', 'OVC', 'VV'].includes(m[1]) && (r.teto == null || base < r.teto)) r.teto = base; }
     else if (['NSC', 'SKC', 'CLR', 'NCD'].includes(t)) r.semNuvens = true;
@@ -69,28 +69,44 @@ export function resumir(tokens) {
   }
   return r;
 }
-// Referência da turma para o VFR de instrução: ok, atenção (al) ou abaixo (pe).
-export function classificar(r) {
-  const vel = r.vento?.vel ?? 0, raj = r.vento?.raj ?? 0, fen = r.fen.join(' ');
-  const pe = [], al = [];
-  if (r.vis != null && r.vis < 5000) pe.push(`visibilidade ${r.vis} m`); else if (r.vis != null && r.vis < 8000) al.push(`visibilidade ${r.vis} m`);
-  if (r.teto != null && r.teto < 1500) pe.push(`teto ${r.teto} ft`); else if (r.teto != null && r.teto < 3000) al.push(`teto ${r.teto} ft`);
-  if (vel > 20 || raj > 25) pe.push(`vento ${vel}${raj ? '/' + raj : ''} kt`); else if (vel > 15 || raj > 20) al.push(`vento ${vel}${raj ? '/' + raj : ''} kt`);
-  if (/trovoada|granizo|nuvem funil|rajada súbita/.test(fen) || r.cb) pe.push(r.cb && !/trovoada/.test(fen) ? 'CB' : fen.match(/trovoada|granizo|nuvem funil|rajada súbita/)[0]);
-  else if (/nevoeiro/.test(fen)) pe.push('nevoeiro');
-  else if (/chuva|pancadas|chuvisco|névoa/.test(fen)) al.push(fen);
-  if (pe.length) return { n: 'pe', t: 'Abaixo dos mínimos', por: pe.join(', ') };
-  if (al.length) return { n: 'al', t: 'Atenção', por: al.join(', ') };
-  return { n: 'ok', t: 'Condições VFR', por: '' };
-}
 const ventoTxt = (v) => !v ? '—' : v.vel === 0 ? 'calmo' : `${v.dir === 'VRB' ? 'variável' : v.dir + '°'} ${v.vel} kt${v.raj ? ', rajadas ' + v.raj : ''}`;
 const visTxt = (v, cavok) => cavok ? 'CAVOK (10 km+)' : v == null ? '—' : v >= 9999 ? '10 km+' : v >= 1000 ? (v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' km' : v + ' m';
 const nuvensTxt = (r) => r.cavok || r.semNuvens ? 'sem nuvens significativas' : r.nuvens.length ? r.nuvens.map((n) => `${COB[n.cob]} ${n.base} ft${n.tipo ? ' ' + n.tipo : ''}`).join(', ') : '—';
-function chips(r) {
+// Referência da turma para o VFR de instrução: ok, atenção (al) ou abaixo (pe).
+// k diz o nível de cada parâmetro (vis, teto, vento, fen) para a tela pintar o valor que puxou o alerta;
+// itens traz o motivo escrito, com o limite de referência, para aparecer sem depender de toque ou "title".
+export function classificar(r) {
+  const vel = r.vento?.vel ?? 0, raj = r.vento?.raj ?? 0, fen = r.fen.join(' ');
+  const pe = [], al = [], itens = [], k = {};
+  const marca = (n, campo, curto, longo) => { (n === 'pe' ? pe : al).push(curto); itens.push({ n, campo, t: longo }); k[campo] = k[campo] === 'pe' ? 'pe' : n; };
+  const vt = visTxt(r.vis, r.cavok), vv = `de ${vel} kt${raj ? ' com rajada de ' + raj + ' kt' : ''}`, ft = (v) => v.toLocaleString('pt-BR');
+  if (r.vis != null && r.vis < 5000) marca('pe', 'vis', `visibilidade ${r.vis} m`, `Visibilidade ${vt}: o mínimo é 5 km.`);
+  else if (r.vis != null && r.vis < 8000) marca('al', 'vis', `visibilidade ${r.vis} m`, `Visibilidade ${vt}: acima do mínimo de 5 km, mas abaixo de 8 km.`);
+  if (r.teto != null && r.teto < 1500) marca('pe', 'teto', `teto ${r.teto} ft`, `Teto ${ft(r.teto)} ft: o mínimo é 1.500 ft.`);
+  else if (r.teto != null && r.teto < 3000) marca('al', 'teto', `teto ${r.teto} ft`, `Teto ${ft(r.teto)} ft: acima do mínimo de 1.500 ft, mas abaixo de 3.000 ft.`);
+  if (vel > 20 || raj > 25) marca('pe', 'vento', `vento ${vel}${raj ? '/' + raj : ''} kt`, `Vento ${vv}: o máximo é 20 kt (rajada até 25 kt).`);
+  else if (vel > 15 || raj > 20) marca('al', 'vento', `vento ${vel}${raj ? '/' + raj : ''} kt`, `Vento ${vv}: dentro do máximo de 20 kt, mas acima de 15 kt (ou rajada acima de 20 kt).`);
+  if (/trovoada|granizo|nuvem funil|rajada súbita/.test(fen) || r.cb) {
+    const q = r.cb && !/trovoada/.test(fen) ? 'CB' : fen.match(/trovoada|granizo|nuvem funil|rajada súbita/)[0];
+    marca('pe', q === 'CB' ? 'teto' : 'fen', q, q === 'CB' ? 'Nuvem CB (cumulonimbus) informada: não é dia de instrução VFR por perto dela.' : `${q[0].toUpperCase() + q.slice(1)} informada: sem voo de instrução VFR.`);
+  } else if (/nevoeiro/.test(fen)) marca('pe', 'fen', 'nevoeiro', 'Nevoeiro informado: visibilidade abaixo do mínimo para o VFR.');
+  else if (/chuva|pancadas|chuvisco|névoa/.test(fen)) marca('al', 'fen', fen, `Tempo presente: ${fen}. Confira a tendência antes de sair.`);
+  itens.sort((a, b) => (a.n === 'pe' ? 0 : 1) - (b.n === 'pe' ? 0 : 1));
+  if (pe.length) return { n: 'pe', t: 'Abaixo dos mínimos', por: pe.join(', '), itens, k };
+  if (al.length) return { n: 'al', t: 'Atenção', por: al.join(', '), itens, k };
+  return { n: 'ok', t: 'Condições VFR', por: '', itens, k };
+}
+// Motivos visíveis (vermelho = abaixo do mínimo, amarelo = atenção), logo abaixo do selo.
+function motivos(c) {
+  if (!c || !c.itens || !c.itens.length) return '';
+  return `<ul class="tp-mot">${c.itens.map((x) => `<li class="${x.n}">${x.n === 'pe' ? '⛔' : '⚠️'} ${esc(x.t)}</li>`).join('')}</ul>`;
+}
+function chips(r, k = {}) {
+  const cl = (campo) => k[campo] ? ` tp-c-${k[campo]}` : '', ic = (campo) => k[campo] === 'pe' ? '⛔ ' : k[campo] === 'al' ? '⚠️ ' : '';
   // num grupo de TAF só aparece o que o grupo cita (sem vento, sem visibilidade...): o resto continua como no grupo anterior
   const nuvens = r.cavok || r.semNuvens || r.nuvens.length;
-  return `<div class="chips tp-chips">${r.vento ? `<span class="chip">💨 ${esc(ventoTxt(r.vento))}</span>` : ''}${r.vis != null ? `<span class="chip">👁 ${esc(visTxt(r.vis, r.cavok))}</span>` : ''}${nuvens ? `<span class="chip">☁️ ${r.teto != null ? 'teto ' + r.teto + ' ft' : 'sem teto'}</span>` : ''}
-    ${r.fen.length ? `<span class="chip">🌧 ${esc(r.fen.join('; '))}</span>` : ''}${r.temp != null ? `<span class="chip">🌡 ${r.temp} / ${r.orv} °C</span>` : ''}${r.qnh ? `<span class="chip">QNH ${r.qnh}</span>` : ''}</div>`;
+  return `<div class="chips tp-chips">${r.vento ? `<span class="chip${cl('vento')}">${ic('vento')}💨 ${esc(ventoTxt(r.vento))}</span>` : ''}${r.vis != null ? `<span class="chip${cl('vis')}">${ic('vis')}👁 ${esc(visTxt(r.vis, r.cavok))}</span>` : ''}${nuvens ? `<span class="chip${cl('teto')}">${ic('teto')}☁️ ${r.teto != null ? 'teto ' + r.teto + ' ft' : 'sem teto'}${r.cb ? ' · CB' : ''}</span>` : ''}
+    ${r.fen.length ? `<span class="chip${cl('fen')}">${ic('fen')}🌧 ${esc(r.fen.join('; '))}</span>` : ''}${r.temp != null ? `<span class="chip">🌡 ${r.temp} / ${r.orv} °C</span>` : ''}${r.qnh ? `<span class="chip">QNH ${r.qnh}</span>` : ''}</div>`;
 }
 const horaZ = (dd, hh, mm = 0) => { const d = new Date(); d.setUTCDate(+dd); d.setUTCHours(+hh, +mm, 0, 0); if (d - Date.now() < -20 * 864e5) d.setUTCMonth(d.getUTCMonth() + 1); if (d - Date.now() > 20 * 864e5) d.setUTCMonth(d.getUTCMonth() - 1); return d; };
 const diaHora = (d) => d.toLocaleString('pt-BR', { weekday: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }).replace('.', '');
@@ -227,14 +243,16 @@ async function nomeDe(lat, lon) {
 const WMO = { 0: 'céu limpo', 1: 'quase limpo', 2: 'parcialmente nublado', 3: 'encoberto', 45: 'nevoeiro', 48: 'nevoeiro com gelo', 51: 'chuvisco fraco', 53: 'chuvisco', 55: 'chuvisco forte', 56: 'chuvisco congelante', 57: 'chuvisco congelante', 61: 'chuva fraca', 63: 'chuva', 65: 'chuva forte', 66: 'chuva congelante', 67: 'chuva congelante', 71: 'neve fraca', 73: 'neve', 75: 'neve forte', 77: 'grãos de neve', 80: 'pancadas fracas', 81: 'pancadas', 82: 'pancadas fortes', 85: 'neve', 86: 'neve', 95: 'trovoada', 96: 'trovoada com granizo', 99: 'trovoada com granizo' };
 // Classificação de uma hora da previsão: o modelo não dá teto, então nuvens baixas acima de 75% viram "atenção", nunca "abaixo".
 function classificarHora(h) {
-  const pe = [], al = [];
-  if (h.vis != null && h.vis < 5000) pe.push('visibilidade'); else if (h.vis != null && h.vis < 8000) al.push('visibilidade');
-  if (h.vel > 20 || h.raj > 25) pe.push('vento'); else if (h.vel > 15 || h.raj > 20) al.push('vento');
-  if (h.cod >= 95 || h.cod === 45 || h.cod === 48) pe.push(WMO[h.cod]);
-  else if (h.cod >= 51 || h.prob >= 60) al.push(h.cod >= 51 ? WMO[h.cod] : 'chance de chuva');
-  if (h.baixa >= 75) al.push('nuvens baixas');
-  if (h.cape >= 1000) al.push('instabilidade (CAPE)');
-  return pe.length ? { n: 'pe', por: pe.join(', ') } : al.length ? { n: 'al', por: al.join(', ') } : { n: 'ok', por: '' };
+  const pe = [], al = [], k = {};
+  const marca = (n, campo, t) => { (n === 'pe' ? pe : al).push(t); k[campo] = k[campo] === 'pe' ? 'pe' : n; };
+  if (h.vis != null && h.vis < 5000) marca('pe', 'vis', 'visibilidade abaixo de 5 km'); else if (h.vis != null && h.vis < 8000) marca('al', 'vis', 'visibilidade abaixo de 8 km');
+  if (h.vel > 20 || h.raj > 25) marca('pe', 'vento', 'vento acima de 20 kt (ou rajada acima de 25)'); else if (h.vel > 15 || h.raj > 20) marca('al', 'vento', 'vento acima de 15 kt (ou rajada acima de 20)');
+  if (h.cod >= 95 || h.cod === 45 || h.cod === 48) marca('pe', 'tempo', WMO[h.cod]);
+  else if (h.cod >= 51) marca('al', 'tempo', WMO[h.cod]);
+  else if (h.prob >= 60) marca('al', 'chuva', 'chance de chuva');
+  if (h.baixa >= 75) marca('al', 'baixa', 'nuvens baixas');
+  if (h.cape >= 1000) marca('al', 'tempo', 'instabilidade (CAPE)');
+  return pe.length ? { n: 'pe', por: pe.join(', '), k } : al.length ? { n: 'al', por: al.join(', '), k } : { n: 'ok', por: '', k };
 }
 function horas(prev) {
   const H = prev.hourly, out = [];
@@ -320,6 +338,7 @@ function blocoPerg({ e, m, fonte }) {
   const cab = `<div class="cab"><div><b>${e.icao}</b> <span class="sub">${esc(e.nome)}${e.dist != null ? ` · ${Math.round(e.dist)} km ao ${esc(pontoCardeal(e.rumo))}` : ''}</span></div>${m ? `<span class="selo ${m.c.n}" title="${esc(m.c.por)}">${m.c.t}</span>` : ''}</div>`;
   if (!m) return `<div class="tp-est">${cab}<span class="sub">sem METAR agora</span></div>`;
   return `<div class="tp-est">${cab}
+    ${chips(m.r, m.c.k)}${motivos(m.c)}
     <div class="mono tp-raw">METAR ${esc(m.raw)}=</div>
     <div class="sub">${m.quando ? `às ${hhmm(m.quando)} Brasília · <b>${hhmmZ(m.quando)}</b> · ` : ''}fonte: ${esc(fonte)}</div>
     <div class="tp-exp">${explicar(m.raw).map((x) => `<code>${esc(x.tok)}</code><span><b>${esc(x.nome)}:</b> ${esc(x.txt)}</span>`).join('')}</div>
@@ -365,6 +384,7 @@ export function telaTempo() {
   </div>
   <div class="caixa"><div class="cab"><h3>Previsão hora a hora em ${esc(l.nome.split(' (')[0])}</h3><span class="sub">modelo Open-Meteo</span></div>
     ${tabelaPrevisao()}
+    <p class="sub">Na linha, a célula pintada é o parâmetro que puxou a cor: <span class="tp-c-pe tp-leg">vermelho</span> abaixo do mínimo, <span class="tp-c-al tp-leg">amarelo</span> atenção.</p>
     <p class="sub">Cores: <span class="selo ok">ok</span> dentro da referência da turma · <span class="selo al">atenção</span> vento 15–20 kt, visibilidade 5–8 km, chuva ou nuvens baixas · <span class="selo pe">abaixo</span> vento acima de 20 kt (rajadas 25), visibilidade abaixo de 5 km, trovoada ou nevoeiro. O modelo não informa o teto: confira nuvens no METAR e no TAF.</p></div>
   ${sites(l, est)}
   <p class="sub">Fontes: METAR da VATSIM (espelho da rede NOAA) ou da REDEMET/DECEA (você escolhe no topo), TAF do MET Norway ou da REDEMET, previsão da Open-Meteo (ECMWF/GFS), lugares do OpenStreetMap. Horários em hora de Brasília. ${lembrado() ? 'O último lugar fica guardado neste aparelho.' : ''}</p>`;
@@ -381,7 +401,7 @@ function cartaoMetar(e) {
   if (!m) return `<div class="tp-est">${cab}${carregando ? '<span class="sub">buscando…</span>' : '<span class="sub">sem METAR agora</span>'}</div></div>`;
   return `<div class="tp-est" data-tp-card="${e.icao}">${cab}<span class="selo ${m.c.n}" title="${esc(m.c.por)}">${m.c.t}</span></div>
     ${doHist ? `<div class="tp-hora-escolhida"><b>Hora escolhida: ${m.quando ? hhmm(m.quando) : ''}</b> (não é o METAR atual) <button type="button" class="mini pri" data-tp-agora="${e.icao}">Voltar ao agora</button></div>` : ''}
-    ${chips(m.r)}${m.c.por ? `<div class="sub">Motivo: ${esc(m.c.por)}</div>` : ''}
+    ${chips(m.r, m.c.k)}${motivos(m.c)}
     <div class="mono tp-raw">${esc(m.raw)}</div>
     <div class="sub" style="font-size:11px">Fonte: ${esc(dados.src[e.icao] || VT)}</div>
     <div class="sub">${m.quando ? `às ${hhmm(m.quando)} (${hhmmZ(m.quando)})${doHist ? '' : m.idade != null ? ` (há ${m.idade >= 60 ? Math.floor(m.idade / 60) + ' h ' + (m.idade % 60) + ' min' : m.idade + ' min'})` : ''}` : ''}</div>
@@ -390,20 +410,21 @@ function cartaoMetar(e) {
       <div class="tp-int"><b>O que isso significa para o nosso voo</b><ul>${interpretar(m, e, localAtual()).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div></details>
     ${historico(e)}</div>`;
 }
+const tdc = (n) => n ? 'tp-c-' + n : '';
 const REDEMET_OLD = 'https://redemet.decea.mil.br/old/?i=produtos&p=consulta-de-mensagens-opmet';
 // Últimas 24 h do aeródromo: uma linha por METAR, do mais novo para o mais velho, com a cor da referência da turma.
 function historico(e) {
   const h = dados.hist[e.icao]; if (!h || h.length < 2) return '';
-  const linha = (m, i) => `<tr class="tp-${m.c.n}${escolhido[e.icao] === i ? ' tp-sel' : ''}" title="${esc(m.c.por)}"><td class="mono"><button type="button" class="mini ${escolhido[e.icao] === i ? 'pri' : ''}" data-tp-sel="${e.icao}" data-tp-i="${i}" aria-label="Ver o METAR das ${m.quando ? hhmm(m.quando) : ''}">${m.quando ? hhmm(m.quando) : ''}</button></td><td>${esc(ventoTxt(m.r.vento))}</td><td>${esc(visTxt(m.r.vis, m.r.cavok))}</td><td>${m.r.teto != null ? m.r.teto + ' ft' : m.r.cavok || m.r.semNuvens ? '—' : m.r.nuvens[0] ? '(' + m.r.nuvens[0].base + ' ' + m.r.nuvens[0].cob + ')' : '—'}</td><td>${esc(m.r.fen.join('; '))}</td><td>${m.r.temp != null ? m.r.temp + '/' + m.r.orv : ''}</td><td>${m.r.qnh || ''}</td></tr>`;
+  const linha = (m, i) => `<tr class="tp-${m.c.n}${escolhido[e.icao] === i ? ' tp-sel' : ''}" title="${esc(m.c.por)}"><td class="mono"><button type="button" class="mini ${escolhido[e.icao] === i ? 'pri' : ''}" data-tp-sel="${e.icao}" data-tp-i="${i}" aria-label="Ver o METAR das ${m.quando ? hhmm(m.quando) : ''}">${m.quando ? hhmm(m.quando) : ''}</button></td><td class="${tdc(m.c.k.vento)}">${esc(ventoTxt(m.r.vento))}</td><td class="${tdc(m.c.k.vis)}">${esc(visTxt(m.r.vis, m.r.cavok))}</td><td class="${tdc(m.c.k.teto)}">${m.r.cb ? 'CB ' : ''}${m.r.teto != null ? m.r.teto + ' ft' : m.r.cavok || m.r.semNuvens ? '—' : m.r.nuvens[0] ? '(' + m.r.nuvens[0].base + ' ' + m.r.nuvens[0].cob + ')' : '—'}</td><td class="${tdc(m.c.k.fen)}">${esc(m.r.fen.join('; '))}</td><td>${m.r.temp != null ? m.r.temp + '/' + m.r.orv : ''}</td><td>${m.r.qnh || ''}</td></tr>`;
   return `<details class="tp-ler" ${escolhido[e.icao] != null ? 'open' : ''}><summary>Últimas 24 h em ${e.icao} (${h.length} observações · fonte: ${esc(dados.src[e.icao] || 'MET Norway')}): como está ficando</summary>
     <div class="tabela"><table class="tp-tab"><thead><tr><th>Hora</th><th>Vento</th><th>Visib.</th><th>Teto</th><th>Tempo</th><th>T/Td</th><th>QNH</th></tr></thead><tbody>${h.map(linha).join('')}</tbody></table></div>
-    <p class="sub"><b>Toque na hora</b> para ver aquele METAR decodificado lá em cima (útil quando o instrutor pede o METAR de um horário). Ao fechar o app, volta ao atual. Leia de cima para baixo (o mais novo primeiro): teto subindo e vento firmando costumam vir juntos com a melhora. Histórico oficial, com dias anteriores: <a href="${REDEMET_OLD}" target="_blank" rel="noopener noreferrer">consulta de mensagens do REDEMET</a> (ICAO ${e.icao}).</p></details>`;
+    <p class="sub"><span class="tp-c-pe tp-leg">vermelho</span> = valor abaixo do mínimo · <span class="tp-c-al tp-leg">amarelo</span> = atenção.</p><p class="sub"><b>Toque na hora</b> para ver aquele METAR decodificado lá em cima (útil quando o instrutor pede o METAR de um horário). Ao fechar o app, volta ao atual. Leia de cima para baixo (o mais novo primeiro): teto subindo e vento firmando costumam vir juntos com a melhora. Histórico oficial, com dias anteriores: <a href="${REDEMET_OLD}" target="_blank" rel="noopener noreferrer">consulta de mensagens do REDEMET</a> (ICAO ${e.icao}).</p></details>`;
 }
 function cartaoTaf(e) {
   const t = dados.taf[e.icao];
   if (!t) return `<div class="tp-est"><b>${e.icao}</b> <span class="sub">${esc(e.nome)} · ${carregando ? 'buscando…' : 'sem TAF agora'}</span></div>`;
   return `<div class="tp-est"><div><b>${e.icao}</b> <span class="sub">${esc(e.nome)}${t.emitido ? ` · emitido ${hhmm(t.emitido)}` : ''}${t.de ? ` · válido ${diaHora(t.de)} → ${diaHora(t.ate)}` : ''}</span></div>
-    ${t.grupos.map((g) => `<div class="tp-grupo"><div class="cab"><b class="sub">${esc(g.rot)}</b><span class="selo ${g.c.n}" title="${esc(g.c.por)}">${g.c.t}</span></div>${chips(g.r)}${g.extremos.length ? `<div class="sub">${esc(g.extremos.join(' · '))}</div>` : ''}</div>`).join('')}
+    ${t.grupos.map((g) => `<div class="tp-grupo"><div class="cab"><b class="sub">${esc(g.rot)}</b><span class="selo ${g.c.n}" title="${esc(g.c.por)}">${g.c.t}</span></div>${chips(g.r, g.c.k)}${motivos(g.c)}${g.extremos.length ? `<div class="sub">${esc(g.extremos.join(' · '))}</div>` : ''}</div>`).join('')}
     <div class="mono tp-raw">${esc(t.raw)}</div><div class="sub" style="font-size:11px">Fonte: ${esc(dados.srcTaf[e.icao] || 'MET Norway')}</div></div>`;
 }
 const pontoCardeal = (g) => ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(g / 45) % 8];
@@ -414,7 +435,7 @@ function tabelaPrevisao() {
   return `<div class="chips">${dias.map((d, i) => `<button type="button" class="chip" aria-pressed="${dia === i}" data-tp-dia="${i}">${rot(i)} ${d.slice(8, 10)}/${d.slice(5, 7)}</button>`).join('')}<button type="button" class="chip" aria-pressed="${noite}" data-tp-noite>madrugada</button></div>
   <p class="sub">🌅 nascer ${p.daily.sunrise[dia].slice(11)} · 🌇 pôr ${p.daily.sunset[dia].slice(11)} (Brasília)<br><span class="mono">Zulu: 🌅 ${zDe(p.daily.sunrise[dia].slice(11))} · 🌇 ${zDe(p.daily.sunset[dia].slice(11))}</span><br>chuva no dia: até ${p.daily.precipitation_probability_max[dia]}%</p>
   <div class="tabela"><table class="tp-tab"><thead><tr><th>Hora</th><th>Vento</th><th>Visib.</th><th>Nuvens baixas</th><th>Chuva</th><th>Tempo</th><th>T / orv.</th><th>QNH</th></tr></thead><tbody>
-    ${hs.map((h) => `<tr class="tp-${h.c.n}" title="${esc(h.c.por)}"><td class="mono">${String(h.hora).padStart(2, '0')}h</td><td>${h.dir}° ${h.vel} kt${h.raj > h.vel + 4 ? ` <span class="sub">raj. ${h.raj}</span>` : ''}</td><td>${h.vis >= 9999 ? '10 km+' : h.vis >= 1000 ? (h.vis / 1000).toFixed(0) + ' km' : h.vis + ' m'}</td><td>${h.baixa}% <span class="sub">(total ${h.nub}%)</span></td><td>${h.prob}%${h.mm ? ` <span class="sub">${h.mm} mm</span>` : ''}</td><td>${esc(WMO[h.cod] || '')}</td><td>${Math.round(h.temp)} / ${Math.round(h.orv)} °C</td><td>${h.qnh}</td></tr>`).join('')}
+    ${hs.map((h) => `<tr class="tp-${h.c.n}" title="${esc(h.c.por)}"><td class="mono">${String(h.hora).padStart(2, '0')}h</td><td class="${tdc(h.c.k.vento)}">${h.dir}° ${h.vel} kt${h.raj > h.vel + 4 ? ` <span class="sub">raj. ${h.raj}</span>` : ''}</td><td class="${tdc(h.c.k.vis)}">${h.vis >= 9999 ? '10 km+' : h.vis >= 1000 ? (h.vis / 1000).toFixed(0) + ' km' : h.vis + ' m'}</td><td class="${tdc(h.c.k.baixa)}">${h.baixa}% <span class="sub">(total ${h.nub}%)</span></td><td class="${tdc(h.c.k.chuva)}">${h.prob}%${h.mm ? ` <span class="sub">${h.mm} mm</span>` : ''}</td><td class="${tdc(h.c.k.tempo)}">${esc(WMO[h.cod] || '')}${h.cape >= 1000 ? ' <span class="sub">· instável</span>' : ''}</td><td>${Math.round(h.temp)} / ${Math.round(h.orv)} °C</td><td>${h.qnh}</td></tr>`).join('')}
   </tbody></table></div>`;
 }
 function sites(l, est) {
@@ -508,6 +529,7 @@ export async function resumoInicio(el) {
   const l = localAtual(), e = proximas(l, 1)[0]; if (!e || !el) return;
   try {
     const m = (await buscarMetar([e.icao]))[e.icao]; if (!m) return;
-    el.innerHTML = `<span class="selo ${m.c.n}">${m.c.t}</span> <b>${e.icao}</b> ${hhmm(m.quando)} · ${esc(ventoTxt(m.r.vento))} · ${esc(visTxt(m.r.vis, m.r.cavok))} · ${m.r.teto != null ? 'teto ' + m.r.teto + ' ft' : 'sem teto'}${m.r.fen.length ? ' · ' + esc(m.r.fen.join('; ')) : ''}${m.c.por ? ` <span class="sub">(${esc(m.c.por)})</span>` : ''} <span class="sub" style="font-size:11px">· fonte: VATSIM/NOAA</span>`;
+    el.innerHTML = `<span class="selo ${m.c.n}">${m.c.t}</span> <b>${e.icao}</b> ${hhmm(m.quando)} · ${esc(ventoTxt(m.r.vento))} · ${esc(visTxt(m.r.vis, m.r.cavok))} · ${m.r.teto != null ? 'teto ' + m.r.teto + ' ft' : 'sem teto'}${m.r.fen.length ? ' · ' + esc(m.r.fen.join('; ')) : ''}${m.c.por ? ` <span class="${m.c.n === 'pe' ? 'tp-mot-ini' : 'sub'}">(${m.c.n === 'pe' ? '⛔ abaixo: ' : ''}${esc(m.c.por)})</span>` : ''} <span class="sub" style="font-size:11px">· fonte: VATSIM/NOAA</span>`;
   } catch { el.innerHTML = '<span class="sub">METAR indisponível agora.</span>'; }
 }
+export const _teste = { chips, motivos };

@@ -662,3 +662,18 @@ line.pb-gl.zero{stroke:var(--tinta3);stroke-dasharray:3 3}
 @media(max-width:520px){.ap-precos div{grid-template-columns:minmax(0,1fr);gap:2px}}
 .ap-app summary::after{content:'▾';font-size:18px;color:var(--laranja-esc);transition:transform .2s;flex:none}
 .ap-app[open] summary::after{transform:rotate(180deg)}
+
+/* ---------- aba Tempo: qual parâmetro puxou o alerta ---------- */
+.tp-chips .chip.tp-c-pe{background:var(--perigo-claro);color:var(--perigo);border:1.5px solid var(--perigo);font-weight:800}
+.tp-chips .chip.tp-c-al{background:var(--alerta-claro);color:var(--tinta);border:1.5px solid var(--alerta);font-weight:700}
+.tp-mot{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.tp-mot li{font-size:14px;line-height:1.4;border-radius:8px;padding:6px 10px}
+.tp-mot li.pe{background:var(--perigo-claro);color:var(--perigo);font-weight:700;box-shadow:inset 4px 0 0 var(--perigo)}
+.tp-mot li.al{background:var(--alerta-claro);color:var(--tinta);box-shadow:inset 4px 0 0 var(--alerta)}
+.tp-tab td.tp-c-pe{background:var(--perigo);color:#fff;font-weight:800}
+.tp-tab td.tp-c-pe .sub{color:#fff}
+.tp-tab td.tp-c-al{font-weight:800;box-shadow:inset 0 0 0 2px var(--alerta)}
+.tp-leg{display:inline-block;border-radius:6px;padding:0 6px;font-weight:700}
+.tp-leg.tp-c-pe{background:var(--perigo);color:#fff}
+.tp-leg.tp-c-al{background:var(--alerta-claro);color:var(--tinta);box-shadow:inset 0 0 0 2px var(--alerta)}
+.tp-mot-ini{color:var(--perigo);font-weight:700}

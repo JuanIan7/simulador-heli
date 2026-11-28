@@ -25,6 +25,7 @@ css += (Path(__file__).parent / "navegacao.css").read_text(encoding="utf-8")
 css += (Path(__file__).parent / "planovoo.css").read_text(encoding="utf-8")
 css += (Path(__file__).parent / "pesobal.css").read_text(encoding="utf-8")
 css += (Path(__file__).parent / "apps.css").read_text(encoding="utf-8")
+css += (Path(__file__).parent / "tempo.css").read_text(encoding="utf-8")
 (sim / "src/hangar/hangar.css").write_text(css.strip() + "\n", encoding="utf-8")
 
 revisao = bloco("revisao(){", "treino(){")
